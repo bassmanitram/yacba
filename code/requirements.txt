@@ -1,0 +1,5 @@
+strands-agents
+strands-mcp
+litellm
+loguru
+prompt-toolkit

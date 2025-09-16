@@ -1,0 +1,19 @@
+#
+# A Bash script to help call yacba
+#
+
+## Logging is through Loguru - by default don't display anything except errors
+export LOGURU_LEVEL=${LOGURU_LEVEL:-ERROR}
+
+##
+## LiteLLM has a bug whereby in certain circumstances it doesn't
+## clean up its async HTTP resources. That emits warnings that are
+## quite tough to get rid of. This is how we hack that here.
+##
+export PYTHONWARNINGS=ignore
+FILTER_PATTERN="^Unclosed (client session|connector)|^client_session:|^connections:|^connector:"
+
+##
+## 
+##
+python3 -Wi yacba.py "${@}" 2> >(grep --line-buffered -vE "$FILTER_PATTERN" >&2)
