@@ -1,4 +1,4 @@
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" 
+MYDIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" 
 #
 # A Bash script to help call yacba
 #
@@ -17,4 +17,4 @@ FILTER_PATTERN="^Unclosed (client session|connector)|^client_session:|^connectio
 ##
 ## 
 ##
-python3 -Wi yacba.py "${@}" 2> >(grep --line-buffered -vE "$FILTER_PATTERN" >&2)
+python3 -Wi "$MYDIR/yacba.py" "${@}" 2> >(grep --line-buffered -vE "$FILTER_PATTERN" >&2)
