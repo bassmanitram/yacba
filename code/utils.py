@@ -5,6 +5,7 @@ import glob
 import json
 import os
 import mimetypes
+import fnmatch
 from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any, Union, Optional
@@ -33,18 +34,29 @@ def is_likely_text_file(file_path: Union[str, Path]) -> bool:
     except IOError:
         return False
 
-def scan_directory_for_text_files(directory: str, limit: int) -> List[str]:
-    """Recursively scans a directory for files that are likely to contain text."""
+def scan_directory(directory: str, limit: int, filters: Optional[List[str]] = None) -> List[str]:
+    """
+    Recursively scans a directory for files. If filters are provided, it matches
+    filenames against the glob patterns. Otherwise, it finds likely text files.
+    """
     found_files = []
     for root, _, files in os.walk(directory):
         if len(found_files) >= limit:
             break
         for file in files:
+            if len(found_files) >= limit:
+                break
+            
             file_path = os.path.join(root, file)
-            if is_likely_text_file(file_path):
+            
+            if filters:
+                # If any filter pattern matches the filename, add it.
+                if any(fnmatch.fnmatch(file, pattern) for pattern in filters):
+                    found_files.append(file_path)
+            # If no filters, fall back to the original text-file-finding behavior.
+            elif is_likely_text_file(file_path):
                 found_files.append(file_path)
-                if len(found_files) >= limit:
-                    break
+
     return found_files
 
 def discover_tool_configs(directory: Optional[str]) -> List[Dict[str, Any]]:
