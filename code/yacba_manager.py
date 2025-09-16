@@ -1,7 +1,9 @@
 # yacba_manager.py
-# Manages the lifecycle of the chatbot agent and its MCP client connections.
+# Manages the lifecycle of the chatbot agent and its client connections.
 
 import os
+import sys
+import importlib.util
 from typing import List, Dict, Any, Optional, Callable
 from contextlib import ExitStack
 import litellm
@@ -58,21 +60,11 @@ class ChatbotManager:
         Initializes one MCP client, connects to its server, and returns its tools.
         """
         server_id = config.get("id", "unknown-server")
-        if config.get("disabled", False):
-            logger.info(f"Tool '{server_id}' is disabled. Skipping.")
-            return []
-        
-        # Ensure this is an MCP tool configuration
-        if config.get("type") != "mcp":
-            logger.debug(f"Skipping non-MCP tool config: {server_id}")
-            return []
-
         try:
             client_factory = _get_mcp_client_factory(config)
             if not client_factory:
                 return []
 
-            # The ExitStack manages the client's __enter__ and __exit__ methods.
             client = self._exit_stack.enter_context(MCPClient(client_factory))
             tools = client.list_tools_sync()
             logger.info(f"Successfully connected to MCP server: {server_id}, loaded {len(tools)} tools.")
@@ -82,13 +74,75 @@ class ChatbotManager:
             logger.error(f"Failed to connect to or start MCP server {server_id}: {e}")
             return []
 
+    def _setup_single_python_tool(self, config: Dict[str, Any]) -> List[Callable]:
+        """
+        Loads tools from a specified Python module.
+        """
+        tool_id = config.get("id", "unknown-tool")
+        module_path = config.get("module_path")
+        function_names = config.get("functions", [])
+        config_source_file = config.get("source_file", ".")
+
+        if not module_path or not function_names:
+            logger.warning(f"Python tool '{tool_id}' is missing 'module_path' or 'functions'. Skipping.")
+            return []
+
+        # Resolve the module_path relative to the directory of the .tools.json file.
+        config_dir = os.path.dirname(config_source_file)
+        resolved_path = os.path.abspath(os.path.join(config_dir, module_path))
+
+        if not os.path.exists(resolved_path):
+            logger.error(f"Python module for tool '{tool_id}' not found at resolved path: {resolved_path}")
+            return []
+
+        try:
+            # Create a module spec from the file path
+            spec = importlib.util.spec_from_file_location(name=tool_id, location=resolved_path)
+            if not spec or not spec.loader:
+                raise ImportError(f"Could not create module spec for {resolved_path}")
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            loaded_tools = []
+            for func_name in function_names:
+                if hasattr(module, func_name):
+                    loaded_tools.append(getattr(module, func_name))
+                else:
+                    logger.warning(f"Function '{func_name}' not found in module at '{resolved_path}'.")
+            
+            logger.info(f"Successfully loaded {len(loaded_tools)} functions from Python module: {tool_id}")
+            return loaded_tools
+
+        except Exception as e:
+            logger.error(f"Failed to load Python module tool '{tool_id}' from {resolved_path}: {e}")
+            return []
+
     def _initialize_all_tools(self) -> List[Any]:
         """
         Uses a thread pool to initialize all configured tools in parallel.
         """
-        all_tools = []
+        all_tools: List[Any] = []
+        
         with ThreadPoolExecutor() as executor:
-            future_to_config = {executor.submit(self._setup_single_mcp_client, config): config for config in self.tool_configs}
+            future_to_config = {}
+            for config in self.tool_configs:
+                tool_id = config.get("id", "unknown-tool")
+
+                if config.get("disabled", False):
+                    logger.info(f"Tool '{tool_id}' is disabled. Skipping.")
+                    continue
+
+                tool_type = config.get("type")
+                if tool_type == "mcp":
+                    future = executor.submit(self._setup_single_mcp_client, config)
+                    future_to_config[future] = config
+                elif tool_type == "python":
+                    future = executor.submit(self._setup_single_python_tool, config)
+                    future_to_config[future] = config
+                else:
+                    logger.warning(f"Tool '{tool_id}' has an unknown type: '{tool_type}'. Skipping.")
+
             for future in as_completed(future_to_config):
                 try:
                     all_tools.extend(future.result())
