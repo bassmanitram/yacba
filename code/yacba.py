@@ -8,7 +8,7 @@ from loguru import logger
 
 from yacba_manager import ChatbotManager
 from cli_handler import print_welcome_message, print_startup_info, chat_loop_async, run_headless_mode
-from utils import discover_mcp_configs
+from utils import discover_tool_configs
 from content_processor import process_startup_files
 from config_parser import parse_arguments
 
@@ -24,17 +24,26 @@ async def main_async():
         logger.error("Headless mode requires an initial message from the -i option or from stdin.")
         sys.exit(1)
 
-    # Discover configurations and process any files provided at startup.
-    mcp_configs = discover_mcp_configs(args.tools_dir)
+    # Discover tool configurations early to display the warning message promptly.
+    tool_configs = discover_tool_configs(args.tools_dir)
+
+    # In interactive mode, print welcome messages before the potentially slow tool initialization.
+    if not args.headless:
+        print_welcome_message()
+        if tool_configs:
+            print("Attempting to initialize tools... this may take a moment.")
+
+    # Process any files provided at startup.
     startup_files_content = process_startup_files(args.files)
 
     logger.info("Starting up Chatbot Manager...")
     
     # Use the ChatbotManager to handle the lifecycle of the agent and its tools.
+    # The slow initialization happens when this 'with' block is entered.
     with ChatbotManager(
         model_id=args.model,
         system_prompt=args.system_prompt,
-        mcp_configs=mcp_configs,
+        tool_configs=tool_configs,
         startup_files_content=startup_files_content,
         headless=args.headless
     ) as manager:
@@ -47,7 +56,7 @@ async def main_async():
             model_id=args.model,
             system_prompt=args.system_prompt,
             prompt_source=args.prompt_source,
-            mcp_configs=mcp_configs,
+            tool_configs=tool_configs,
             startup_files=args.files,
             output_file=sys.stderr
         )
@@ -56,9 +65,6 @@ async def main_async():
         if args.headless:
             await run_headless_mode(manager.agent, args.initial_message)
         else:
-            print_welcome_message()
-            if mcp_configs:
-                print("Attempting to initialize MCP servers... this may take a moment.")
             await chat_loop_async(manager.agent, args.initial_message)
 
 def main():
@@ -79,5 +85,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

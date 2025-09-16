@@ -41,12 +41,12 @@ def _get_mcp_client_factory(config: Dict[str, Any]) -> Optional[Callable[[], Any
 class ChatbotManager:
     """
     A context manager to handle the setup and teardown of the Strands Agent
-    and any associated MCP (Model Context Protocol) clients.
+    and any associated tool clients.
     """
-    def __init__(self, model_id: str, system_prompt: str, mcp_configs: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], headless: bool = False):
+    def __init__(self, model_id: str, system_prompt: str, tool_configs: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], headless: bool = False):
         self.model_id = model_id
         self.system_prompt = system_prompt
-        self.mcp_configs = mcp_configs
+        self.tool_configs = tool_configs
         self.startup_files_content = startup_files_content
         self.headless = headless
         self.agent: Optional[Agent] = None
@@ -59,7 +59,12 @@ class ChatbotManager:
         """
         server_id = config.get("id", "unknown-server")
         if config.get("disabled", False):
-            logger.info(f"MCP server '{server_id}' is disabled. Skipping.")
+            logger.info(f"Tool '{server_id}' is disabled. Skipping.")
+            return []
+        
+        # Ensure this is an MCP tool configuration
+        if config.get("type") != "mcp":
+            logger.debug(f"Skipping non-MCP tool config: {server_id}")
             return []
 
         try:
@@ -79,17 +84,17 @@ class ChatbotManager:
 
     def _initialize_all_tools(self) -> List[Any]:
         """
-        Uses a thread pool to initialize all configured MCP clients in parallel.
+        Uses a thread pool to initialize all configured tools in parallel.
         """
         all_tools = []
         with ThreadPoolExecutor() as executor:
-            future_to_config = {executor.submit(self._setup_single_mcp_client, config): config for config in self.mcp_configs}
+            future_to_config = {executor.submit(self._setup_single_mcp_client, config): config for config in self.tool_configs}
             for future in as_completed(future_to_config):
                 try:
                     all_tools.extend(future.result())
                 except Exception as e:
                     server_id = future_to_config[future].get("id", "unknown-server")
-                    logger.error(f"Exception in thread for MCP server {server_id}: {e}")
+                    logger.error(f"Exception in thread for tool {server_id}: {e}")
         return all_tools
 
     def _setup_agent(self, tools: List[Any]) -> Optional[Agent]:
@@ -124,8 +129,6 @@ class ChatbotManager:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Shuts down all resources when exiting the 'with' block."""
-        logger.info("Shutting down MCP clients...")
+        logger.info("Shutting down tool clients...")
         self._exit_stack.close()
         logger.info("Shutdown complete.")
-
-

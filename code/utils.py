@@ -47,17 +47,17 @@ def scan_directory_for_text_files(directory: str, limit: int) -> List[str]:
                     break
     return found_files
 
-def discover_mcp_configs(directory: Optional[str]) -> List[Dict[str, Any]]:
-    """Discovers and loads MCP server configurations from *.mcp.json files."""
+def discover_tool_configs(directory: Optional[str]) -> List[Dict[str, Any]]:
+    """Discovers and loads tool configurations from *.tools.json files."""
     if directory is None:
-        logger.info("MCP discovery is disabled by command-line option.")
+        logger.info("Tool discovery is disabled by command-line option.")
         return []
     if not os.path.isdir(directory):
-        logger.warning(f"Tools directory not found: '{directory}'. Skipping MCP discovery.")
+        logger.warning(f"Tools directory not found: '{directory}'. Skipping tool discovery.")
         return []
 
     configs = []
-    search_path = os.path.join(directory, '*.mcp.json')
+    search_path = os.path.join(directory, '*.tools.json')
     for file_path in glob.glob(search_path):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -65,7 +65,5 @@ def discover_mcp_configs(directory: Optional[str]) -> List[Dict[str, Any]]:
                 config_data['source_file'] = file_path # For reference in logs/UI
                 configs.append(config_data)
         except (json.JSONDecodeError, IOError) as e:
-            logger.warning(f"Could not load or parse MCP config '{file_path}': {e}")
+            logger.warning(f"Could not load or parse tool config '{file_path}': {e}")
     return configs
-
-

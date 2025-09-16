@@ -18,7 +18,7 @@ from content_processor import parse_input_with_files
 
 def print_welcome_message():
     """Prints the initial welcome message and instructions to stdout."""
-    print("Welcome to the Strands Agents Chatbot (LiteLLM Edition)!")
+    print("Welcome to Yet Another ChatBot Agent!")
     print("Type 'exit' or 'quit' on a line by itself to end the conversation.")
     print("Use Alt+Enter to add a new line. Use CTRL-D or CTRL-C to exit.")
     print("To upload a file in-chat, use the format: file('path/to/file.ext')")
@@ -28,7 +28,7 @@ def print_startup_info(
     model_id: str,
     system_prompt: str,
     prompt_source: str,
-    mcp_configs: List[Dict[str, Any]],
+    tool_configs: List[Dict[str, Any]],
     startup_files: List[tuple[str, str]],
     output_file: TextIO = sys.stdout
 ):
@@ -42,12 +42,13 @@ def print_startup_info(
     write(f"System Prompt (from {prompt_source}): \"{first_line}{ellipsis}\"")
     write(f"Model: {model_id}")
     
-    if mcp_configs:
-        write("Available MCP Servers:")
-        for config in mcp_configs:
-            write(f"  - {config.get('id', 'unknown')} (from {config.get('source_file', 'N/A')})")
+    if tool_configs:
+        write("Available Tools:")
+        for config in tool_configs:
+            tool_type = config.get('type', 'unknown')
+            write(f"  - {config.get('id', 'unknown')} (type: {tool_type}, from {config.get('source_file', 'N/A')})")
     else:
-        write("Available MCP Servers: None")
+        write("Available Tools: None")
 
     if startup_files:
         write(f"Uploaded Files ({len(startup_files)}):")
@@ -126,5 +127,3 @@ async def chat_loop_async(agent: Agent, initial_message: Optional[str] = None):
         except (KeyboardInterrupt, EOFError):
             print()
             break
-
-

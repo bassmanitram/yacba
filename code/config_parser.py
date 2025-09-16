@@ -112,7 +112,7 @@ def parse_arguments() -> argparse.Namespace:
         nargs='?',
         const=None,
         default='.',
-        help="Directory to load MCP configurations from. If omitted, CWD is used."
+        help="Directory to load tool configurations (*.tools.json) from. If omitted, CWD is used."
     )
     
     parser.add_argument(
@@ -140,4 +140,3 @@ def parse_arguments() -> argparse.Namespace:
     args.files = _process_file_and_directory_args(args.files_raw or [])
             
     return args
-
