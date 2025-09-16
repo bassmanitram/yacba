@@ -53,6 +53,10 @@ class ChatbotManager:
         self.headless = headless
         self.agent: Optional[Agent] = None
         self._exit_stack = ExitStack()
+        self._tool_setters = {
+            "mcp": self._setup_single_mcp_client,
+            "python": self._setup_single_python_tool,
+        }
         logger.debug("ChatbotManager initialized.")
 
     def _setup_single_mcp_client(self, config: Dict[str, Any]) -> List[Any]:
@@ -107,7 +111,12 @@ class ChatbotManager:
             loaded_tools = []
             for func_name in function_names:
                 if hasattr(module, func_name):
-                    loaded_tools.append(getattr(module, func_name))
+                    func = getattr(module, func_name)
+                    # The @tool decorator adds a .tool_spec attribute.
+                    if not hasattr(func, 'tool_spec'):
+                        logger.warning(f"Function '{func_name}' in '{resolved_path}' is not a valid tool. Did you forget the @tool decorator?")
+                        continue
+                    loaded_tools.append(func)
                 else:
                     logger.warning(f"Function '{func_name}' not found in module at '{resolved_path}'.")
             
@@ -134,11 +143,10 @@ class ChatbotManager:
                     continue
 
                 tool_type = config.get("type")
-                if tool_type == "mcp":
-                    future = executor.submit(self._setup_single_mcp_client, config)
-                    future_to_config[future] = config
-                elif tool_type == "python":
-                    future = executor.submit(self._setup_single_python_tool, config)
+                setup_function = self._tool_setters.get(tool_type)
+
+                if setup_function:
+                    future = executor.submit(setup_function, config)
                     future_to_config[future] = config
                 else:
                     logger.warning(f"Tool '{tool_id}' has an unknown type: '{tool_type}'. Skipping.")
@@ -171,6 +179,10 @@ class ChatbotManager:
             )
             logger.info("Agent successfully created.")
             return agent
+        except litellm.exceptions.AuthenticationError as e:
+            logger.error(f"Authentication failed for model '{self.model_id}'. Please check your API keys and environment variables.")
+            logger.debug(e)
+            return None
         except Exception as e:
             logger.error(f"Error initializing the agent: {e}")
             return None

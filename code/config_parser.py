@@ -112,7 +112,9 @@ def parse_arguments() -> argparse.Namespace:
         nargs='?',
         const=None,
         default='.',
-        help="Directory to load tool configurations (*.tools.json) from. If omitted, CWD is used."
+        help="Directory to load tool configurations (*.tools.json) from. "
+             "Defaults to the CWD if the flag is omitted. "
+             "Provide the flag without a path to disable tool discovery."
     )
     
     parser.add_argument(
