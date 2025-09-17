@@ -74,10 +74,10 @@ class CustomPathCompleter(Completer):
                 yield comp
 
 
-async def _handle_agent_stream(agent: Agent, message: str):
+async def _handle_agent_stream(agent: Agent, message: str) -> bool:
     """
     Drives the agent's streaming response and handles potential errors.
-    The actual printing is done by the callback handler.
+    Returns True on success, False on failure.
     """
     agent_input = parse_input_with_files(message)
     try:
@@ -85,17 +85,23 @@ async def _handle_agent_stream(agent: Agent, message: str):
         # to trigger the callback handler for each event.
         async for _ in agent.stream_async(agent_input):
             pass
+        return True
     except litellm.ServiceUnavailableError as e:
         logger.warning(f"A model provider error occurred: {e}")
-        print("\nSorry, the model's response was interrupted. This can happen with complex requests.")
+        print("\nSorry, the model's response was interrupted. This can happen with complex requests.", file=sys.stderr)
+        return False
     except Exception as e:
         logger.error(f"An unexpected error occurred during streaming: {e}")
-        print("\nSorry, an unexpected error occurred while generating the response.")
+        print("\nSorry, an unexpected error occurred while generating the response.", file=sys.stderr)
+        return False
 
 
-async def run_headless_mode(agent: Agent, message: str):
-    """Runs the chatbot non-interactively for scripting."""
-    await _handle_agent_stream(agent, message)
+async def run_headless_mode(agent: Agent, message: str) -> bool:
+    """
+    Runs the chatbot non-interactively for scripting.
+    Returns True on success, False on failure.
+    """
+    return await _handle_agent_stream(agent, message)
 
 
 async def chat_loop_async(agent: Agent, initial_message: Optional[str] = None):

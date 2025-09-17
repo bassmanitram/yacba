@@ -63,7 +63,9 @@ async def main_async():
 
         # Run the appropriate mode based on the --headless flag.
         if args.headless:
-            await run_headless_mode(manager.agent, args.initial_message)
+            success = await run_headless_mode(manager.agent, args.initial_message)
+            if not success:
+                sys.exit(1)
         else:
             await chat_loop_async(manager.agent, args.initial_message)
 
