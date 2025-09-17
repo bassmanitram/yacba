@@ -16,7 +16,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "You are a general assistant with access to various tools to enhance your capabilities. "
     "You are NOT a specialized assistant dedicated to any specific tool provider."
 )
-FILE_UPLOAD_LIMIT = 20
+DEFAULT_FILE_UPLOAD_LIMIT = 20
 
 def _process_system_prompt(prompt_arg: str) -> tuple[str, str]:
     """
@@ -38,7 +38,7 @@ def _process_system_prompt(prompt_arg: str) -> tuple[str, str]:
     
     return prompt_arg, "command-line"
 
-def _process_file_and_directory_args(file_args: List[List[str]]) -> List[tuple[str, str]]:
+def _process_file_and_directory_args(file_args: List[List[str]], max_files: int) -> List[tuple[str, str]]:
     """
     Processes the list of file/directory arguments from argparse.
     Handles recursive directory scanning, filter syntax, and mimetype resolution.
@@ -51,8 +51,8 @@ def _process_file_and_directory_args(file_args: List[List[str]]) -> List[tuple[s
     dir_filter_pattern = re.compile(r"(.+?)\[(.+?)\]$")
 
     for file_arg in file_args:
-        if len(processed_files) >= FILE_UPLOAD_LIMIT:
-            logger.warning(f"File limit of {FILE_UPLOAD_LIMIT} reached. Ignoring further file arguments.")
+        if len(processed_files) >= max_files:
+            logger.warning(f"File limit of {max_files} reached. Ignoring further file arguments.")
             break
 
         path_str = file_arg[0]
@@ -79,7 +79,7 @@ def _process_file_and_directory_args(file_args: List[List[str]]) -> List[tuple[s
             if override_mimetype:
                 logger.info(f"Using override mimetype '{override_mimetype}' for all files found.")
 
-            remaining_limit = FILE_UPLOAD_LIMIT - len(processed_files)
+            remaining_limit = max_files - len(processed_files)
             found_files = scan_directory(dir_path, limit=remaining_limit, filters=filters)
             
             for f_path in found_files:
@@ -124,7 +124,14 @@ def parse_arguments() -> argparse.Namespace:
         action='append',
         metavar=('PATH', '[MIMETYPE]'),
         help=f"Upload a file or a directory. Scans directories recursively. "
-             f"For directories, you can add filters like 'my_dir[*.py,*.js]'. Limit: {FILE_UPLOAD_LIMIT} files."
+             f"For directories, you can add filters like 'my_dir[*.py,*.js]'. Limit: {DEFAULT_FILE_UPLOAD_LIMIT} files."
+    )
+
+    parser.add_argument(
+        "--max-files",
+        type=int,
+        default=DEFAULT_FILE_UPLOAD_LIMIT,
+        help=f"Maximum number of files to upload. Default: {DEFAULT_FILE_UPLOAD_LIMIT}."
     )
     
     parser.add_argument(
@@ -160,6 +167,7 @@ def parse_arguments() -> argparse.Namespace:
         args.initial_message = sys.stdin.read()
     
     args.system_prompt, args.prompt_source = _process_system_prompt(args.system_prompt_arg)
-    args.files = _process_file_and_directory_args(args.files_raw or [])
+    args.files = _process_file_and_directory_args(args.files_raw or [], args.max_files)
             
     return args
+
