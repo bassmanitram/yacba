@@ -16,6 +16,28 @@ import litellm
 from strands import Agent
 from content_processor import parse_input_with_files
 
+def _get_litellm_error_details(e: Exception) -> Dict[str, Any]:
+    """Extracts detailed information from a litellm exception."""
+    details = {}
+    # litellm exceptions often have original_exception and response_text attributes
+    if hasattr(e, 'original_exception') and e.original_exception:
+        details['original_error'] = str(e.original_exception)
+    if hasattr(e, 'response_text') and e.response_text:
+        details['response_text'] = e.response_text
+    return details
+
+def _print_litellm_error_details(details: Dict[str, Any]):
+    """Prints formatted litellm error details to stderr."""
+    if not details:
+        return
+    print("\n--- LiteLLM Error Details ---", file=sys.stderr)
+    if 'original_error' in details:
+        print(f"Original Error: {details['original_error']}", file=sys.stderr)
+    if 'response_text' in details:
+        print(f"Response Text: {details['response_text']}", file=sys.stderr)
+    print("-----------------------------\n", file=sys.stderr)
+
+
 def print_welcome_message():
     """Prints the initial welcome message and instructions to stdout."""
     print("Welcome to Yet Another ChatBot Agent!")
@@ -86,13 +108,21 @@ async def _handle_agent_stream(agent: Agent, message: str) -> bool:
         async for _ in agent.stream_async(agent_input):
             pass
         return True
+    except litellm.APIConnectionError as e:
+        logger.warning(f"A model provider API connection error occurred: {e}")
+        print("\nSorry, there was an issue connecting to the model provider.", file=sys.stderr)
+        _print_litellm_error_details(_get_litellm_error_details(e))
+        return False
     except litellm.ServiceUnavailableError as e:
-        logger.warning(f"A model provider error occurred: {e}")
-        print("\nSorry, the model's response was interrupted. This can happen with complex requests.", file=sys.stderr)
+        logger.warning(f"A model provider service unavailable error occurred: {e}")
+        print("\nSorry, the model provider service is currently unavailable.", file=sys.stderr)
+        _print_litellm_error_details(_get_litellm_error_details(e))
         return False
     except Exception as e:
         logger.error(f"An unexpected error occurred during streaming: {e}")
         print("\nSorry, an unexpected error occurred while generating the response.", file=sys.stderr)
+        # Also check for litellm details in generic exceptions
+        _print_litellm_error_details(_get_litellm_error_details(e))
         return False
 
 
@@ -133,3 +163,4 @@ async def chat_loop_async(agent: Agent, initial_message: Optional[str] = None):
         except (KeyboardInterrupt, EOFError):
             print()
             break
+

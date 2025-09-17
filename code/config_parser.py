@@ -5,9 +5,10 @@ import argparse
 import os
 import re
 import sys
+import json
 from pathlib import Path
 from loguru import logger
-from typing import List
+from typing import List, Dict, Any
 
 from utils import guess_mimetype, scan_directory
 
@@ -58,19 +59,16 @@ def _process_file_and_directory_args(file_args: List[List[str]], max_files: int)
         path_str = file_arg[0]
         
         # Check if the path is a directory, potentially with filters.
-        # A simple os.path.isdir check isn't enough due to the filter syntax.
         potential_dir_path = dir_filter_pattern.match(path_str)
         is_dir = os.path.isdir(potential_dir_path.group(1)) if potential_dir_path else os.path.isdir(path_str)
 
         if is_dir:
             dir_path, filters = path_str, None
             
-            # If filter syntax is used, parse it.
             match = dir_filter_pattern.match(path_str)
             if match:
                 dir_path = match.group(1)
-                filters_str = match.group(2)
-                filters = [f.strip() for f in filters_str.split(',')]
+                filters = [f.strip() for f in match.group(2).split(',')]
                 logger.info(f"Directory scanning with filters: {filters} in '{dir_path}'")
             else:
                 logger.info(f"Directory detected. Scanning '{path_str}' for text files...")
@@ -96,12 +94,46 @@ def _process_file_and_directory_args(file_args: List[List[str]], max_files: int)
             
     return processed_files
 
+def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str, Any]:
+    """
+    Loads model configuration from a file and overrides it with individual values.
+    """
+    config = {}
+    if config_file:
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            logger.info(f"Loaded model configuration from '{config_file}'.")
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Could not load or parse model config file '{config_file}': {e}")
+
+    for val in config_vals or []:
+        if ':' not in val:
+            logger.warning(f"Invalid config value '{val}'. Must be in 'key:value' format. Skipping.")
+            continue
+        
+        key, value_str = val.split(':', 1)
+        
+        if value_str.lower() == 'true': value = True
+        elif value_str.lower() == 'false': value = False
+        else:
+            try:
+                value = float(value_str)
+                if value.is_integer(): value = int(value)
+            except ValueError:
+                value = value_str
+        
+        config[key] = value
+        logger.info(f"Set model config override: {key} = {value}")
+        
+    return config
+
 def parse_arguments() -> argparse.Namespace:
     """
     Defines and parses command-line arguments, then delegates processing.
     """
     parser = argparse.ArgumentParser(
-        description="A command-line chatbot powered by Strands Agents and LiteLLM."
+        description="A command-line chatbot powered by Strands Agents."
     )
     
     parser.add_argument(
@@ -113,8 +145,8 @@ def parse_arguments() -> argparse.Namespace:
     
     parser.add_argument(
         "-m", "--model",
-        default="gemini/gemini-2.5-flash",
-        help="The model ID to use for the agent (e.g., 'gemini/gemini-2.5-flash')."
+        default="litellm:gemini/gemini-2.5-flash",
+        help="The model to use, in <framework>:<model_id> format (e.g., 'litellm:gemini/gemini-pro')."
     )
 
     parser.add_argument(
@@ -141,7 +173,6 @@ def parse_arguments() -> argparse.Namespace:
         const=None,
         default='.',
         help="Directory to load tool configurations (*.tools.json) from. "
-             "Defaults to the CWD if the flag is omitted. "
              "Provide the flag without a path to disable tool discovery."
     )
     
@@ -158,16 +189,30 @@ def parse_arguments() -> argparse.Namespace:
         action='store_true',
         help='Enable headless mode for scripting. Reads a message, prints the response, and exits.'
     )
+
+    parser.add_argument(
+        '--model-config',
+        type=str,
+        default=None,
+        help='Path to a JSON file with ad-hoc configuration for the model.'
+    )
+
+    parser.add_argument(
+        '-c', '--config-val',
+        dest='config_vals',
+        action='append',
+        metavar='KEY:VALUE',
+        help="Set a single model configuration value (e.g., 'temperature:0.8')."
+    )
     
     args = parser.parse_args()
 
     # --- Argument Processing ---
     if args.headless and not args.initial_message and not sys.stdin.isatty():
-        logger.info("Reading initial message from stdin for headless mode...")
         args.initial_message = sys.stdin.read()
     
     args.system_prompt, args.prompt_source = _process_system_prompt(args.system_prompt_arg)
     args.files = _process_file_and_directory_args(args.files_raw or [], args.max_files)
+    args.model_config = _process_model_config(args.model_config, args.config_vals)
             
     return args
-
