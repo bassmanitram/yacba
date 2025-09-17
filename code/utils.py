@@ -5,10 +5,10 @@ import glob
 import json
 import os
 import mimetypes
-import fnmatch
+import re
 from pathlib import Path
 from loguru import logger
-from typing import List, Dict, Any, Union, Optional
+from typing import List, Dict, Any, Union, Optional, Tuple
 
 def guess_mimetype(file_path: Union[str, Path]) -> str:
     """Guesses the mimetype of a file, defaulting to a binary stream."""
@@ -36,28 +36,36 @@ def is_likely_text_file(file_path: Union[str, Path]) -> bool:
 
 def scan_directory(directory: str, limit: int, filters: Optional[List[str]] = None) -> List[str]:
     """
-    Recursively scans a directory for files. If filters are provided, it matches
-    filenames against the glob patterns. Otherwise, it finds likely text files.
+    Recursively scans a directory for files. If filters are provided, it uses
+    glob matching. Otherwise, it finds files that are likely to contain text.
     """
     found_files = []
-    for root, _, files in os.walk(directory):
-        if len(found_files) >= limit:
-            break
-        for file in files:
+    
+    if filters:
+        # Use glob matching if filters are provided
+        for filter_glob in filters:
             if len(found_files) >= limit:
                 break
-            
-            file_path = os.path.join(root, file)
-            
-            if filters:
-                # If any filter pattern matches the filename, add it.
-                if any(fnmatch.fnmatch(file, pattern) for pattern in filters):
+            # Create a recursive glob pattern
+            search_pattern = os.path.join(directory, '**', filter_glob)
+            for file_path in glob.glob(search_pattern, recursive=True):
+                if os.path.isfile(file_path):
                     found_files.append(file_path)
-            # If no filters, fall back to the original text-file-finding behavior.
-            elif is_likely_text_file(file_path):
-                found_files.append(file_path)
-
-    return found_files
+                    if len(found_files) >= limit:
+                        break
+    else:
+        # Fallback to the original text file scanning logic
+        for root, _, files in os.walk(directory):
+            if len(found_files) >= limit:
+                break
+            for file in files:
+                file_path = os.path.join(root, file)
+                if is_likely_text_file(file_path):
+                    found_files.append(file_path)
+                    if len(found_files) >= limit:
+                        break
+                        
+    return found_files[:limit]
 
 def discover_tool_configs(directory: Optional[str]) -> List[Dict[str, Any]]:
     """Discovers and loads tool configurations from *.tools.json files."""
@@ -79,3 +87,28 @@ def discover_tool_configs(directory: Optional[str]) -> List[Dict[str, Any]]:
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Could not load or parse tool config '{file_path}': {e}")
     return configs
+
+# A data-driven list of rules for guessing the model framework.
+# The first rule to match (case-insensitively) wins.
+FRAMEWORK_GUESSING_RULES: List[Tuple[str, str]] = [
+    ("gpt-", "openai"),
+    ("claude", "anthropic"),
+    ("gemini", "litellm"),
+    ("google", "litellm"),
+    ("/", "litellm"), # Convention for litellm models like 'ollama/llama2'
+]
+
+def guess_framework_from_model_string(model_name: str) -> str:
+    """
+    Makes a best guess for the model framework based on a list of rules.
+    This allows for backward compatibility and convenience.
+    """
+    model_lower = model_name.lower()
+    for condition, framework in FRAMEWORK_GUESSING_RULES:
+        if condition in model_lower:
+            logger.debug(f"Guessed '{framework}' framework for model '{model_name}' based on rule '{condition}'.")
+            return framework
+    
+    # Default fallback if no rules match.
+    logger.warning(f"Could not determine framework for '{model_name}' based on rules. Defaulting to 'litellm'.")
+    return "litellm"

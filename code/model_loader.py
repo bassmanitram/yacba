@@ -6,32 +6,13 @@ from loguru import logger
 
 # Import the base class for type hinting.
 from strands.models.model import Model
+from utils import guess_framework_from_model_string
 
 class StrandsModelLoader:
     """
     A factory class that instantiates the correct Strands Model class based on a
     provided model string in the format <framework>:<model_id>.
     """
-    def _guess_framework(self, model_name: str) -> str:
-        """
-        Makes a best guess for the model framework if not explicitly provided.
-        This allows for backward compatibility and convenience.
-        """
-        model_lower = model_name.lower()
-        if "gpt-" in model_lower:
-            logger.debug(f"Guessed 'openai' framework for model '{model_name}'.")
-            return "openai"
-        if "claude" in model_lower:
-            logger.debug(f"Guessed 'anthropic' framework for model '{model_name}'.")
-            return "anthropic"
-        if "gemini" in model_lower or "google" in model_lower or "/" in model_lower:
-            logger.debug(f"Guessed 'litellm' framework for model '{model_name}'.")
-            return "litellm"
-        
-        # Default fallback
-        logger.warning(f"Could not determine framework for '{model_name}'. Defaulting to 'litellm'.")
-        return "litellm"
-
     def create_model(self, model_string: str, model_config: Dict[str, Any]) -> Optional[Model]:
         """
         Parses the model string and instantiates the appropriate model class.
@@ -48,7 +29,7 @@ class StrandsModelLoader:
         else:
             # If no framework is specified, guess it.
             model_name = model_string
-            framework = self._guess_framework(model_name)
+            framework = guess_framework_from_model_string(model_name)
 
         logger.info(f"Attempting to load model '{model_name}' using framework '{framework}'.")
 
