@@ -87,9 +87,14 @@ class YacbaCompleter(Completer):
         text = document.text_before_cursor
         
         # Check for in-chat file upload syntax
-        file_match = re.search(r"file\((['\"])([^'\"]*)$", text)
+        # Improved regex to be non-greedy and handle paths more reliably
+        file_match = re.search(r"file\((['\"])(.*?)$", text)
         if file_match:
             path_prefix = file_match.group(2)
+            # Prevent completion if the quote is already closed
+            if file_match.group(1) in path_prefix:
+                 return
+
             path_doc = Document(text=path_prefix, cursor_position=len(path_prefix))
             for comp in self.path_completer.get_completions(path_doc, complete_event):
                 yield comp
@@ -110,10 +115,15 @@ class YacbaCompleter(Completer):
 def _format_error(e: Exception) -> str:
     """Extracts detailed information from exceptions for better user feedback."""
     details = f"Error Type: {type(e).__name__}"
-    if hasattr(e, "message"):
-        details += f"\nMessage: {e.message}"
-    if hasattr(e, "response") and hasattr(e.response, "text"):
-        details += f"\nOriginal Response: {e.response.text}"
+    # Use getattr to safely access optional attributes
+    message = getattr(e, "message", None)
+    if message:
+        details += f"\nMessage: {message}"
+    
+    response = getattr(e, "response", None)
+    if response and hasattr(response, "text"):
+        details += f"\nOriginal Response: {response.text}"
+        
     return str(e) # Return the full error string for clarity
 
 
@@ -243,4 +253,3 @@ async def chat_loop_async(
         except (KeyboardInterrupt, EOFError):
             print()
             break
-

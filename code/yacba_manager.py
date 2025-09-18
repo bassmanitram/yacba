@@ -74,6 +74,9 @@ class ChatbotManager:
         """Saves the current agent's message history to the session file."""
         if not self.session_filepath:
             # In interactive mode, this is not an error, just a no-op if no session is active.
+            # Provide feedback in case the user tried to /save without a session name.
+            if not self.headless:
+                print("No session name set. Use --session-name <name> or /save <name> to start a session.", file=sys.stderr)
             return
 
         if not self.agent or not self.agent.messages:
