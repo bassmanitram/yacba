@@ -1,9 +1,10 @@
 # yacba.py
-# Main entry point for the application.
+# Main entry point for the YACBA Chatbot application.
 
 import sys
 import os
 import asyncio
+import litellm  # Import to ensure top-level error handler can identify litellm exceptions
 from loguru import logger
 
 from yacba_manager import ChatbotManager
@@ -15,21 +16,20 @@ from utils import discover_tool_configs
 async def main_async():
     """
     Main async function to orchestrate the chatbot application.
+    It parses arguments, sets up the manager, and runs the appropriate loop.
     """
     args = parse_arguments()
 
     if args.headless and not args.initial_message:
-        logger.error("Headless mode requires an initial message from the -i option or from stdin.")
+        logger.error("Headless mode requires an initial message via -i or stdin.")
         sys.exit(1)
 
     tool_configs = discover_tool_configs(args.tools_dir)
 
     if not args.headless:
         print_welcome_message()
-        if tool_configs:
-            print("Attempting to initialize tools... this may take a moment.")
 
-    startup_files_content = process_startup_files(args.files_raw, args.max_files)
+    startup_files_content = process_startup_files(args.files, args.max_files)
 
     logger.info("Starting up Chatbot Manager...")
     
@@ -39,10 +39,11 @@ async def main_async():
         tool_configs=tool_configs,
         startup_files_content=startup_files_content,
         headless=args.headless,
-        model_config=args.model_config
+        model_config=args.model_config,
+        session_name=args.session_name
     ) as manager:
-        if not manager.agent or not manager.framework_adapter:
-            logger.error("Failed to initialize the agent or framework adapter. Exiting.")
+        if not manager.agent:
+            logger.error("Failed to initialize the agent. Exiting.")
             sys.exit(1)
 
         print_startup_info(
@@ -50,20 +51,22 @@ async def main_async():
             system_prompt=args.system_prompt,
             prompt_source=args.prompt_source,
             loaded_tools=manager.loaded_tools,
-            startup_files=args.files_raw,
+            startup_files=args.files,
             output_file=sys.stderr
         )
+        if not args.headless and tool_configs:
+            print("Tools initialized.")
 
         if args.headless:
-            success = await run_headless_mode(manager.agent, manager.framework_adapter, args.initial_message)
+            success = await run_headless_mode(manager, args.initial_message)
             if not success:
                 sys.exit(1)
         else:
-            await chat_loop_async(manager.agent, manager.framework_adapter, args.initial_message, args.max_files)
+            await chat_loop_async(manager, args.initial_message, args.max_files)
 
 def main():
     """ 
-    Synchronous main entry point.
+    Synchronous main entry point. Configures logging and runs the async application.
     """
     log_level = os.environ.get("LOGURU_LEVEL", "INFO").upper()
     logger.remove()

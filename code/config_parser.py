@@ -10,7 +10,7 @@ from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any
 
-from utils import guess_mimetype
+from content_processor import process_path_argument
 
 # Define constants for clarity and maintainability.
 DEFAULT_SYSTEM_PROMPT = (
@@ -38,6 +38,28 @@ def _process_system_prompt(prompt_arg: str) -> tuple[str, str]:
             return DEFAULT_SYSTEM_PROMPT, "default (fallback)"
     
     return prompt_arg, "command-line"
+
+def _process_file_args(file_args: List[List[str]], max_files: int) -> List[tuple[str, str]]:
+    """
+    Processes the list of file/directory arguments from argparse into a flat list of paths.
+    """
+    if not file_args:
+        return []
+
+    processed_files: List[tuple[str, str]] = []
+    for file_arg in file_args:
+        remaining_slots = max_files - len(processed_files)
+        if remaining_slots <= 0:
+            logger.warning(f"File limit of {max_files} reached. Ignoring further file arguments.")
+            break
+        
+        path_str = file_arg[0]
+        mimetype = file_arg[1] if len(file_arg) > 1 else None
+        
+        found = process_path_argument(path_str, mimetype, max_files=remaining_slots)
+        processed_files.extend(found)
+
+    return processed_files
 
 def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str, Any]:
     """
@@ -77,6 +99,9 @@ def parse_arguments() -> argparse.Namespace:
     """
     Defines and parses command-line arguments, then delegates processing.
     """
+    # Determine default model from environment variable or hard-coded value
+    default_model = os.environ.get("YACBA_MODEL_ID", "litellm:gemini/gemini-2.5-flash")
+
     parser = argparse.ArgumentParser(
         description="A command-line chatbot powered by Strands Agents."
     )
@@ -90,8 +115,8 @@ def parse_arguments() -> argparse.Namespace:
     
     parser.add_argument(
         "-m", "--model",
-        default="litellm:gemini/gemini-2.5-flash",
-        help="The model to use, in <framework>:<model_id> format (e.g., 'litellm:gemini/gemini-pro')."
+        default=default_model,
+        help=f"The model to use, in <framework>:<model_id> format. Default: {default_model} (or from YACBA_MODEL_ID)."
     )
 
     parser.add_argument(
@@ -128,6 +153,13 @@ def parse_arguments() -> argparse.Namespace:
         default=None,
         help='An initial message to send. In headless mode, if omitted, reads from stdin.'
     )
+    
+    parser.add_argument(
+        '--session-name',
+        type=str,
+        default=None,
+        help='Load a session on startup and save it on exit. File is <name>.yacba-session.json.'
+    )
 
     parser.add_argument(
         '--headless',
@@ -157,15 +189,7 @@ def parse_arguments() -> argparse.Namespace:
         args.initial_message = sys.stdin.read()
     
     args.system_prompt, args.prompt_source = _process_system_prompt(args.system_prompt_arg)
-    
-    # The new, simplified file argument processing.
-    args.files = []
-    if args.files_raw:
-        for file_arg in args.files_raw:
-            path_str = file_arg[0]
-            mimetype = file_arg[1] if len(file_arg) > 1 else None
-            args.files.append((path_str, mimetype))
-
+    args.files = _process_file_args(args.files_raw or [], args.max_files)
     args.model_config = _process_model_config(args.model_config, args.config_vals)
             
     return args

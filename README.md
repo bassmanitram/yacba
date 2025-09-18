@@ -20,10 +20,13 @@ Yacba provides a flexible and configurable command-line AI agent powered by the 
   * **Persistent Command History:** Navigate previous inputs with arrow keys.  
   * **Real-time Streaming Responses:** Receive model responses as they are generated.  
   * **Interactive Path Auto-completion:** Press Tab for path suggestions when typing file(' in chat.  
+  * **Interactive Meta-Commands:** Control the application with commands like /save, /clear, /history, /tools, and /help.  
   * **Robust Error Handling:** Catches and details model provider API errors, and ensures non-zero exit codes on failure in headless mode.  
 * **Highly Configurable:**  
   * Customize the agent's behavior with system prompts (string or loaded from a file:// URI).  
-  * Specify different models and provide model-specific configurations via \--model-config JSON files or individual \-c KEY:VALUE flags.
+  * Specify different models and provide model-specific configurations via \--model-config JSON files or individual \-c KEY:VALUE flags.  
+* **Conversation Persistence:**  
+  * Save and load conversation history using the \--session-name flag, allowing you to resume sessions later.
 
 ## **Installation**
 
@@ -73,7 +76,7 @@ To start a standard interactive chat session:
 
 ./yacba
 
-You can exit the chat by typing exit or quit, or by pressing Ctrl+C or Ctrl+D. Alt+Enter will add a new line within your input.
+You can exit the chat by typing exit or quit, or by pressing Ctrl+C or Ctrl+D. Alt+Enter will add a new line within your input. For a list of in-chat commands, type /help.
 
 **Example with options:**
 
@@ -83,6 +86,19 @@ You can exit the chat by typing exit or quit, or by pressing Ctrl+C or Ctrl+D. A
   \-f /path/to/my/project\[\*.tf,\*.json\] \\  
   \-t ../sample-tool-configs \\  
   \-c temperature:0.1
+
+### **Interactive Meta-Commands**
+
+While in an interactive session, you can use the following commands to control the application:
+
+| Command | Description |
+| :---- | :---- |
+| /help | Show the list of available meta-commands. |
+| /save | Manually save the current conversation to the session file. This is only active if you started yacba with \--session-name. The session is also saved automatically on exit. |
+| /clear | Clear the agent's current conversation history and start fresh. |
+| /history | Print the current conversation history as a JSON object. |
+| /tools | List the names of all tools currently available to the agent. |
+| /exit, /quit | Exit the application. |
 
 ### **Headless Mode**
 
@@ -128,15 +144,14 @@ This type loads tools directly from functions or objects in a local Python file.
 
 ## **Command-Line Options**
 
-| Flag | Description |
-| :---- | :---- |
-| \-p, \--prompt | Sets the system prompt for the agent. Can be a string or a file URI (e.g., file:///path/to/prompt.txt). |
-| \-m, \--model | Specifies the model to use in \<framework\>:\<model\_id\> format (e.g., openai:gpt-4o, bedrock:amazon.titan-text-express-v1). If the framework is omitted, it will be guessed. |
-| \-f, \--file | Uploads a file or a directory. Can be used multiple times. \<br/\>Syntax: \-f PATH \[MIMETYPE\] \<br/\>- For directories: my\_dir\[\*.py,\*.js\] scans with glob filters. |
-| \--max-files | Maximum number of files to upload via the \-f flag. Default: 20\. |
-| \-t, \--tools | Specifies the directory to load tool configurations (\*.tools.json) from. \<br/\>- Defaults to the current directory (.). \<br/\>- If specified **without** a path, disables tool discovery. |
-| \-i, \--initial-message | An initial message to send to the agent. In headless mode, if this is omitted, the message is read from stdin. |
-| \--headless | Activates non-interactive headless mode. |
-| \--model-config | Path to a JSON file with ad-hoc configuration for the model (e.g., temperature, max\_tokens). |
+| Flag | Description |  
+| \-p, \--prompt | Sets the system prompt for the agent. Can be a string or a file URI (e.g., file:///path/to/prompt.txt). |  
+| \-m, \--model | Specifies the model to use in \<framework\>:\<model\_id\> format (e.g., openai:gpt-4o, bedrock:amazon.titan-text-express-v1). If the framework is omitted, it will be guessed. |  
+| \-f, \--file | Uploads a file or a directory. Can be used multiple times. \<br/\>Syntax: \-f PATH \[MIMETYPE\] \<br/\>- For directories: my\_dir\[\*.py,\*.js\] scans with glob filters. |  
+| \--max-files | Maximum number of files to upload via the \-f flag. Default: 20\. |  
+| \-t, \--tools | Specifies the directory to load tool configurations (\*.tools.json) from. \<br/\>- Defaults to the current directory (.). \<br/\>- If specified without a path, disables tool discovery. |  
+| \-i, \--initial-message | An initial message to send to the agent. In headless mode, if this is omitted, the message is read from stdin. |  
+| \--headless | Activates non-interactive headless mode. |  
+| \--session-name | Load a session history and save it on exit. Filename is \<name\>.yacba-session.json in the CWD. |  
+| \--model-config | Path to a JSON file with ad-hoc configuration for the model (e.g., temperature, max\_tokens). |  
 | \-c, \--config-val | Set a single model configuration value (e.g., \-c temperature:0.8). Overrides values from \--model-config. |
-
