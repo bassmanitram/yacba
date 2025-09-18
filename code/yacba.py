@@ -40,7 +40,8 @@ async def main_async():
         startup_files_content=startup_files_content,
         headless=args.headless,
         model_config=args.model_config,
-        session_name=args.session_name
+        session_name=args.session_name,
+        emulate_system_prompt=args.emulate_system_prompt
     ) as manager:
         if not manager.agent:
             logger.error("Failed to initialize the agent. Exiting.")

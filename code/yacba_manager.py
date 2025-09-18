@@ -46,7 +46,7 @@ class ChatbotManager:
     A context manager to handle the setup and teardown of the Strands Agent
     and any associated tool clients.
     """
-    def __init__(self, model_string: str, system_prompt: str, tool_configs: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], headless: bool = False, model_config: Optional[Dict[str, Any]] = None, session_name: Optional[str] = None):
+    def __init__(self, model_string: str, system_prompt: str, tool_configs: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], headless: bool = False, model_config: Optional[Dict[str, Any]] = None, session_name: Optional[str] = None, emulate_system_prompt: bool = False):
         self.model_string = model_string
         self.system_prompt = system_prompt
         self.tool_configs = tool_configs
@@ -54,6 +54,7 @@ class ChatbotManager:
         self.headless = headless
         self.model_config = model_config or {}
         self.session_name = session_name
+        self.emulate_system_prompt = emulate_system_prompt
         self.session_filepath: Optional[str] = f"{session_name}.yacba-session.json" if session_name else None
         self.agent: Optional[Agent] = None
         self.loaded_tools: List[Any] = []
@@ -192,7 +193,8 @@ class ChatbotManager:
             agent_args = self.framework_adapter.prepare_agent_args(
                 system_prompt=self.system_prompt,
                 messages=initial_messages,
-                startup_files_content=self.startup_files_content
+                startup_files_content=self.startup_files_content,
+                emulate_system_prompt=self.emulate_system_prompt
             )
             
             self.agent = Agent(
@@ -219,3 +221,4 @@ class ChatbotManager:
         logger.info("Shutting down tool clients...")
         self._exit_stack.close()
         logger.info("Shutdown complete.")
+

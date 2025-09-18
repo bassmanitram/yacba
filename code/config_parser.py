@@ -100,7 +100,7 @@ def parse_arguments() -> argparse.Namespace:
     Defines and parses command-line arguments, then delegates processing.
     """
     # Determine default model from environment variable or hard-coded value
-    default_model = os.environ.get("YACBA_MODEL_ID", "litellm:gemini/gemini-2.5-flash")
+    default_model = os.environ.get("YACBA_MODEL_ID", "litellm:gemini/gemini-1.5-flash")
 
     parser = argparse.ArgumentParser(
         description="A command-line chatbot powered by Strands Agents."
@@ -180,6 +180,13 @@ def parse_arguments() -> argparse.Namespace:
         action='append',
         metavar='KEY:VALUE',
         help="Set a single model configuration value (e.g., 'temperature:0.8')."
+    )
+    
+    parser.add_argument(
+        '-l', '--legacy-prompt',
+        dest='emulate_system_prompt',
+        action='store_true',
+        help='Use legacy mode for system prompts by injecting it into the first user message. For models that do not support native system prompts.'
     )
     
     args = parser.parse_args()

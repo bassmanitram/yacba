@@ -14,7 +14,7 @@ class FrameworkAdapter:
         """A tuple of exception types that the CLI should catch for this framework."""
         return (Exception,) # Default to catching everything if not specified
 
-    def prepare_agent_args(self, system_prompt: str, messages: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    def prepare_agent_args(self, system_prompt: str, messages: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], emulate_system_prompt: bool = False) -> Dict[str, Any]:
         """Prepares the arguments for the Agent constructor."""
         raise NotImplementedError
 
@@ -34,9 +34,30 @@ class DefaultAdapter(FrameworkAdapter):
             litellm.exceptions.Timeout
         )
 
-    def prepare_agent_args(self, system_prompt: str, messages: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    def prepare_agent_args(self, system_prompt: str, messages: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], emulate_system_prompt: bool = False) -> Dict[str, Any]:
         if startup_files_content:
             messages = startup_files_content + messages
+        
+        if emulate_system_prompt and system_prompt:
+            logger.debug("Emulating system prompt by prepending to the first user message as requested.")
+            first_user_msg_index = next((i for i, msg in enumerate(messages) if msg["role"] == "user"), -1)
+
+            if first_user_msg_index != -1:
+                # Prepend to existing user message
+                current_content = messages[first_user_msg_index]["content"]
+                if isinstance(current_content, list):
+                    messages[first_user_msg_index]["content"].insert(0, {"type": "text", "text": system_prompt})
+                else: # Handle plain string content
+                    messages[first_user_msg_index]["content"] = f"{system_prompt}\n\n{current_content}"
+            else:
+                # Create a new user message if none exists
+                messages.insert(0, {"role": "user", "content": [{"type": "text", "text": system_prompt}]})
+            
+            return {
+                "system_prompt": None,
+                "messages": messages
+            }
+
         return {
             "system_prompt": system_prompt,
             "messages": messages
@@ -52,15 +73,16 @@ class BedrockAdapter(FrameworkAdapter):
     def expected_exceptions(self) -> Tuple[type[Exception], ...]:
         return (ClientError,)
 
-    def prepare_agent_args(self, system_prompt: str, messages: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    def prepare_agent_args(self, system_prompt: str, messages: List[Dict[str, Any]], startup_files_content: Optional[List[Dict[str, Any]]], emulate_system_prompt: bool = False) -> Dict[str, Any]:
         """
-        Prepares agent arguments for Bedrock by transforming the entire message
-        history into the correct format and then injecting the system prompt.
+        Prepares agent arguments for Bedrock by transforming the message history
+        into the correct format. It passes the system prompt directly, unless
+        emulation is requested by the user.
         """
         if startup_files_content:
             messages = startup_files_content + messages
 
-        # 1. Transform the entire message history to be Bedrock-compliant.
+        # Transform the entire message history to be Bedrock-compliant.
         transformed_messages = []
         for msg in messages:
             if msg.get("role") and "content" in msg and msg["content"] is not None:
@@ -73,18 +95,25 @@ class BedrockAdapter(FrameworkAdapter):
                         "content": adapted_content
                     })
         
-        # 2. Inject the system prompt into the now-compliant message list.
-        if system_prompt:
-            logger.debug("Prepending system prompt to user message for Bedrock compatibility.")
+        # Conditionally emulate the system prompt if the flag is set.
+        if emulate_system_prompt and system_prompt:
+            logger.debug("Emulating system prompt by prepending to the first user message as requested.")
             first_user_msg_index = next((i for i, msg in enumerate(transformed_messages) if msg["role"] == "user"), -1)
 
             if first_user_msg_index != -1:
                 transformed_messages[first_user_msg_index]["content"].insert(0, {"text": system_prompt})
             else:
                 transformed_messages.insert(0, {"role": "user", "content": [{"text": system_prompt}]})
-        
+            
+            return {
+                "system_prompt": None,
+                "messages": transformed_messages
+            }
+
+        # The Bedrock Converse API supports system prompts, so we pass it directly.
+        # Model-specific workarounds are no longer handled at the adapter level.
         return {
-            "system_prompt": None,
+            "system_prompt": system_prompt,
             "messages": transformed_messages
         }
 
@@ -126,3 +155,5 @@ class BedrockAdapter(FrameworkAdapter):
                 transformed_list.append(block)
         
         return transformed_list
+
+
