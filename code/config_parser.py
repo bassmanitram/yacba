@@ -3,7 +3,6 @@
 
 import argparse
 import os
-import re
 import sys
 import json
 from pathlib import Path
@@ -11,6 +10,8 @@ from loguru import logger
 from typing import List, Dict, Any
 
 from content_processor import process_path_argument
+from yacba_config import YacbaConfig
+from utils import discover_tool_configs
 
 # Define constants for clarity and maintainability.
 DEFAULT_SYSTEM_PROMPT = (
@@ -95,9 +96,10 @@ def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str,
         
     return config
 
-def parse_arguments() -> argparse.Namespace:
+def parse_config() -> YacbaConfig:
     """
-    Defines and parses command-line arguments, then delegates processing.
+    Defines and parses command-line arguments, then populates and returns
+    a YacbaConfig object.
     """
     # Determine default model from environment variable or hard-coded value
     default_model = os.environ.get("YACBA_MODEL_ID", "litellm:gemini/gemini-1.5-flash")
@@ -191,12 +193,28 @@ def parse_arguments() -> argparse.Namespace:
     
     args = parser.parse_args()
 
-    # --- Argument Processing ---
+    # --- Argument Processing and Config Population ---
     if args.headless and not args.initial_message and not sys.stdin.isatty():
         args.initial_message = sys.stdin.read()
     
-    args.system_prompt, args.prompt_source = _process_system_prompt(args.system_prompt_arg)
-    args.files = _process_file_args(args.files_raw or [], args.max_files)
-    args.model_config = _process_model_config(args.model_config, args.config_vals)
+    system_prompt, prompt_source = _process_system_prompt(args.system_prompt_arg)
+    files_to_upload = _process_file_args(args.files_raw or [], args.max_files)
+    model_config = _process_model_config(args.model_config, args.config_vals)
+    tool_configs = discover_tool_configs(args.tools_dir)
+
+    # The content processor is now called from main, so we don't process files here
             
-    return args
+    return YacbaConfig(
+        model_string=args.model,
+        system_prompt=system_prompt,
+        prompt_source=prompt_source,
+        tool_configs=tool_configs,
+        startup_files_content=None, # Will be populated in main yacba.py
+        headless=args.headless,
+        model_config=model_config,
+        session_name=args.session_name,
+        emulate_system_prompt=args.emulate_system_prompt,
+        initial_message=args.initial_message,
+        max_files=args.max_files,
+        files_to_upload=files_to_upload
+    )

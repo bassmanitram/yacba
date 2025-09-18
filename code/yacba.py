@@ -4,66 +4,54 @@
 import sys
 import os
 import asyncio
-import litellm  # Import to ensure top-level error handler can identify litellm exceptions
 from loguru import logger
 
 from yacba_manager import ChatbotManager
 from cli_handler import print_welcome_message, print_startup_info, chat_loop_async, run_headless_mode
 from content_processor import process_startup_files
-from config_parser import parse_arguments
-from utils import discover_tool_configs
+from config_parser import parse_config
 
 async def main_async():
     """
     Main async function to orchestrate the chatbot application.
-    It parses arguments, sets up the manager, and runs the appropriate loop.
+    It parses config, sets up the manager, and runs the appropriate loop.
     """
-    args = parse_arguments()
+    config = parse_config()
 
-    if args.headless and not args.initial_message:
+    if config.headless and not config.initial_message:
         logger.error("Headless mode requires an initial message via -i or stdin.")
         sys.exit(1)
 
-    tool_configs = discover_tool_configs(args.tools_dir)
-
-    if not args.headless:
+    if not config.headless:
         print_welcome_message()
 
-    startup_files_content = process_startup_files(args.files, args.max_files)
+    # Process startup files after parsing config and before initializing the manager/engine
+    config.startup_files_content = process_startup_files(config.files_to_upload, config.max_files)
 
     logger.info("Starting up Chatbot Manager...")
     
-    with ChatbotManager(
-        model_string=args.model,
-        system_prompt=args.system_prompt,
-        tool_configs=tool_configs,
-        startup_files_content=startup_files_content,
-        headless=args.headless,
-        model_config=args.model_config,
-        session_name=args.session_name,
-        emulate_system_prompt=args.emulate_system_prompt
-    ) as manager:
-        if not manager.agent:
-            logger.error("Failed to initialize the agent. Exiting.")
+    with ChatbotManager(config) as manager:
+        if not manager.engine or not manager.engine.agent:
+            logger.error("Failed to initialize the agent engine. Exiting.")
             sys.exit(1)
 
         print_startup_info(
-            model_id=args.model,
-            system_prompt=args.system_prompt,
-            prompt_source=args.prompt_source,
-            loaded_tools=manager.loaded_tools,
-            startup_files=args.files,
+            model_id=config.model_string,
+            system_prompt=config.system_prompt,
+            prompt_source=config.prompt_source,
+            loaded_tools=manager.engine.loaded_tools,
+            startup_files=config.files_to_upload,
             output_file=sys.stderr
         )
-        if not args.headless and tool_configs:
+        if not config.headless and config.tool_configs:
             print("Tools initialized.")
 
-        if args.headless:
-            success = await run_headless_mode(manager, args.initial_message)
+        if config.headless:
+            success = await run_headless_mode(manager, config.initial_message)
             if not success:
                 sys.exit(1)
         else:
-            await chat_loop_async(manager, args.initial_message, args.max_files)
+            await chat_loop_async(manager, config.initial_message, config.max_files)
 
 def main():
     """ 
@@ -78,7 +66,7 @@ def main():
     except KeyboardInterrupt:
         print("\nExiting.", file=sys.stderr)
     except Exception as e:
-        logger.error(f"An unhandled exception occurred: {e}")
+        logger.error(f"An unhandled exception occurred: {e}", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":

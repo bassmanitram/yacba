@@ -127,13 +127,31 @@ def _format_error(e: Exception) -> str:
     return str(e) # Return the full error string for clarity
 
 
-async def _handle_meta_command(user_input: str, manager: ChatbotManager):
-    """Parses and executes a meta-command."""
-    parts = user_input.split()
-    command = parts[0]
-    args = parts[1:]
-    
-    if command == "/help":
+class CommandHandler:
+    """Handles meta-commands using a registry pattern."""
+    def __init__(self, manager: ChatbotManager):
+        self.manager = manager
+        self._commands = {
+            "/help": self._show_help,
+            "/save": self._save_session,
+            "/clear": self._clear_session,
+            "/history": self._show_history,
+            "/tools": self._list_tools,
+        }
+
+    async def handle(self, user_input: str):
+        """Parses and executes a meta-command."""
+        parts = user_input.split()
+        command = parts[0]
+        args = parts[1:]
+
+        handler_func = self._commands.get(command)
+        if handler_func:
+            await handler_func(args)
+        else:
+            print(f"Unknown command: {command}. Type /help for a list of commands.")
+
+    async def _show_help(self, args: List[str]):
         print("Available commands:")
         print("  /help           - Show this help message.")
         print("  /save [name]    - Save the session. Optionally set a new session name.")
@@ -141,24 +159,26 @@ async def _handle_meta_command(user_input: str, manager: ChatbotManager):
         print("  /history        - Print the current message history.")
         print("  /tools          - List the currently loaded tools.")
         print("  /exit, /quit    - Exit the application.")
-    elif command == "/save":
+
+    async def _save_session(self, args: List[str]):
         if args:
-            manager.set_session_name(args[0])
-        manager.save_session()
-    elif command == "/clear":
-        manager.clear_session()
-    elif command == "/history":
-        if manager.agent:
-            print(json.dumps(manager.agent.messages, indent=2))
-    elif command == "/tools":
-        if manager.loaded_tools:
+            self.manager.set_session_name(args[0])
+        self.manager.save_session()
+
+    async def _clear_session(self, args: List[str]):
+        self.manager.clear_session()
+
+    async def _show_history(self, args: List[str]):
+        if self.manager.engine and self.manager.engine.agent:
+            print(json.dumps(self.manager.engine.agent.messages, indent=2))
+
+    async def _list_tools(self, args: List[str]):
+        if self.manager.engine and self.manager.engine.loaded_tools:
             print("Loaded tools:")
-            for tool in manager.loaded_tools:
+            for tool in self.manager.engine.loaded_tools:
                 print(f"  - {tool.tool_spec.get('name', 'unnamed-tool')}")
         else:
             print("No tools are currently loaded.")
-    else:
-        print(f"Unknown command: {command}. Type /help for a list of commands.")
 
 
 async def _handle_agent_stream(
@@ -173,8 +193,6 @@ async def _handle_agent_stream(
     if not message:
         return True
 
-    # The adapter's 'expected_exceptions' property returns a tuple of exception types.
-    # This tuple is what the 'except' statement needs to catch specific provider errors.
     exceptions_to_catch = adapter.expected_exceptions if adapter else (Exception,)
 
     try:
@@ -198,13 +216,10 @@ async def _handle_agent_stream(
 
 async def run_headless_mode(manager: ChatbotManager, message: str) -> bool:
     """Runs the chatbot non-interactively for scripting. Returns success status."""
-    if not manager.agent or not manager.framework_adapter:
+    if not manager.engine or not manager.engine.agent or not manager.engine.framework_adapter:
         return False
     
-    # The agent's message history is already correctly initialized by the manager,
-    # including session data, system prompt emulation, and startup files.
-    # We just need to process the user's new message.
-    return await _handle_agent_stream(manager.agent, message, manager.framework_adapter)
+    return await _handle_agent_stream(manager.engine.agent, message, manager.engine.framework_adapter)
 
 
 async def chat_loop_async(
@@ -213,12 +228,14 @@ async def chat_loop_async(
     max_files: int = 20,
 ):
     """Runs the main interactive conversation loop using prompt_toolkit."""
-    if not manager.agent or not manager.framework_adapter:
-        logger.error("Cannot start chat loop: agent or adapter not initialized.")
+    engine = manager.engine
+    if not engine or not engine.agent or not engine.framework_adapter:
+        logger.error("Cannot start chat loop: engine or agent not initialized.")
         return
 
     history = FileHistory(".chatbot_history")
     session = PromptSession(history=history, completer=YacbaCompleter())
+    command_handler = CommandHandler(manager)
     bindings = KeyBindings()
 
     @bindings.add("enter")
@@ -231,7 +248,7 @@ async def chat_loop_async(
 
     if initial_message:
         print(f"You: {initial_message}")
-        await _handle_agent_stream(manager.agent, initial_message, manager.framework_adapter)
+        await _handle_agent_stream(engine.agent, initial_message, engine.framework_adapter)
 
     while True:
         try:
@@ -244,11 +261,11 @@ async def chat_loop_async(
                 continue
             
             if user_input.strip().startswith("/"):
-                await _handle_meta_command(user_input.strip(), manager)
+                await command_handler.handle(user_input.strip())
                 continue
 
             agent_input = parse_input_with_files(user_input, max_files)
-            await _handle_agent_stream(manager.agent, agent_input, manager.framework_adapter)
+            await _handle_agent_stream(engine.agent, agent_input, engine.framework_adapter)
 
         except (KeyboardInterrupt, EOFError):
             print()
