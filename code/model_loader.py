@@ -1,48 +1,38 @@
 # model_loader.py
 # Handles the dynamic loading and instantiation of different Strands model classes.
 
-import importlib
 import litellm
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from loguru import logger
 
 from strands.models.model import Model
 from utils import guess_framework_from_model_string
+from framework_adapters import DefaultFrameworkAdapter, BedrockFrameworkAdapter, FrameworkAdapter
 
 class StrandsModelLoader:
-    """A factory class for creating Strands Model instances."""
+    """A factory class for creating Strands Model instances using framework adapters."""
 
-    FRAMEWORK_HANDLERS = {
-        "litellm": {
-            "module": "strands.models.litellm",
-            "class": "LiteLLMModel",
-            "model_id_param": "model_id",
-            "pre_init_hook": litellm.validate_environment
-        },
-        "openai": {
-            "module": "strands.models.openai",
-            "class": "OpenAIModel",
-            "model_id_param": "model",
-            "pre_init_hook": None
-        },
-        "anthropic": {
-            "module": "strands.models.anthropic",
-            "class": "AnthropicModel",
-            "model_id_param": "model",
-            "pre_init_hook": None
-        },
-        "bedrock": {
-            "module": "strands.models.bedrock",
-            "class": "BedrockModel",
-            "model_id_param": "model_id",
-            "pre_init_hook": None
-        }
+    # This dictionary now maps framework names to adapter classes and their configs.
+    FRAMEWORK_ADAPTER_MAP = {
+        "litellm": (DefaultFrameworkAdapter, {
+            "module": "strands.models.litellm", "class": "LiteLLMModel",
+            "model_id_param": "model_id", "pre_init_hook": litellm.validate_environment
+        }),
+        "openai": (DefaultFrameworkAdapter, {
+            "module": "strands.models.openai", "class": "OpenAIModel", "model_id_param": "model"
+        }),
+        "anthropic": (DefaultFrameworkAdapter, {
+            "module": "strands.models.anthropic", "class": "AnthropicModel", "model_id_param": "model"
+        }),
+        "bedrock": (BedrockFrameworkAdapter, {
+            "module": "strands.models.bedrock", "class": "BedrockModel", "model_id_param": "model_id"
+        })
     }
 
-    def create_model(self, model_string: str, adhoc_config: Optional[Dict[str, Any]] = None) -> Optional[Model]:
+    def create_model(self, model_string: str, adhoc_config: Optional[Dict[str, Any]] = None) -> Optional[Tuple[Model, FrameworkAdapter]]:
         """
-        Parses a model string, loads the appropriate Strands model class,
-        and instantiates it with the provided configuration.
+        Selects the correct framework adapter and uses it to create a model instance.
+        Returns the model and the adapter instance.
         """
         adhoc_config = adhoc_config or {}
         
@@ -53,31 +43,17 @@ class StrandsModelLoader:
             framework = guess_framework_from_model_string(model_name)
             logger.info(f"Framework not specified, guessing '{framework}' for model '{model_name}'.")
 
-        handler = self.FRAMEWORK_HANDLERS.get(framework)
-        if not handler:
+        adapter_info = self.FRAMEWORK_ADAPTER_MAP.get(framework)
+        if not adapter_info:
             logger.error(f"Unsupported model framework: '{framework}'")
             return None
 
-        logger.info(f"Attempting to load model '{model_name}' using framework '{framework}'.")
+        AdapterClass, config = adapter_info
+        adapter = AdapterClass(config)
+        
+        logger.info(f"Attempting to load model '{model_name}' using adapter '{AdapterClass.__name__}'.")
+        
+        model_instance = adapter.create_model(model_name, adhoc_config)
+        
+        return (model_instance, adapter) if model_instance else None
 
-        try:
-            if handler["pre_init_hook"]:
-                logger.debug(f"Running pre-init hook for {framework}...")
-                handler["pre_init_hook"](model=model_name)
-
-            module = importlib.import_module(handler["module"])
-            ModelClass = getattr(module, handler["class"])
-            
-            # Prepare constructor arguments
-            model_args = {handler["model_id_param"]: model_name}
-            model_args.update(adhoc_config)
-
-            logger.info(f"Initializing {handler['class']} with ad-hoc config: {adhoc_config}")
-            return ModelClass(**model_args)
-
-        except ImportError:
-            logger.error(f"Could not import {handler['class']} from {handler['module']}. Is the library installed?")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to create model instance for framework '{framework}': {e}")
-            return None

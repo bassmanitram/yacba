@@ -10,7 +10,7 @@ from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any
 
-from utils import guess_mimetype, scan_directory
+from utils import guess_mimetype
 
 # Define constants for clarity and maintainability.
 DEFAULT_SYSTEM_PROMPT = (
@@ -38,61 +38,6 @@ def _process_system_prompt(prompt_arg: str) -> tuple[str, str]:
             return DEFAULT_SYSTEM_PROMPT, "default (fallback)"
     
     return prompt_arg, "command-line"
-
-def _process_file_and_directory_args(file_args: List[List[str]], max_files: int) -> List[tuple[str, str]]:
-    """
-    Processes the list of file/directory arguments from argparse.
-    Handles recursive directory scanning, filter syntax, and mimetype resolution.
-    """
-    if not file_args:
-        return []
-
-    processed_files: List[tuple[str, str]] = []
-    # Regex to capture directory path and filters, e.g., "my/folder[*.py, *.js]"
-    dir_filter_pattern = re.compile(r"(.+?)\[(.+?)\]$")
-
-    for file_arg in file_args:
-        if len(processed_files) >= max_files:
-            logger.warning(f"File limit of {max_files} reached. Ignoring further file arguments.")
-            break
-
-        path_str = file_arg[0]
-        
-        # Check if the path is a directory, potentially with filters.
-        potential_dir_path = dir_filter_pattern.match(path_str)
-        is_dir = os.path.isdir(potential_dir_path.group(1)) if potential_dir_path else os.path.isdir(path_str)
-
-        if is_dir:
-            dir_path, filters = path_str, None
-            
-            match = dir_filter_pattern.match(path_str)
-            if match:
-                dir_path = match.group(1)
-                filters = [f.strip() for f in match.group(2).split(',')]
-                logger.info(f"Directory scanning with filters: {filters} in '{dir_path}'")
-            else:
-                logger.info(f"Directory detected. Scanning '{path_str}' for text files...")
-
-            override_mimetype = file_arg[1] if len(file_arg) > 1 and "/" in file_arg[1] else None
-            if override_mimetype:
-                logger.info(f"Using override mimetype '{override_mimetype}' for all files found.")
-
-            remaining_limit = max_files - len(processed_files)
-            found_files = scan_directory(dir_path, limit=remaining_limit, filters=filters)
-            
-            for f_path in found_files:
-                mimetype_to_use = override_mimetype or guess_mimetype(f_path)
-                processed_files.append((f_path, mimetype_to_use))
-            logger.info(f"Found and added {len(found_files)} files from '{dir_path}'.")
-
-        elif os.path.isfile(path_str):
-            mimetype = (file_arg[1] if len(file_arg) > 1 and "/" in file_arg[1] 
-                        else guess_mimetype(path_str))
-            processed_files.append((path_str, mimetype))
-        else:
-            logger.warning(f"The path '{path_str}' is not a valid file or directory. Skipping.")
-            
-    return processed_files
 
 def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str, Any]:
     """
@@ -212,7 +157,15 @@ def parse_arguments() -> argparse.Namespace:
         args.initial_message = sys.stdin.read()
     
     args.system_prompt, args.prompt_source = _process_system_prompt(args.system_prompt_arg)
-    args.files = _process_file_and_directory_args(args.files_raw or [], args.max_files)
+    
+    # The new, simplified file argument processing.
+    args.files = []
+    if args.files_raw:
+        for file_arg in args.files_raw:
+            path_str = file_arg[0]
+            mimetype = file_arg[1] if len(file_arg) > 1 else None
+            args.files.append((path_str, mimetype))
+
     args.model_config = _process_model_config(args.model_config, args.config_vals)
             
     return args

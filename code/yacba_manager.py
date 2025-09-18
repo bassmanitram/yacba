@@ -2,11 +2,11 @@
 # Manages the lifecycle of the chatbot agent and its client connections.
 
 import os
-import sys
+#import sys
 import importlib.util
 from typing import List, Dict, Any, Optional, Callable
 from contextlib import ExitStack
-from collections.abc import Callable as CallableType
+#from collections.abc import Callable as CallableType
 import litellm
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,12 +20,10 @@ from mcp.client.streamable_http import streamablehttp_client
 
 from custom_handler import SilentToolUseCallbackHandler
 from model_loader import StrandsModelLoader
+from framework_adapters import FrameworkAdapter
 
 def _get_mcp_client_factory(config: Dict[str, Any]) -> Optional[Callable[[], Any]]:
-    """
-    Determines the correct MCP client factory (stdio or http) based on the config.
-    Returns a callable factory function or None if the config is invalid.
-    """
+    # ... (function is unchanged)
     server_id = config.get("id", "unknown-server")
     if "url" in config:
         logger.debug(f"Connecting to MCP server '{server_id}' via HTTP at {config['url']}")
@@ -55,18 +53,15 @@ class ChatbotManager:
         self.headless = headless
         self.model_config = model_config or {}
         self.agent: Optional[Agent] = None
+        self.model: Optional[Model] = None
+        self.framework_adapter: Optional[FrameworkAdapter] = None
         self.loaded_tools: List[Any] = []
         self._exit_stack = ExitStack()
-        self._tool_setters = {
-            "mcp": self._setup_single_mcp_client,
-            "python": self._setup_single_python_tool,
-        }
+        self._tool_setters = { "mcp": self._setup_single_mcp_client, "python": self._setup_single_python_tool }
         logger.debug("ChatbotManager initialized.")
 
     def _setup_single_mcp_client(self, config: Dict[str, Any]) -> List[Any]:
-        """
-        Initializes one MCP client, connects to its server, and returns its tools.
-        """
+        # ... (function is unchanged)
         server_id = config.get("id", "unknown-server")
         try:
             client_factory = _get_mcp_client_factory(config)
@@ -81,11 +76,9 @@ class ChatbotManager:
         except Exception as e:
             logger.error(f"Failed to connect to or start MCP server {server_id}: {e}")
             return []
-
-    def _setup_single_python_tool(self, config: Dict[str, Any]) -> List[Callable]:
-        """
-        Loads tools from a specified Python module.
-        """
+    
+    def _setup_single_python_tool(self, config: Dict[str, Any]) -> List[Any]:
+        # ... (function is unchanged)
         tool_id = config.get("id", "unknown-tool")
         module_path = config.get("module_path")
         function_names = config.get("functions", [])
@@ -114,10 +107,7 @@ class ChatbotManager:
             for func_name in function_names:
                 if hasattr(module, func_name):
                     tool_obj = getattr(module, func_name)
-                    #print(dir(module))
-                    #print(dir(tool_obj))
-                    # A valid tool MUST have the .tool_spec attribute.
-                    if hasattr(tool_obj, 'tool_spec') or hasattr(tool_obj, 'tool'):
+                    if hasattr(tool_obj, 'tool_spec'):
                         loaded_tools.append(tool_obj)
                     else:
                         logger.warning(f"Object '{func_name}' in '{resolved_path}' is not a valid Strands tool. Did you forget the @tool decorator?")
@@ -132,23 +122,17 @@ class ChatbotManager:
             return []
 
     def _initialize_all_tools(self) -> List[Any]:
-        """
-        Uses a thread pool to initialize all configured tools in parallel.
-        """
+        # ... (function is unchanged)
         all_tools: List[Any] = []
-        
         with ThreadPoolExecutor() as executor:
             future_to_config = {}
             for config in self.tool_configs:
                 tool_id = config.get("id", "unknown-tool")
-
                 if config.get("disabled", False):
                     logger.info(f"Tool '{tool_id}' is disabled. Skipping.")
                     continue
-
                 tool_type = config.get("type")
                 setup_function = self._tool_setters.get(tool_type)
-
                 if setup_function:
                     future = executor.submit(setup_function, config)
                     future_to_config[future] = config
@@ -163,24 +147,34 @@ class ChatbotManager:
                     logger.error(f"Exception in thread for tool {server_id}: {e}")
         return all_tools
 
-    def _setup_agent(self, tools: List[Any]) -> Optional[Agent]:
+    def _setup_agent(self) -> Optional[Agent]:
         """
-        Validates the environment and creates the Strands agent instance.
+        Creates the Strands agent instance, using the framework adapter to
+        handle framework-specific configurations.
         """
         try:
-            loader = StrandsModelLoader()
-            model = loader.create_model(self.model_string, self.model_config)
-            if not model:
+            if not self.model or not self.framework_adapter:
                 return None
             
+            # Use the adapter to handle system prompt adaptations
+            system_prompt, initial_messages = self.framework_adapter.adapt_system_prompt(
+                self.system_prompt, self.startup_files_content
+            )
+            
+            # If there are initial messages, adapt their content as well
+            if initial_messages:
+                for msg in initial_messages:
+                    if 'content' in msg:
+                        msg['content'] = self.framework_adapter.adapt_content(msg['content'])
+
             handler = SilentToolUseCallbackHandler(headless=self.headless)
             
             agent = Agent(
-                model=model, 
-                tools=tools, 
-                system_prompt=self.system_prompt,
+                model=self.model, 
+                tools=self.loaded_tools, 
+                system_prompt=system_prompt,
                 callback_handler=handler,
-                messages=self.startup_files_content
+                messages=initial_messages
             )
             logger.info("Agent successfully created.")
             return agent
@@ -192,9 +186,15 @@ class ChatbotManager:
             return None
 
     def __enter__(self):
-        """Initializes tools and the agent when entering the 'with' block."""
-        self.loaded_tools = self._initialize_all_tools()
-        self.agent = self._setup_agent(tools=self.loaded_tools)
+        """Initializes the model, tools, and the agent."""
+        loader = StrandsModelLoader()
+        model_info = loader.create_model(self.model_string, self.model_config)
+        
+        if model_info:
+            self.model, self.framework_adapter = model_info
+            self.loaded_tools = self._initialize_all_tools()
+            self.agent = self._setup_agent()
+        
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

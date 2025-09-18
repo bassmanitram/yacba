@@ -10,31 +10,23 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.completion import PathCompleter, Completer
 from prompt_toolkit.document import Document
 from loguru import logger
-from typing import List, Dict, Any, Optional, TextIO
+from typing import List, Dict, Any, Optional, TextIO, Union
 import litellm
 
 from strands import Agent
 from content_processor import parse_input_with_files
-
-# ... (print_welcome_message is unchanged)
+from framework_adapters import FrameworkAdapter
 
 def print_welcome_message():
-    """Prints the initial welcome message and instructions to stdout."""
+    # ... (function is unchanged)
     print("Welcome to Yet Another ChatBot Agent!")
     print("Type 'exit' or 'quit' on a line by itself to end the conversation.")
     print("Use Alt+Enter to add a new line. Use CTRL-D or CTRL-C to exit.")
     print("To upload a file in-chat, use the format: file('path/to/file.ext')")
     print("Pro-tip: Type \"file('\" and then press Tab for path auto-completion.")
 
-def print_startup_info(
-    model_id: str,
-    system_prompt: str,
-    prompt_source: str,
-    loaded_tools: List[Any],
-    startup_files: List[tuple[str, str]],
-    output_file: TextIO = sys.stdout
-):
-    """Prints a summary of the configuration to a specified output stream."""
+def print_startup_info(model_id: str, system_prompt: str, prompt_source: str, loaded_tools: List[Any], startup_files: List[List[str]], output_file: TextIO = sys.stdout):
+    # ... (function is unchanged)
     def write(msg):
         print(msg, file=output_file)
 
@@ -48,7 +40,6 @@ def print_startup_info(
         write("Available Tools:")
         for tool in loaded_tools:
             try:
-                # All valid strands tools have a .tool_spec attribute
                 tool_name = tool.tool_spec.get('name', 'unnamed-tool')
                 write(f"  - {tool_name}")
             except AttributeError:
@@ -58,19 +49,14 @@ def print_startup_info(
 
     if startup_files:
         write(f"Uploaded Files ({len(startup_files)}):")
-        for path, media_type in startup_files:
-            write(f"  - {path} ({media_type})")
+        for file_arg in startup_files:
+            write(f"  - {file_arg[0]}")
     else:
         write("Uploaded Files: None")
     write("-" * 20)
 
-# ... (rest of the file is unchanged)
-
 class CustomPathCompleter(Completer):
-    """
-    A completer that provides path suggestions only when the cursor is inside
-    a file('...') or file("...") call, after an opening quote is typed.
-    """
+    # ... (class is unchanged)
     path_completer = PathCompleter()
     def get_completions(self, document: Document, complete_event):
         match = re.search(r"file\((['\"])([^'\"]*)$", document.text_before_cursor)
@@ -80,9 +66,8 @@ class CustomPathCompleter(Completer):
             for comp in self.path_completer.get_completions(path_doc, complete_event):
                 yield comp
 
-
 def _format_litellm_error(e: Exception) -> str:
-    """Extracts detailed information from litellm exceptions for better user feedback."""
+    # ... (function is unchanged)
     details = f"Error Type: {type(e).__name__}"
     if hasattr(e, 'message'):
         details += f"\nMessage: {e.message}"
@@ -90,15 +75,10 @@ def _format_litellm_error(e: Exception) -> str:
         details += f"\nOriginal Response: {e.response.text}"
     return details
 
-
-async def _handle_agent_stream(agent: Agent, message: str) -> bool:
-    """
-    Drives the agent's streaming response and handles potential errors.
-    Returns True on success, False on failure.
-    """
-    agent_input = parse_input_with_files(message)
+async def _handle_agent_stream(agent: Agent, message: Union[str, Dict[str, Any]]) -> bool:
+    # ... (function is unchanged)
     try:
-        async for _ in agent.stream_async(agent_input):
+        async for _ in agent.stream_async(message):
             pass
         return True
     except (litellm.exceptions.APIConnectionError, litellm.exceptions.ServiceUnavailableError) as e:
@@ -106,18 +86,21 @@ async def _handle_agent_stream(agent: Agent, message: str) -> bool:
         print(f"\nSorry, a model provider error occurred:\n{error_details}", file=sys.stderr)
         return False
     except Exception as e:
-        # Catchall for other unexpected errors during streaming.
         print(f"\nSorry, an unexpected error occurred while generating the response: {e}", file=sys.stderr)
         return False
 
+async def run_headless_mode(agent: Agent, adapter: FrameworkAdapter, message: str) -> bool:
+    """Runs the chatbot non-interactively for scripting."""
+    agent_input = parse_input_with_files(message)
+    if isinstance(agent_input, list):
+        final_content = adapter.adapt_content(agent_input)
+        # Wrap the content in the standard message format for the agent
+        agent_input = {"role": "user", "content": final_content}
+        
+    return await _handle_agent_stream(agent, agent_input)
 
-async def run_headless_mode(agent: Agent, message: str) -> bool:
-    """Runs the chatbot non-interactively for scripting. Returns success status."""
-    return await _handle_agent_stream(agent, message)
-
-
-async def chat_loop_async(agent: Agent, initial_message: Optional[str] = None):
-    """Runs the main interactive conversation loop using prompt_toolkit."""
+async def chat_loop_async(agent: Agent, adapter: FrameworkAdapter, initial_message: Optional[str] = None, max_files: int = 20):
+    """Runs the main interactive conversation loop."""
     history = FileHistory(".chatbot_history")
     session = PromptSession(history=history, completer=CustomPathCompleter())
     bindings = KeyBindings()
@@ -132,7 +115,10 @@ async def chat_loop_async(agent: Agent, initial_message: Optional[str] = None):
         
     if initial_message:
         print(f"You: {initial_message}")
-        await _handle_agent_stream(agent, initial_message)
+        agent_input = parse_input_with_files(initial_message, max_files)
+        if isinstance(agent_input, list):
+            agent_input = adapter.adapt_content(agent_input)
+        await _handle_agent_stream(agent, agent_input)
 
     while True:
         try:
@@ -141,7 +127,12 @@ async def chat_loop_async(agent: Agent, initial_message: Optional[str] = None):
                 break
             if not user_input.strip():
                 continue
-            await _handle_agent_stream(agent, user_input)
+            
+            agent_input = parse_input_with_files(user_input, max_files)
+            if isinstance(agent_input, list):
+                agent_input = adapter.adapt_content(agent_input)
+                
+            await _handle_agent_stream(agent, agent_input)
         except (KeyboardInterrupt, EOFError):
             print()
             break
