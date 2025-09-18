@@ -163,12 +163,16 @@ async def _handle_agent_stream(
     if not message:
         return True
 
+    # The adapter's 'expected_exceptions' property returns a tuple of exception types.
+    # This tuple is what the 'except' statement needs to catch specific provider errors.
+    exceptions_to_catch = adapter.expected_exceptions if adapter else (Exception,)
+
     try:
         transformed_message = adapter.transform_content(message)
         async for _ in agent.stream_async(transformed_message):
             pass
         return True
-    except adapter.expected_exceptions as e:
+    except exceptions_to_catch as e:
         error_details = _format_error(e)
         print(
             f"\nA model provider error occurred:\n{error_details}", file=sys.stderr
@@ -239,3 +243,4 @@ async def chat_loop_async(
         except (KeyboardInterrupt, EOFError):
             print()
             break
+

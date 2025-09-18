@@ -4,6 +4,7 @@
 
 import base64
 import re
+import os
 from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any, Union, Optional
