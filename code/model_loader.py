@@ -1,73 +1,83 @@
 # model_loader.py
-# A factory for creating Strands model instances from different frameworks.
+# Handles the dynamic loading and instantiation of different Strands model classes.
 
+import importlib
+import litellm
 from typing import Dict, Any, Optional
 from loguru import logger
 
-# Import the base class for type hinting.
 from strands.models.model import Model
 from utils import guess_framework_from_model_string
 
 class StrandsModelLoader:
-    """
-    A factory class that instantiates the correct Strands Model class based on a
-    provided model string in the format <framework>:<model_id>.
-    """
-    def create_model(self, model_string: str, model_config: Dict[str, Any]) -> Optional[Model]:
-        """
-        Parses the model string and instantiates the appropriate model class.
+    """A factory class for creating Strands Model instances."""
 
-        Args:
-            model_string: The model identifier, e.g., "litellm:gemini/gemini-pro" or just "gpt-4o".
-            model_config: A dictionary of ad-hoc arguments for the model constructor.
+    FRAMEWORK_HANDLERS = {
+        "litellm": {
+            "module": "strands.models.litellm",
+            "class": "LiteLLMModel",
+            "model_id_param": "model_id",
+            "pre_init_hook": litellm.validate_environment
+        },
+        "openai": {
+            "module": "strands.models.openai",
+            "class": "OpenAIModel",
+            "model_id_param": "model",
+            "pre_init_hook": None
+        },
+        "anthropic": {
+            "module": "strands.models.anthropic",
+            "class": "AnthropicModel",
+            "model_id_param": "model",
+            "pre_init_hook": None
+        },
+        "bedrock": {
+            "module": "strands.models.bedrock",
+            "class": "BedrockModel",
+            "model_id_param": "model_id",
+            "pre_init_hook": None
+        }
+    }
 
-        Returns:
-            An instance of a Strands Model class, or None if creation fails.
+    def create_model(self, model_string: str, adhoc_config: Optional[Dict[str, Any]] = None) -> Optional[Model]:
         """
-        if ':' in model_string:
-            framework, model_name = model_string.split(':', 1)
+        Parses a model string, loads the appropriate Strands model class,
+        and instantiates it with the provided configuration.
+        """
+        adhoc_config = adhoc_config or {}
+        
+        if ":" in model_string:
+            framework, model_name = model_string.split(":", 1)
         else:
-            # If no framework is specified, guess it.
             model_name = model_string
             framework = guess_framework_from_model_string(model_name)
+            logger.info(f"Framework not specified, guessing '{framework}' for model '{model_name}'.")
+
+        handler = self.FRAMEWORK_HANDLERS.get(framework)
+        if not handler:
+            logger.error(f"Unsupported model framework: '{framework}'")
+            return None
 
         logger.info(f"Attempting to load model '{model_name}' using framework '{framework}'.")
 
         try:
-            if framework == "litellm":
-                from strands.models.litellm import LiteLLMModel
-                import litellm
-                litellm.validate_environment(model=model_name)
-                logger.info(f"Initializing LiteLLMModel with ad-hoc config: {model_config}")
-                return LiteLLMModel(model_id=model_name, **model_config)
+            if handler["pre_init_hook"]:
+                logger.debug(f"Running pre-init hook for {framework}...")
+                handler["pre_init_hook"](model=model_name)
 
-            elif framework == "openai":
-                # Placeholder for OpenAI integration
-                logger.warning("OpenAI model framework is not yet implemented.")
-                # from strands.models.openai import OpenAIModel
-                # return OpenAIModel(model=model_name, **model_config)
-                return None
-                
-            elif framework == "anthropic":
-                # Placeholder for Anthropic integration
-                logger.warning("Anthropic model framework is not yet implemented.")
-                # from strands.models.anthropic import AnthropicModel
-                # return AnthropicModel(model=model_name, **model_config)
-                return None
+            module = importlib.import_module(handler["module"])
+            ModelClass = getattr(module, handler["class"])
+            
+            # Prepare constructor arguments
+            model_args = {handler["model_id_param"]: model_name}
+            model_args.update(adhoc_config)
 
-            elif framework == "bedrock":
-                # Placeholder for Bedrock integration
-                logger.warning("Bedrock model framework is not yet implemented.")
-                # from strands.models.bedrock import BedrockModel
-                # return BedrockModel(model=model_name, **model_config)
-                return None
+            logger.info(f"Initializing {handler['class']} with ad-hoc config: {adhoc_config}")
+            return ModelClass(**model_args)
 
-            else:
-                logger.error(f"Unsupported model framework: '{framework}'")
-                return None
         except ImportError:
-            logger.error(f"Could not import dependencies for the '{framework}' framework. Please ensure it is installed.")
+            logger.error(f"Could not import {handler['class']} from {handler['module']}. Is the library installed?")
             return None
         except Exception as e:
-            logger.error(f"Failed to instantiate model '{model_name}' from framework '{framework}': {e}")
+            logger.error(f"Failed to create model instance for framework '{framework}': {e}")
             return None

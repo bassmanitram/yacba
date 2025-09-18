@@ -8,9 +8,10 @@ from loguru import logger
 
 from yacba_manager import ChatbotManager
 from cli_handler import print_welcome_message, print_startup_info, chat_loop_async, run_headless_mode
-from utils import discover_tool_configs
+from model_loader import StrandsModelLoader
 from content_processor import process_startup_files
 from config_parser import parse_arguments
+from utils import discover_tool_configs
 
 async def main_async():
     """
@@ -31,10 +32,11 @@ async def main_async():
             print("Attempting to initialize tools... this may take a moment.")
 
     startup_files_content = process_startup_files(args.files)
+
     logger.info("Starting up Chatbot Manager...")
     
     with ChatbotManager(
-        model_id=args.model,
+        model_string=args.model,
         system_prompt=args.system_prompt,
         tool_configs=tool_configs,
         startup_files_content=startup_files_content,
@@ -49,7 +51,7 @@ async def main_async():
             model_id=args.model,
             system_prompt=args.system_prompt,
             prompt_source=args.prompt_source,
-            tool_configs=tool_configs,
+            loaded_tools=manager.loaded_tools,
             startup_files=args.files,
             output_file=sys.stderr
         )
@@ -61,9 +63,11 @@ async def main_async():
         else:
             await chat_loop_async(manager.agent, args.initial_message)
 
+# ... (rest of the file is unchanged)
+
 def main():
     """ 
-    Synchronous main entry point.
+    Synchronous main entry point. Configures logging and runs the async application.
     """
     log_level = os.environ.get("LOGURU_LEVEL", "INFO").upper()
     logger.remove()
@@ -79,3 +83,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
