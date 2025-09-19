@@ -4,6 +4,7 @@ Base type definitions used throughout YACBA.
 
 from typing import Union, Dict, List, Any, Optional, Protocol, runtime_checkable
 from pathlib import Path
+from enum import IntEnum
 import os
 
 # Basic JSON types
@@ -12,6 +13,16 @@ JSONDict = Dict[str, JSONValue]
 
 # Path-like objects
 PathLike = Union[str, Path, os.PathLike]
+
+# Exit codes for the application
+class ExitCode(IntEnum):
+    """Standard exit codes for YACBA application."""
+    SUCCESS = 0
+    CONFIG_ERROR = 1
+    INITIALIZATION_ERROR = 2
+    RUNTIME_ERROR = 3
+    INTERRUPTED = 4
+    FATAL_ERROR = 5
 
 # Protocol for objects that can be converted to string
 @runtime_checkable

@@ -161,8 +161,8 @@ class ChatbotManager:
             exc_tb: Exception traceback if an exception occurred
         """
         try:
-            # Save session if not in headless mode
-            if not self.config.headless:
+            # Save session if not in headless mode and engine is available
+            if not self.config.headless and self.engine and self.engine.agent:
                 self.save_session()
             
             # Shutdown the engine

@@ -176,7 +176,10 @@ class CommandHandler:
         if self.manager.engine and self.manager.engine.loaded_tools:
             print("Loaded tools:")
             for tool in self.manager.engine.loaded_tools:
-                print(f"  - {tool.tool_spec.get('name', 'unnamed-tool')}")
+                if hasattr(tool, "tool_spec"):
+                    print(f"  - {tool.tool_spec.get('name', 'unnamed-tool')}")
+                else:
+                    print(f"  - (Unnamed or invalid tool object: {type(tool)})")
         else:
             print("No tools are currently loaded.")
 
@@ -219,7 +222,10 @@ async def run_headless_mode(manager: ChatbotManager, message: str) -> bool:
     if not manager.engine or not manager.engine.agent or not manager.engine.framework_adapter:
         return False
     
-    return await _handle_agent_stream(manager.engine.agent, message, manager.engine.framework_adapter)
+    # In headless mode, we process the initial message which might contain file paths
+    agent_input = parse_input_with_files(message, manager.config.max_files)
+    
+    return await _handle_agent_stream(manager.engine.agent, agent_input, manager.engine.framework_adapter)
 
 
 async def chat_loop_async(
@@ -233,7 +239,7 @@ async def chat_loop_async(
         logger.error("Cannot start chat loop: engine or agent not initialized.")
         return
 
-    history = FileHistory(".chatbot_history")
+    history = FileHistory(".yacba_history")
     session = PromptSession(history=history, completer=YacbaCompleter())
     command_handler = CommandHandler(manager)
     bindings = KeyBindings()
@@ -248,7 +254,8 @@ async def chat_loop_async(
 
     if initial_message:
         print(f"You: {initial_message}")
-        await _handle_agent_stream(engine.agent, initial_message, engine.framework_adapter)
+        agent_input = parse_input_with_files(initial_message, max_files)
+        await _handle_agent_stream(engine.agent, agent_input, engine.framework_adapter)
 
     while True:
         try:

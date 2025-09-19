@@ -9,7 +9,7 @@ from loguru import logger
 from strands.handlers.callback_handler import PrintingCallbackHandler
 
 
-class SilentToolUseCallbackHandler(PrintingCallbackHandler):
+class CustomCallbackHandler(PrintingCallbackHandler):
     """
     A callback handler that can optionally suppress tool use details for cleaner output.
     
@@ -20,10 +20,6 @@ class SilentToolUseCallbackHandler(PrintingCallbackHandler):
     It is also responsible for:
     - Printing the "Chatbot: " prefix in interactive mode.
     - Printing the final newline after a response in interactive mode.
-    
-    Trace logging can be controlled via environment variables:
-    - YACBA_TRACE_CUSTOM_HANDLER=1: Enable trace logging for this module only
-    - YACBA_TRACE_LEVEL=TRACE: Set global trace level
     """
 
     def __init__(self, headless: bool = False, show_tool_use: bool = False):
@@ -37,12 +33,9 @@ class SilentToolUseCallbackHandler(PrintingCallbackHandler):
         super().__init__()
         self.headless = headless
         self.show_tool_use = show_tool_use
+        self.in_message = False
         
         # Check if trace logging is enabled for this module via environment variable
-        self.trace_enabled = (
-            os.getenv('YACBA_TRACE_CUSTOM_HANDLER', '').lower() in ('1', 'true', 'yes', 'on') or
-            os.getenv('YACBA_TRACE_LEVEL', '').upper() == 'TRACE'
-        )
 
     def __call__(self, **kwargs: Any) -> None:
         """
@@ -51,27 +44,37 @@ class SilentToolUseCallbackHandler(PrintingCallbackHandler):
         Args:
             **kwargs: Event data from the agent
         """
-        # Conditional trace logging based on environment variable
-        if self.trace_enabled:
-            logger.trace("SilentToolUseCallbackHandler.__call__ arguments: {}", kwargs)
+
+        logger.trace("SilentToolUseCallbackHandler.__call__ arguments: {}", kwargs)
         
         event = kwargs.get("event", {})
 
         # In interactive mode, handle the "Chatbot:" prefix and final newline.
         if not self.headless:
-            message_start = event.get("messageStart")
-            if message_start and message_start.get("role") == "assistant":
+            data = kwargs.get("data", "")
+            if data and not self.in_message:
                 # Use a standard print for compatibility and simplicity.
+                self.in_message = True
                 print("Chatbot: ", end="")
 
-            if "messageStop" in event:
+            if "messageStop" in event and self.in_message:
+                self.in_message = False
                 print()  # Print the final newline.
 
         # Conditionally suppress tool usage information based on show_tool_use setting
         # If show_tool_use is False (default), suppress the tool use details
         # This removes the verbose "Using tool..." messages for cleaner output
-        if not self.show_tool_use:
-            kwargs.pop("current_tool_use", None)
+        if self.show_tool_use:
+            current_tool_use = kwargs.get("current_tool_use", {})            
+            if current_tool_use and current_tool_use.get("name"):
+                tool_name = current_tool_use.get("name", "Unknown tool")
+                tool_input = current_tool_use.get("input", "")
+                if self.previous_tool_use != current_tool_use:
+                    self.previous_tool_use = current_tool_use
+                    self.tool_count += 1
+                    print(f"\nTool #{self.tool_count}: {tool_name}: {tool_input}")
+
+        kwargs.pop("current_tool_use", None)
         
         # Pass the remaining arguments (like messageChunk) to the parent handler,
         # which prints the actual content from the language model.
