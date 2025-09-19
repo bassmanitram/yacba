@@ -208,3 +208,4 @@ __marimo__/
 backups*/**
 *yacba-session.*
 .yacba_cache
+.yacba_history
