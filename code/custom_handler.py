@@ -8,6 +8,8 @@ from typing import Any
 from loguru import logger
 from strands.handlers.callback_handler import PrintingCallbackHandler
 
+# A sensible maximum length for tool input values
+MAX_VALUE_LENGTH = 90
 
 class CustomCallbackHandler(PrintingCallbackHandler):
     """
@@ -34,8 +36,28 @@ class CustomCallbackHandler(PrintingCallbackHandler):
         self.headless = headless
         self.show_tool_use = show_tool_use
         self.in_message = False
-        
-        # Check if trace logging is enabled for this module via environment variable
+        # Check env var once at startup for efficiency
+        self.disable_truncation = os.environ.get('YACBA_SHOW_FULL_TOOL_INPUT', 'false').lower() == 'true'
+
+    def _format_and_print_tool_input(self, tool_name: str, tool_input: Any):
+        """Formats and prints tool input, handling truncation."""
+        print(f"\nTool #{self.tool_count}: {tool_name}")
+
+        if not isinstance(tool_input, dict):
+            # Handle non-dict input (e.g., strings, lists)
+            value_str = str(tool_input)
+            if not self.disable_truncation and len(value_str) > MAX_VALUE_LENGTH:
+                value_str = value_str[:MAX_VALUE_LENGTH] + '...'
+            print(f"  - input: {value_str}")
+            return
+
+        # Handle dictionary input
+        for key, value in tool_input.items():
+            value_str = str(value)
+            # Apply truncation only if it's enabled and the string is too long
+            if not self.disable_truncation and len(value_str) > MAX_VALUE_LENGTH:
+                value_str = value_str[:MAX_VALUE_LENGTH] + '...'
+            print(f"  - {key}: {value_str}")
 
     def __call__(self, **kwargs: Any) -> None:
         """
@@ -67,12 +89,13 @@ class CustomCallbackHandler(PrintingCallbackHandler):
         if self.show_tool_use:
             current_tool_use = kwargs.get("current_tool_use", {})            
             if current_tool_use and current_tool_use.get("name"):
-                tool_name = current_tool_use.get("name", "Unknown tool")
-                tool_input = current_tool_use.get("input", "")
                 if self.previous_tool_use != current_tool_use:
                     self.previous_tool_use = current_tool_use
                     self.tool_count += 1
-                    print(f"\nTool #{self.tool_count}: {tool_name}: {tool_input}")
+                    self._format_and_print_tool_input(
+                        tool_name=current_tool_use.get("name", "Unknown tool"),
+                        tool_input=current_tool_use.get("input", {})
+                    )
 
         kwargs.pop("current_tool_use", None)
         
