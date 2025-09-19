@@ -9,7 +9,7 @@ from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any, Union, Optional
 
-from utils import guess_mimetype, scan_directory
+from general_utils import guess_mimetype, scan_directory, is_likely_text_file
 
 def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, Any]]:
     """
@@ -17,8 +17,8 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
     Returns a text block for text files, or a generic binary block for others.
     """
     try:
-        # For any text-based format, read the content as a string.
-        if mimetype.startswith("text/"):
+        # Use the more robust utility function to correctly identify text-like files.
+        if is_likely_text_file(file_path):  # <-- CHANGE THIS LINE
             logger.debug(f"Reading file '{file_path}' as text.")
             with open(file_path, "r", errors='replace') as f:
                 return {"type": "text", "text": f.read()}
@@ -40,7 +40,6 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
     except Exception as e:
         logger.error(f"Could not read or encode file {file_path}: {e}")
         return None
-
 
 def process_path_argument(path_str: str, mimetype: Optional[str], max_files: int) -> List[tuple[str, str]]:
     """

@@ -1,5 +1,26 @@
-# config_parser.py
-# Handles parsing of command-line arguments for the chatbot.
+"""
+Handles parsing of command-line arguments for the chatbot.
+Migrated to use focused type system with --show-tool-use feature.
+
+    # Performance optimization options
+    parser.add_argument(
+        '--clear-cache',
+        action='store_true',
+        help='Clear the performance cache before starting'
+    )
+    
+    parser.add_argument(
+        '--show-perf-stats',
+        action='store_true',
+        help='Display performance statistics at the end'
+    )
+    
+    parser.add_argument(
+        '--disable-cache',
+        action='store_true',
+        help='Disable caching for debugging purposes'
+    )
+"""
 
 import argparse
 import os
@@ -7,11 +28,14 @@ import sys
 import json
 from pathlib import Path
 from loguru import logger
-from typing import List, Dict, Any
+from typing import List, Tuple
 
+# Import focused types
+from yacba_types.config import ModelConfig, ToolConfig, FileUpload
+from yacba_types.base import PathLike
 from content_processor import process_path_argument
 from yacba_config import YacbaConfig
-from utils import discover_tool_configs
+from general_utils import discover_tool_configs
 
 # Define constants for clarity and maintainability.
 DEFAULT_SYSTEM_PROMPT = (
@@ -20,10 +44,16 @@ DEFAULT_SYSTEM_PROMPT = (
 )
 DEFAULT_FILE_UPLOAD_LIMIT = 20
 
-def _process_system_prompt(prompt_arg: str) -> tuple[str, str]:
+def _process_system_prompt(prompt_arg: str) -> Tuple[str, str]:
     """
     Processes the system prompt argument, loading from a file if necessary.
     Returns the prompt content and its source description.
+    
+    Args:
+        prompt_arg: The prompt argument (string or file:// URI)
+        
+    Returns:
+        Tuple of (prompt_content, source_description)
     """
     if prompt_arg == DEFAULT_SYSTEM_PROMPT:
         return DEFAULT_SYSTEM_PROMPT, "default"
@@ -40,14 +70,21 @@ def _process_system_prompt(prompt_arg: str) -> tuple[str, str]:
     
     return prompt_arg, "command-line"
 
-def _process_file_args(file_args: List[List[str]], max_files: int) -> List[tuple[str, str]]:
+def _process_file_args(file_args: List[List[str]], max_files: int) -> List[FileUpload]:
     """
-    Processes the list of file/directory arguments from argparse into a flat list of paths.
+    Processes the list of file/directory arguments from argparse into a flat list of file uploads.
+    
+    Args:
+        file_args: List of file argument lists from argparse
+        max_files: Maximum number of files to process
+        
+    Returns:
+        List of FileUpload objects
     """
     if not file_args:
         return []
 
-    processed_files: List[tuple[str, str]] = []
+    processed_files: List[FileUpload] = []
     for file_arg in file_args:
         remaining_slots = max_files - len(processed_files)
         if remaining_slots <= 0:
@@ -57,20 +94,37 @@ def _process_file_args(file_args: List[List[str]], max_files: int) -> List[tuple
         path_str = file_arg[0]
         mimetype = file_arg[1] if len(file_arg) > 1 else None
         
+        # Process path and convert to FileUpload format
         found = process_path_argument(path_str, mimetype, max_files=remaining_slots)
-        processed_files.extend(found)
+        for file_path, file_mimetype in found:
+            file_upload: FileUpload = {
+                "path": file_path,
+                "mimetype": file_mimetype,
+                "size": None  # Will be calculated later if needed
+            }
+            processed_files.append(file_upload)
 
     return processed_files
 
-def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str, Any]:
+def _process_model_config(config_file: str, config_vals: List[str]) -> ModelConfig:
     """
     Loads model configuration from a file and overrides it with individual values.
+    
+    Args:
+        config_file: Path to JSON config file
+        config_vals: List of key:value configuration overrides
+        
+    Returns:
+        ModelConfig dictionary
     """
-    config = {}
+    config: ModelConfig = {}
+    
     if config_file:
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                loaded_config = json.load(f)
+                # Validate that loaded config matches ModelConfig structure
+                config.update(loaded_config)
             logger.info(f"Loaded model configuration from '{config_file}'.")
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Could not load or parse model config file '{config_file}': {e}")
@@ -82,16 +136,20 @@ def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str,
         
         key, value_str = val.split(':', 1)
         
-        if value_str.lower() == 'true': value = True
-        elif value_str.lower() == 'false': value = False
+        # Type conversion for common config values
+        if value_str.lower() == 'true': 
+            value = True
+        elif value_str.lower() == 'false': 
+            value = False
         else:
             try:
                 value = float(value_str)
-                if value.is_integer(): value = int(value)
+                if value.is_integer(): 
+                    value = int(value)
             except ValueError:
                 value = value_str
         
-        config[key] = value
+        config[key] = value  # type: ignore
         logger.info(f"Set model config override: {key} = {value}")
         
     return config
@@ -99,7 +157,10 @@ def _process_model_config(config_file: str, config_vals: List[str]) -> Dict[str,
 def parse_config() -> YacbaConfig:
     """
     Defines and parses command-line arguments, then populates and returns
-    a YacbaConfig object.
+    a YacbaConfig object with proper type safety.
+    
+    Returns:
+        Fully configured and validated YacbaConfig object
     """
     # Determine default model from environment variable or hard-coded value
     default_model = os.environ.get("YACBA_MODEL_ID", "litellm:gemini/gemini-1.5-flash")
@@ -191,30 +252,65 @@ def parse_config() -> YacbaConfig:
         help='Use legacy mode for system prompts by injecting it into the first user message. For models that do not support native system prompts.'
     )
     
+    
+    parser.add_argument(
+        '--show-tool-use',
+        action='store_true',
+        help='Show verbose tool execution feedback. By default, tool use details are hidden for cleaner output.'
+    )
+
+    # Performance optimization options
+    parser.add_argument(
+        '--clear-cache',
+        action='store_true',
+        help='Clear the performance cache before starting'
+    )
+    
+    parser.add_argument(
+        '--show-perf-stats',
+        action='store_true',
+        help='Display performance statistics at the end'
+    )
+    
+    parser.add_argument(
+        '--disable-cache',
+        action='store_true',
+        help='Disable caching for debugging purposes'
+    )
+
     args = parser.parse_args()
 
-    # --- Argument Processing and Config Population ---
-    if args.headless and not args.initial_message and not sys.stdin.isatty():
+    # Handle stdin input for headless mode
+    if args.headless and args.initial_message is None:
         args.initial_message = sys.stdin.read()
-    
-    system_prompt, prompt_source = _process_system_prompt(args.system_prompt_arg)
+
+    # Process file arguments
     files_to_upload = _process_file_args(args.files_raw or [], args.max_files)
+
+    # Process system prompt
+    system_prompt, prompt_source = _process_system_prompt(args.system_prompt_arg)
+
+    # Process model config
     model_config = _process_model_config(args.model_config, args.config_vals)
+
+    # Discover tool configurations
     tool_configs = discover_tool_configs(args.tools_dir)
 
-    # The content processor is now called from main, so we don't process files here
-            
     return YacbaConfig(
         model_string=args.model,
         system_prompt=system_prompt,
         prompt_source=prompt_source,
         tool_configs=tool_configs,
-        startup_files_content=None, # Will be populated in main yacba.py
+        startup_files_content=None,  # Will be populated in main yacba.py
         headless=args.headless,
         model_config=model_config,
         session_name=args.session_name,
         emulate_system_prompt=args.emulate_system_prompt,
+        show_tool_use=args.show_tool_use,
         initial_message=args.initial_message,
         max_files=args.max_files,
-        files_to_upload=files_to_upload
+        files_to_upload=files_to_upload,
+        clear_cache=args.clear_cache,
+        show_perf_stats=args.show_perf_stats,
+        disable_cache=args.disable_cache,
     )

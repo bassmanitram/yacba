@@ -1,6 +1,6 @@
 {
-  "id": "local-shell",
+  "id": "strands-shell",
   "type": "python",
-  "module_path": "../sample-python-tools/strands_shell.py",
-  "functions": ["local_shell"]
+  "module_path": "strands_tools.shell",
+  "functions": ["shell"]
 }
