@@ -6,17 +6,46 @@ Fully typed version using yacba_types.
 import sys
 import os
 import asyncio
-from typing import NoReturn
+from typing import NoReturn, List, Dict, Any, Optional
 from loguru import logger
 
 # Import migrated components with proper typing
 from yacba_manager import ChatbotManager
 from cli_handler import print_welcome_message, print_startup_info, chat_loop_async, run_headless_mode
-from content_processor import process_startup_files
+from content_processor import generate_file_content_blocks
 from config_parser import parse_config
 from yacba_config import YacbaConfig
 from yacba_types.base import ExitCode
+from yacba_types.content import Message
 
+def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[List[Message]]:
+    """
+    Processes startup files using a memory-efficient generator and formats them
+    into a single multi-modal message for the agent.
+    
+    Args:
+        files_to_upload: A list of tuples containing file paths and their mimetypes.
+        
+    Returns:
+        A list containing a single user message with file content, or None if no files.
+    """
+    if not files_to_upload:
+        return None
+
+    # Lazily process all files using a generator and collect the content blocks
+    content_blocks = list(generate_file_content_blocks(files_to_upload))
+
+    # If any blocks were generated, construct the final message
+    if content_blocks:
+        # Prepend the introductory text
+        intro_block = {"type": "text", "text": "The user has uploaded the following files for analysis:"}
+        # Append the concluding text
+        outro_block = {"type": "text", "text": "\nPlease acknowledge you have received these files and await my instructions."}
+        
+        final_content = [intro_block] + content_blocks + [outro_block]
+        return [{"role": "user", "content": final_content}]
+    
+    return None
 
 async def main_async() -> None:
     """
@@ -40,9 +69,8 @@ async def main_async() -> None:
 
     # Process startup files after parsing config and before initializing the manager/engine
     # This is YACBA's responsibility: file processing and content preparation
-    config.startup_files_content = process_startup_files(
-        [(upload["path"], upload["mimetype"]) for upload in config.files_to_upload], 
-        config.max_files
+    config.startup_files_content = _format_startup_message(
+        [(upload["path"], upload["mimetype"]) for upload in config.files_to_upload]
     )
 
     logger.info("Starting up Chatbot Manager...")

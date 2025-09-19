@@ -7,18 +7,27 @@ import re
 import os
 from pathlib import Path
 from loguru import logger
-from typing import List, Dict, Any, Union, Optional
+from typing import List, Dict, Any, Union, Optional, Generator
 
 from general_utils import guess_mimetype, scan_directory, is_likely_text_file
+
+# Define a reasonable file size limit to avoid memory issues (e.g., 10MB)
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, Any]]:
     """
     Reads a single file and prepares it as a content block for the agent.
     Returns a text block for text files, or a generic binary block for others.
+    Skips files that are too large.
     """
     try:
+        # Check file size before attempting to read
+        if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
+            logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
+            return {"type": "text", "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
+
         # Use the more robust utility function to correctly identify text-like files.
-        if is_likely_text_file(file_path):  # <-- CHANGE THIS LINE
+        if is_likely_text_file(file_path):
             logger.debug(f"Reading file '{file_path}' as text.")
             with open(file_path, "r", errors='replace') as f:
                 return {"type": "text", "text": f.read()}
@@ -70,24 +79,24 @@ def process_path_argument(path_str: str, mimetype: Optional[str], max_files: int
     return found_files_with_mimetype
 
 
-def process_startup_files(files: List[tuple[str, str]], max_files: int) -> Optional[List[Dict[str, Any]]]:
-    """Processes files provided at startup into a multi-modal message list."""
+def generate_file_content_blocks(files: List[tuple[str, str]]) -> Generator[Dict[str, Any], None, None]:
+    """
+    A generator that lazily processes files provided at startup, yielding content blocks.
+    This is more memory-efficient as it avoids loading all files at once.
+    """
     if not files:
-        return None
+        return
 
-    content: List[Dict[str, Any]] = [
-        {"type": "text", "text": "The user has uploaded the following files for analysis:"}
-    ]
     for file_path_str, mimetype in files:
         file_path = Path(file_path_str)
-        content.append({"type": "text", "text": f"\n--- File: {file_path_str} ({mimetype}) ---\n"})
+        
+        # Yield a header block for each file
+        yield {"type": "text", "text": f"\n--- File: {file_path_str} ({mimetype}) ---\n"}
+        
+        # Yield the actual file content block
         file_block = _process_single_file(file_path, mimetype)
         if file_block:
-            content.append(file_block)
-
-    content.append({"type": "text", "text": "\nPlease acknowledge you have received these files and await my instructions."})
-    
-    return [{"role": "user", "content": content}] if len(content) > 2 else None
+            yield file_block
 
 
 def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[Dict[str, Any]]]:

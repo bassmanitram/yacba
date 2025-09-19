@@ -9,6 +9,7 @@ import threading
 import hashlib
 import json
 from pathlib import Path
+from collections import OrderedDict
 from typing import Dict, List, Any, Optional, Callable, TypeVar, Generic
 from loguru import logger
 
@@ -31,12 +32,16 @@ class LazyImporter:
         return self._modules[module_name]
 
 class FileSystemCache:
-    """Simple file system cache for expensive operations."""
+    """
+    A two-tier file system cache for expensive operations.
+    Uses an in-memory LRU cache for speed and a disk-based cache for persistence.
+    """
     
-    def __init__(self, cache_dir: str = ".yacba_cache"):
+    def __init__(self, cache_dir: str = ".yacba_cache", memory_limit: int = 256):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
-        self._memory_cache: Dict[str, Any] = {}
+        self._memory_cache: "OrderedDict[str, Any]" = OrderedDict()
+        self._memory_cache_max_size = memory_limit
         self._lock = threading.Lock()
     
     def _get_cache_key(self, operation: str, *args, **kwargs) -> str:
@@ -53,24 +58,31 @@ class FileSystemCache:
         return hashlib.md5(key_data.encode()).hexdigest()
     
     def get(self, operation: str, *args, **kwargs) -> Optional[Any]:
-        """Get cached result if available."""
+        """Get cached result if available, checking memory first, then disk."""
         cache_key = self._get_cache_key(operation, *args, **kwargs)
         
         with self._lock:
-            # Check memory cache first
+            # Tier 1: Check memory LRU cache
             if cache_key in self._memory_cache:
                 logger.debug(f"Cache hit (memory): {operation}")
+                self._memory_cache.move_to_end(cache_key)  # Mark as recently used
                 return self._memory_cache[cache_key]
         
-        # Check disk cache
+        # Tier 2: Check disk cache
         cache_file = self.cache_dir / f"{cache_key}.json"
         if cache_file.exists():
             try:
                 with open(cache_file, 'r') as f:
                     result = json.load(f)
+                
+                # Promote from disk to memory cache
                 with self._lock:
                     self._memory_cache[cache_key] = result
-                logger.debug(f"Cache hit (disk): {operation}")
+                    self._memory_cache.move_to_end(cache_key)
+                    if len(self._memory_cache) > self._memory_cache_max_size:
+                        self._memory_cache.popitem(last=False)  # Evict oldest item
+
+                logger.debug(f"Cache hit (disk, promoted to memory): {operation}")
                 return result
             except (json.JSONDecodeError, IOError) as e:
                 logger.warning(f"Cache file corrupted, removing: {e}")
@@ -79,30 +91,33 @@ class FileSystemCache:
         return None
     
     def set(self, operation: str, result: Any, *args, **kwargs):
-        """Cache a result."""
+        """Cache a result to both memory and disk."""
         cache_key = self._get_cache_key(operation, *args, **kwargs)
         
         with self._lock:
-            # Store in memory
+            # Store in memory LRU cache
             self._memory_cache[cache_key] = result
+            self._memory_cache.move_to_end(cache_key)
+            if len(self._memory_cache) > self._memory_cache_max_size:
+                self._memory_cache.popitem(last=False)
         
-        # Store on disk (async to avoid blocking)
+        # Store on disk
         cache_file = self.cache_dir / f"{cache_key}.json"
         try:
             with open(cache_file, 'w') as f:
                 json.dump(result, f, indent=2)
-            logger.debug(f"Cached result: {operation}")
+            logger.debug(f"Cached result to memory and disk: {operation}")
         except (TypeError, IOError) as e:
-            logger.debug(f"Could not cache result for {operation}: {e}")
+            logger.debug(f"Could not write to disk cache for {operation}: {e}")
     
     def clear(self):
-        """Clear all caches."""
+        """Clear all caches (memory and disk)."""
         with self._lock:
             self._memory_cache.clear()
         
         for cache_file in self.cache_dir.glob("*.json"):
             cache_file.unlink(missing_ok=True)
-        logger.info("Performance cache cleared")
+        logger.info("Performance cache cleared (memory and disk)")
 
 class PerformanceMonitor:
     """Built-in performance monitoring with statistics."""
