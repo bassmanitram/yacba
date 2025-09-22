@@ -75,7 +75,7 @@ class YacbaCompleter(Completer):
     path_completer = PathCompleter()
     meta_commands = [
         "/help",
-        "/save",
+        "/session",
         "/clear",
         "/history",
         "/tools",
@@ -130,7 +130,7 @@ class CommandHandler:
         self.manager = manager
         self._commands = {
             "/help": self._show_help,
-            "/save": self._save_session,
+            "/session": self._handle_session,
             "/clear": self._clear_session,
             "/history": self._show_history,
             "/tools": self._list_tools,
@@ -150,32 +150,62 @@ class CommandHandler:
 
     async def _show_help(self, args: List[str]):
         print("Available commands:")
-        print("  /help           - Show this help message.")
-        print("  /save [name]    - Save the session. If name is provided, switches to that session.")
-        print("  /clear          - Clear the current conversation history and session file.")
-        print("  /history        - Print the current message history.")
-        print("  /tools          - List the currently loaded tools.")
-        print("  /exit, /quit    - Exit the application.")
+        print("  /help              - Show this help message.")
+        print("  /session           - Display the current session name.")
+        print("  /session [name]    - Switch to a new or existing session.")
+        print("  /session _LIST     - List all saved sessions.")
+        print("  /clear             - Clears the current conversation and deletes the active session file.")
+        print("  /history           - Print the current message history.")
+        print("  /tools             - List the currently loaded tools.")
+        print("  /exit, /quit       - Exit the application.")
 
-# Inside the CommandHandler class in cli_handler.py
+    async def _handle_session(self, args: List[str]):
+        """Handles the /session command and its subcommands."""
+        session_manager = self.manager.engine.session_manager
 
-    async def _save_session(self, args: List[str]):
-        """Handles the /save command, switching sessions if a name is provided."""
-        if args:
-            session_name = args[0]
-            # This is the key action: tell the delegating proxy to switch its target.
-            # We now pass the agent instance to facilitate a proper state sync.
-            if self.manager.engine and self.manager.engine.agent:
-                self.manager.session_manager.set_active_session(session_name)
+        # Case 1: /session (no arguments)
+        if not args:
+            current_session = session_manager.session_id
+            if session_manager.is_active:
+                print(f"Currently in session: '{current_session}'")
             else:
-                print("Error: Agent is not available to switch session.", file=sys.stderr)
-                return
+                print("Not in an active session. Start one with /session <name>.")
+            return
+
+        session_name = args[0]
+
+        # Case 2: /session _LIST
+        if session_name == "_LIST":
+            sessions = session_manager.list_sessions()
+            if sessions:
+                print("Available sessions:")
+                for s_name in sessions:
+                    marker = "*" if s_name == session_manager.session_id else " "
+                    print(f"  {marker} {s_name}")
+            else:
+                print("No saved sessions found.")
+            return
+
+        # Case 3: /session _DELETE (REMOVED) - This functionality is now in /clear
+
+        # Case 4: Validate the session name format
+        if not re.match(r"^[a-z][a-z0-9_-]*$", session_name):
+            print(f"Invalid session name: '{session_name}'.")
+            print("Name must be lowercase, start with a letter, and contain only letters, numbers, '-', or '_'.")
+            return
+
+        # Case 5: Already in the requested session
+        if session_manager.session_id == session_name:
+            print(f"Already in session '{session_name}'.")
+            return
         
-        # Trigger a manual save for immediate user feedback.
-        self.manager.save_session()
+        # Case 6: Switch to the new session
+        session_manager.set_active_session(session_name)
+        print(f"Switched to session '{session_name}'.")
+
 
     async def _clear_session(self, args: List[str]):
-        self.manager.clear_session()
+        self.manager.engine.session_manager.clear()
 
     async def _show_history(self, args: List[str]):
         if self.manager.engine and self.manager.engine.agent:
@@ -235,7 +265,6 @@ async def run_headless_mode(manager: ChatbotManager, message: str) -> bool:
     
     return await _handle_agent_stream(manager.engine.agent, agent_input, manager.engine.framework_adapter)
 
-
 async def chat_loop_async(
     manager: ChatbotManager,
     initial_message: Optional[str] = None,
@@ -285,3 +314,4 @@ async def chat_loop_async(
         except (KeyboardInterrupt, EOFError):
             print()
             break
+

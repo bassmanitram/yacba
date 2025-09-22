@@ -10,6 +10,7 @@ from loguru import logger
 from strands import Agent
 # Import the base class for correct type hinting
 from strands.session.session_manager import SessionManager
+from delegating_session import DelegatingSession
 from framework_adapters import FrameworkAdapter
 from model_loader import StrandsModelLoader
 from custom_handler import CustomCallbackHandler
@@ -22,7 +23,7 @@ class YacbaEngine:
     The core, UI-agnostic engine for YACBA. It manages the agent, tools,
     and model, but has no knowledge of the command line or session files.
     """
-    def __init__(self, config: YacbaConfig, initial_messages: Optional[List[Dict[str, Any]]] = None, session_manager: Optional[SessionManager] = None):
+    def __init__(self, config: YacbaConfig, initial_messages: Optional[List[Dict[str, Any]]] = None):
         self.config = config
         self.initial_messages = initial_messages or []
         self.agent: Optional[Agent] = None
@@ -30,7 +31,11 @@ class YacbaEngine:
         self.framework_adapter: Optional[FrameworkAdapter] = None
         self._exit_stack = ExitStack()
         self._tool_factory = ToolFactory(self._exit_stack)
-        self.session_manager = session_manager
+        self.session_manager = DelegatingSession(
+            session_name=config.session_name,
+        )
+        logger.debug("ChatbotManager initialized with DelegatingSession.")
+
         logger.debug("YacbaEngine initialized.")
 
     def _initialize_all_tools(self) -> List[Any]:
@@ -69,10 +74,10 @@ class YacbaEngine:
             )
             
             self.agent = Agent(
+                agent_id=self.config.agent_id or "yacba_agent",
                 model=model, 
                 tools=self.loaded_tools, 
                 callback_handler=CustomCallbackHandler(headless=self.config.headless, show_tool_use=self.config.show_tool_use),
-                # CORRECTED: Use the correct 'session_manager' keyword argument
                 session_manager=self.session_manager,
                 **agent_args
             )

@@ -218,6 +218,13 @@ def parse_config() -> YacbaConfig:
     )
     
     parser.add_argument(
+        '--agent-id',
+        type=str,
+        default='yacba_agent',
+        help='The ID of the agent (used to namespace sessions). Defaults to "yacba_agent".'
+    )
+
+    parser.add_argument(
         '--session-name',
         type=str,
         default=None,
@@ -297,20 +304,21 @@ def parse_config() -> YacbaConfig:
     tool_configs = discover_tool_configs(args.tools_dir)
 
     return YacbaConfig(
-        model_string=args.model,
-        system_prompt=system_prompt,
-        prompt_source=prompt_source,
-        tool_configs=tool_configs,
-        startup_files_content=None,  # Will be populated in main yacba.py
-        headless=args.headless,
-        model_config=model_config,
-        session_name=args.session_name,
+        agent_id=args.agent_id,  # Will be set in YacbaEngine if None
+        clear_cache=args.clear_cache,
+        disable_cache=args.disable_cache,
         emulate_system_prompt=args.emulate_system_prompt,
-        show_tool_use=args.show_tool_use,
+        files_to_upload=files_to_upload,
+        headless=args.headless,
         initial_message=args.initial_message,
         max_files=args.max_files,
-        files_to_upload=files_to_upload,
-        clear_cache=args.clear_cache,
+        model_config=model_config,
+        model_string=args.model,
+        prompt_source=prompt_source,
+        session_name=args.session_name,
         show_perf_stats=args.show_perf_stats,
-        disable_cache=args.disable_cache,
+        show_tool_use=args.show_tool_use,
+        startup_files_content=None,  # Will be populated in main yacba.py
+        system_prompt=system_prompt,
+        tool_configs=tool_configs,
     )

@@ -37,6 +37,7 @@ class YacbaConfig:
     headless: bool = False                      # CLI mode selection
     model_config: ModelConfig = field(default_factory=dict)  # Model parameters
     session_name: Optional[str] = None          # Session persistence
+    agent_id: Optional[str] = None              # Session namespace
     emulate_system_prompt: bool = False         # Framework compatibility
     show_tool_use: bool = False
     
