@@ -47,4 +47,5 @@ __all__ = [
     'FrameworkAdapter',
     'ModelLoadResult',
     'Agent',
+    'SessionLike',
 ]

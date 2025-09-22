@@ -1,15 +1,15 @@
 """
 Manages the session persistence and orchestrates the core engine.
-Migrated to use focused type system.
 """
 
-import os
 import sys
-import json
 from typing import List, Optional
 from loguru import logger
+from pathlib import Path
 
-# Import focused types
+# Import our custom delegating session proxy
+from delegating_session import DelegatingSession
+
 from yacba_types.content import Message
 from yacba_config import YacbaConfig
 from yacba_engine import YacbaEngine
@@ -19,41 +19,30 @@ class ChatbotManager:
     """
     A context manager to handle session persistence (loading/saving history)
     and to manage the lifecycle of the core YacbaEngine.
-    
-    YACBA's responsibilities:
-    - Session file management and persistence
-    - Engine lifecycle management
-    - Configuration validation and setup
     """
     
     def __init__(self, config: YacbaConfig):
         self.config = config
-        self.session_filepath: Optional[str] = (
-            f"{config.session_name}.yacba-session.json" 
-            if config.session_name else None
-        )
         self.engine: Optional[YacbaEngine] = None
-        logger.debug("ChatbotManager initialized.")
-
-    def set_session_name(self, name: str) -> None:
-        """
-        Updates the session name and file path for the manager.
         
-        Args:
-            name: New session name
-        """
-        self.config.session_name = name
-        self.session_filepath = f"{name}.yacba-session.json"
-        logger.debug(f"Session name updated to: {name}")
+        sessions_home = Path.home() / ".yacba" / "sessions"
+        sessions_home.mkdir(parents=True, exist_ok=True)
+
+        # Instantiate our delegating session proxy. This single object will be passed to the agent.
+        self.session_manager: DelegatingSession = DelegatingSession(
+            session_name=config.session_name,
+            sessions_home=str(sessions_home)
+        )
+        logger.debug("ChatbotManager initialized with DelegatingSession.")
 
     def save_session(self) -> None:
         """
-        Saves the current agent's message history to the session file.
-        YACBA's responsibility: Session persistence.
+        Manually saves the agent's current history. Primarily used to confirm 
+        a session has been set via the /save command, as the Agent now auto-saves.
         """
-        if not self.session_filepath:
+        if not self.session_manager.is_active:
             if not self.config.headless:
-                print("No session name set. Use --session-name <name> or /save <name> to start a session.", file=sys.stderr)
+                print("No session name set. Use /save <name> to start a session.", file=sys.stderr)
             return
 
         if not self.engine or not self.engine.agent or not self.engine.agent.messages:
@@ -61,82 +50,44 @@ class ChatbotManager:
             return
         
         try:
-            with open(self.session_filepath, 'w', encoding='utf-8') as f:
-                json.dump(self.engine.agent.messages, f, indent=2, ensure_ascii=False)
-            
+            # The agent saves automatically, but we can trigger one manually for immediate feedback.
+            self.session_manager.save_messages(self.engine.agent.messages)
             if not self.config.headless:
-                print(f"Session saved to '{self.session_filepath}'.")
-            logger.info(f"Session saved to '{self.session_filepath}' with {len(self.engine.agent.messages)} messages.")
+                print("Session saved.")
+            logger.info(f"Manual save triggered with {len(self.engine.agent.messages)} messages.")
             
         except IOError as e:
-            error_msg = f"Error saving session to '{self.session_filepath}': {e}"
+            error_msg = f"Error during manual save: {e}"
             logger.error(error_msg)
             if not self.config.headless:
                 print(error_msg, file=sys.stderr)
 
     def clear_session(self) -> None:
         """
-        Clears the agent's current message history.
-        YACBA's responsibility: Session management.
+        Clears the agent's current message history and the persistent session file.
         """
         if self.engine and self.engine.agent:
             message_count = len(self.engine.agent.messages)
             self.engine.agent.messages.clear()
-            logger.info(f"Cleared {message_count} messages from session history.")
-            if not self.config.headless:
-                print("Conversation history has been cleared.")
-
-    def _load_session_if_exists(self) -> List[Message]:
-        """
-        Loads a session from a file if it exists, otherwise returns an empty list.
-        YACBA's responsibility: Session loading and validation.
+            logger.info(f"Cleared {message_count} messages from in-memory session history.")
         
-        Returns:
-            List of messages from the session file
-        """
-        if not self.session_filepath or not os.path.exists(self.session_filepath):
-            return []
+        # This will clear the underlying file and deactivate the session
+        self.session_manager.clear()
         
-        try:
-            with open(self.session_filepath, 'r', encoding='utf-8') as f:
-                messages = json.load(f)
-                
-            # Basic validation of loaded messages
-            if not isinstance(messages, list):
-                logger.error(f"Invalid session file format in '{self.session_filepath}': expected list of messages")
-                return []
-            
-            # Validate message structure
-            valid_messages = []
-            for i, msg in enumerate(messages):
-                if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
-                    logger.warning(f"Skipping invalid message {i} in session file")
-                    continue
-                valid_messages.append(msg)
-            
-            logger.info(f"Loaded {len(valid_messages)} messages from session: {self.session_filepath}")
-            return valid_messages
-            
-        except (IOError, json.JSONDecodeError) as e:
-            logger.error(f"Could not load or parse session file '{self.session_filepath}': {e}")
-            return []
+        if not self.config.headless:
+            print("Conversation history and session file have been cleared.")
 
     def __enter__(self) -> 'ChatbotManager':
         """
         Initializes the engine with session history.
-        YACBA's responsibility: Engine initialization and configuration.
-        
-        Returns:
-            Self for context manager usage
         """
         try:
-            # Load session history if available
-            initial_messages = self._load_session_if_exists()
+            # Pass the single, persistent DelegatingSession instance to the engine.
+            self.engine = YacbaEngine(
+                config=self.config, 
+                session_manager=self.session_manager
+            )
             
-            # Create and initialize the engine
-            self.engine = YacbaEngine(self.config, initial_messages)
-            
-            # Start the engine
             if not self.engine.startup():
                 logger.error("Failed to start YACBA engine")
                 raise RuntimeError("Engine startup failed")
@@ -152,25 +103,13 @@ class ChatbotManager:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """
-        Saves session and shuts down the engine.
-        YACBA's responsibility: Cleanup and persistence.
-        
-        Args:
-            exc_type: Exception type if an exception occurred
-            exc_val: Exception value if an exception occurred  
-            exc_tb: Exception traceback if an exception occurred
+        Shuts down the engine. Auto-saving is now handled by the Agent via the session proxy.
+        No explicit save is needed here.
         """
         try:
-            # Save session if not in headless mode and engine is available
-            if not self.config.headless and self.engine and self.engine.agent:
-                self.save_session()
-            
-            # Shutdown the engine
             if self.engine:
                 self.engine.shutdown()
-                
             logger.info("ChatbotManager context exited successfully")
-            
         except Exception as e:
             logger.error(f"Error during ChatbotManager cleanup: {e}")
 
@@ -178,15 +117,3 @@ class ChatbotManager:
     def is_ready(self) -> bool:
         """Check if the manager and engine are ready for use."""
         return self.engine is not None and self.engine.is_ready
-
-    @property
-    def session_info(self) -> str:
-        """Get information about the current session."""
-        if not self.session_filepath:
-            return "No session"
-        
-        message_count = 0
-        if self.engine and self.engine.agent:
-            message_count = len(self.engine.agent.messages)
-        
-        return f"Session: {self.config.session_name} ({message_count} messages)"

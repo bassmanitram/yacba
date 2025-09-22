@@ -87,11 +87,9 @@ class YacbaCompleter(Completer):
         text = document.text_before_cursor
         
         # Check for in-chat file upload syntax
-        # Improved regex to be non-greedy and handle paths more reliably
         file_match = re.search(r"file\((['\"])(.*?)$", text)
         if file_match:
             path_prefix = file_match.group(2)
-            # Prevent completion if the quote is already closed
             if file_match.group(1) in path_prefix:
                  return
 
@@ -115,7 +113,6 @@ class YacbaCompleter(Completer):
 def _format_error(e: Exception) -> str:
     """Extracts detailed information from exceptions for better user feedback."""
     details = f"Error Type: {type(e).__name__}"
-    # Use getattr to safely access optional attributes
     message = getattr(e, "message", None)
     if message:
         details += f"\nMessage: {message}"
@@ -124,7 +121,7 @@ def _format_error(e: Exception) -> str:
     if response and hasattr(response, "text"):
         details += f"\nOriginal Response: {response.text}"
         
-    return str(e) # Return the full error string for clarity
+    return str(e)
 
 
 class CommandHandler:
@@ -154,15 +151,27 @@ class CommandHandler:
     async def _show_help(self, args: List[str]):
         print("Available commands:")
         print("  /help           - Show this help message.")
-        print("  /save [name]    - Save the session. Optionally set a new session name.")
-        print("  /clear          - Clear the current conversation history.")
+        print("  /save [name]    - Save the session. If name is provided, switches to that session.")
+        print("  /clear          - Clear the current conversation history and session file.")
         print("  /history        - Print the current message history.")
         print("  /tools          - List the currently loaded tools.")
         print("  /exit, /quit    - Exit the application.")
 
+# Inside the CommandHandler class in cli_handler.py
+
     async def _save_session(self, args: List[str]):
+        """Handles the /save command, switching sessions if a name is provided."""
         if args:
-            self.manager.set_session_name(args[0])
+            session_name = args[0]
+            # This is the key action: tell the delegating proxy to switch its target.
+            # We now pass the agent instance to facilitate a proper state sync.
+            if self.manager.engine and self.manager.engine.agent:
+                self.manager.session_manager.set_active_session(session_name)
+            else:
+                print("Error: Agent is not available to switch session.", file=sys.stderr)
+                return
+        
+        # Trigger a manual save for immediate user feedback.
         self.manager.save_session()
 
     async def _clear_session(self, args: List[str]):
@@ -222,7 +231,6 @@ async def run_headless_mode(manager: ChatbotManager, message: str) -> bool:
     if not manager.engine or not manager.engine.agent or not manager.engine.framework_adapter:
         return False
     
-    # In headless mode, we process the initial message which might contain file paths
     agent_input = parse_input_with_files(message, manager.config.max_files)
     
     return await _handle_agent_stream(manager.engine.agent, agent_input, manager.engine.framework_adapter)

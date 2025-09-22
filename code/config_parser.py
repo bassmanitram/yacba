@@ -221,7 +221,7 @@ def parse_config() -> YacbaConfig:
         '--session-name',
         type=str,
         default=None,
-        help='Load a session on startup and save it on exit. File is <name>.yacba-session.json.'
+        help='Load a session on startup and save it on exit. Sessions are stored in $HOME/.yacba/sessions/.'
     )
 
     parser.add_argument(
