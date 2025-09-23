@@ -7,8 +7,10 @@ from typing import Dict, Any, Optional, Tuple
 from loguru import logger
 
 from strands.models.model import Model
+from adapters.framework.base_adapter import DefaultAdapter
+from adapters.framework.bedrock_adapter import BedrockAdapter
+from yacba_types.models import FrameworkAdapter
 from utils.framework_detection import guess_framework_from_model_string
-from framework_adapters import DefaultAdapter, BedrockAdapter, FrameworkAdapter
 
 class StrandsModelLoader:
     """A factory class for creating Strands Model instances."""

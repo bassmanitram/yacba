@@ -3,5 +3,6 @@
   "type": "python",
   "package_path": "../sample-python-tools",
   "module_path": "local_tools",
-  "functions": ["list_files"]
+  "functions": ["list_files"],
+  "disabled": true
 }

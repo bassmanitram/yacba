@@ -11,13 +11,17 @@ from typing import NoReturn, List, Dict, Any, Optional
 from loguru import logger
 
 # Import migrated components with proper typing
+from cli import (
+    print_startup_info,
+    print_welcome_message,
+    run_headless_mode,
+    chat_loop_async,
+)
 from yacba_manager import ChatbotManager
-from cli_handler import print_welcome_message, print_startup_info, chat_loop_async, run_headless_mode
 from content_processor import generate_file_content_blocks
 from config_parser import parse_config
 from yacba_config import YacbaConfig
-from yacba_types.base import ExitCode
-from yacba_types.content import Message
+from yacba_types import ExitCode, Message
 
 def _check_and_clear_cache_early():
     """Check for --clear-cache flag early and clear cache before config parsing."""

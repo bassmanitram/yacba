@@ -252,6 +252,6 @@ def lazy_import_mcp():
 def lazy_import_framework_adapters():
     """Lazy import of framework adapters."""
     def _import():
-        from framework_adapters import get_framework_adapter
+        from adapters import get_framework_adapter
         return get_framework_adapter
     return lazy_importer.get_module('framework_adapters', _import)

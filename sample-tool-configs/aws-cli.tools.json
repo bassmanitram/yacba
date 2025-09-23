@@ -9,5 +9,5 @@
   "env": {
     "FASTMCP_LOG_LEVEL": "ERROR"
   },
-  "disabled": false
+  "disabled": true
 }

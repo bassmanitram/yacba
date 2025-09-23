@@ -11,7 +11,7 @@ from strands.handlers.callback_handler import PrintingCallbackHandler
 # A sensible maximum length for tool input values
 MAX_VALUE_LENGTH = 90
 
-class CustomCallbackHandler(PrintingCallbackHandler):
+class YacbaCallbackHandler(PrintingCallbackHandler):
     """
     A callback handler that can optionally suppress tool use details for cleaner output.
     

@@ -74,6 +74,14 @@ class ToolProcessingResult(NamedTuple):
         """Check if there was an error during processing."""
         return self.error_message is not None
 
+class ToolCreationResult(NamedTuple):
+    """Detailed result of tool creation with missing function tracking."""
+    tools: List[Any]
+    requested_functions: List[str]  # Functions that were requested
+    found_functions: List[str]      # Functions that were actually found
+    missing_functions: List[str]    # Functions that were requested but not found
+    error: Optional[str]
+
 # Overall tool system status
 class ToolSystemStatus(NamedTuple):
     """Overall status of the tool system after full initialization."""

@@ -41,6 +41,7 @@ __all__ = [
     # Tool types (what YACBA configures, not executes)
     'Tool',
     'ToolLoadResult',
+	'ToolCreationResult',
     
     # Model types (what YACBA orchestrates)
     'FrameworkName',
