@@ -6,6 +6,7 @@ import re
 import sys
 import json
 from typing import List, Dict, Any, Optional, TextIO, Union
+from pathlib import Path
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, PathCompleter, Completion
@@ -15,10 +16,10 @@ from prompt_toolkit.key_binding import KeyBindings
 from loguru import logger
 
 from strands import Agent
+from yacba_types.tools import ToolSystemStatus
 from content_processor import parse_input_with_files
 from yacba_manager import ChatbotManager
 from framework_adapters import FrameworkAdapter
-
 
 def print_welcome_message():
     """Prints the initial welcome message and instructions to stdout."""
@@ -32,41 +33,73 @@ def print_startup_info(
     model_id: str,
     system_prompt: str,
     prompt_source: str,
-    loaded_tools: List[Any],
+    tool_system_status: ToolSystemStatus,
     startup_files: List[tuple[str, str]],
     output_file: TextIO = sys.stdout,
 ):
-    """Prints a summary of the configuration to a specified output stream."""
-
+    """Enhanced startup info with unified tool status reporting."""
+    
     def write(msg):
         print(msg, file=output_file)
 
-    write("-" * 20)
+    write("-" * 50)
     first_line = system_prompt.split("\n")[0]
     ellipsis = "..." if "\n" in system_prompt else ""
     write(f'System Prompt (from {prompt_source}): "{first_line}{ellipsis}"')
     write(f"Model: {model_id}")
 
-    if loaded_tools:
-        write("Available Tools:")
-        for tool in loaded_tools:
-            try:
-                # All valid strands tools have a .tool_spec attribute
-                tool_name = tool.tool_spec.get("name", "unnamed-tool")
-                write(f"  - {tool_name}")
-            except AttributeError:
-                write(f"  - (Unnamed or invalid tool object: {type(tool)})")
+    # Unified tool status reporting
+    discovery = tool_system_status.discovery_result
+    successful_results = tool_system_status.successful_results
+    failed_results = tool_system_status.failed_results
+    missing_function_results = tool_system_status.results_with_missing_functions
+    
+    if discovery.total_files_scanned > 0 or len(successful_results) > 0 or len(failed_results) > 0:
+        write("\nTool System Status:")
+        write(f"  Configuration files scanned: {discovery.total_files_scanned}")
+        write(f"  Valid configurations loaded: {len(discovery.successful_configs)}")
+        write(f"  Configuration parsing failures: {len(discovery.failed_configs)}")
+        write(f"  Tools successfully loaded: {tool_system_status.total_tools_loaded}")
+        
+        # Report successful tool loading
+        if successful_results:
+            write("  ✓ Successful tool loading:")
+            for result in successful_results:
+                source_name = Path(result.source_file).name
+                write(f"    • {result.config_id} ({source_name}): {len(result.tools)} tools")
+        
+        # Report configuration parsing failures
+        if discovery.has_failures:
+            write("  ✗ Configuration parsing failures:")
+            for failed in discovery.failed_configs:
+                source_name = Path(failed['file_path']).name
+                write(f"    • {source_name}: {failed['error']}")
+        
+        # Report tool loading failures
+        if failed_results:
+            write("  ✗ Tool loading failures:")
+            for result in failed_results:
+                source_name = Path(result.source_file).name
+                write(f"    • {result.config_id} ({source_name}): {result.error_message}")
+        
+        # Report missing functions
+        if missing_function_results:
+            write("  ⚠ Missing requested functions:")
+            for result in missing_function_results:
+                if result.has_missing_functions:
+                    source_name = Path(result.source_file).name
+                    missing_list = ', '.join(result.missing_functions)
+                    write(f"    • {result.config_id} ({source_name}): {missing_list}")
     else:
         write("Available Tools: None")
 
     if startup_files:
-        write(f"Uploaded Files ({len(startup_files)}):")
+        write(f"\nUploaded Files ({len(startup_files)}):")
         for path, media_type in startup_files:
             write(f"  - {path} ({media_type})")
     else:
         write("Uploaded Files: None")
-    write("-" * 20)
-
+    write("-" * 50)
 
 class YacbaCompleter(Completer):
     """
@@ -214,14 +247,19 @@ class CommandHandler:
     async def _list_tools(self, args: List[str]):
         if self.manager.engine and self.manager.engine.loaded_tools:
             print("Loaded tools:")
-            for tool in self.manager.engine.loaded_tools:
-                if hasattr(tool, "tool_spec"):
-                    print(f"  - {tool.tool_spec.get('name', 'unnamed-tool')}")
-                else:
-                    print(f"  - (Unnamed or invalid tool object: {type(tool)})")
+            for i, tool in enumerate(self.manager.engine.loaded_tools, 1):
+                # Try to get a meaningful name without relying on tool_spec
+                tool_name = "unnamed-tool"
+                if hasattr(tool, "tool_spec") and isinstance(tool.tool_spec, dict):
+                    tool_name = tool.tool_spec.get('name', 'unnamed-tool')
+                elif hasattr(tool, '__name__'):
+                    tool_name = tool.__name__
+                elif hasattr(tool, '__class__'):
+                    tool_name = tool.__class__.__name__
+                
+                print(f"  {i}. {tool_name}")
         else:
             print("No tools are currently loaded.")
-
 
 async def _handle_agent_stream(
     agent: Agent,
@@ -314,4 +352,3 @@ async def chat_loop_async(
         except (KeyboardInterrupt, EOFError):
             print()
             break
-

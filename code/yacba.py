@@ -6,6 +6,7 @@ Fully typed version using yacba_types.
 import sys
 import os
 import asyncio
+import argparse
 from typing import NoReturn, List, Dict, Any, Optional
 from loguru import logger
 
@@ -17,6 +18,14 @@ from config_parser import parse_config
 from yacba_config import YacbaConfig
 from yacba_types.base import ExitCode
 from yacba_types.content import Message
+
+def _check_and_clear_cache_early():
+    """Check for --clear-cache flag early and clear cache before config parsing."""
+    # Quick check for --clear-cache flag without full argument parsing
+    if '--clear-cache' in sys.argv:
+        from performance_utils import fs_cache
+        fs_cache.clear()
+        logger.info("Performance cache cleared")
 
 def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[List[Message]]:
     """
@@ -55,6 +64,9 @@ async def main_async() -> None:
     Raises:
         SystemExit: On configuration errors or initialization failures
     """
+    # Clear cache early if requested, before config parsing
+    _check_and_clear_cache_early()
+    
     # Parse configuration using migrated config parser
     config: YacbaConfig = parse_config()
 
@@ -82,12 +94,12 @@ async def main_async() -> None:
                 logger.error("Failed to initialize the agent engine. Exiting.")
                 sys.exit(ExitCode.INITIALIZATION_ERROR)
 
-            # Print startup information
+            # Enhanced startup information with tool loading details
             print_startup_info(
                 model_id=config.model_string,
                 system_prompt=config.system_prompt,
                 prompt_source=config.prompt_source,
-                loaded_tools=manager.engine.loaded_tools if manager.engine else [],
+                tool_system_status=manager.engine.tool_system_status,
                 startup_files=[(upload["path"], upload["mimetype"]) for upload in config.files_to_upload],
                 output_file=sys.stderr
             )
@@ -129,7 +141,6 @@ def main() -> NoReturn:
     except Exception as e:
         logger.error(f"An unhandled exception occurred: {e}", exc_info=True)
         sys.exit(ExitCode.FATAL_ERROR)
-
 
 if __name__ == "__main__":
     main()

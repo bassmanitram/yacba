@@ -1,0 +1,7 @@
+{
+  "id": "strands-tools",
+  "type": "python",
+  "module_path": "strands_tools",
+  "functions": ["shell.shell", "file_read.file_read", "file_write.file_write"],
+  "disabled": false
+}

@@ -15,9 +15,8 @@ from typing import List, Optional
 from pathlib import Path
 
 # Import our focused types
-from yacba_types.config import ModelConfig, ToolConfig, SessionData, FileUpload
+from yacba_types.config import ModelConfig, ToolConfig, FileUpload, ToolDiscoveryResult
 from yacba_types.content import Message
-from yacba_types.base import PathLike
 
 
 @dataclass
@@ -45,6 +44,9 @@ class YacbaConfig:
     initial_message: Optional[str] = None       # Initial user input
     max_files: int = 20                         # File processing limits
     files_to_upload: List[FileUpload] = field(default_factory=list)  # File queue
+    
+    # Tool discovery results for startup reporting
+    tool_discovery_result: Optional['ToolDiscoveryResult'] = None
     
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""

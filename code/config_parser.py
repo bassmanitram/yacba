@@ -300,8 +300,8 @@ def parse_config() -> YacbaConfig:
     # Process model config
     model_config = _process_model_config(args.model_config, args.config_vals)
 
-    # Discover tool configurations
-    tool_configs = discover_tool_configs(args.tools_dir)
+    # Enhanced tool discovery
+    discovery_result = discover_tool_configs(args.tools_dir)
 
     return YacbaConfig(
         agent_id=args.agent_id,  # Will be set in YacbaEngine if None
@@ -320,5 +320,6 @@ def parse_config() -> YacbaConfig:
         show_tool_use=args.show_tool_use,
         startup_files_content=None,  # Will be populated in main yacba.py
         system_prompt=system_prompt,
-        tool_configs=tool_configs,
+        tool_configs=discovery_result.successful_configs,
+        tool_discovery_result=discovery_result,  # New field for startup reporting
     )

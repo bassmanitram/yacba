@@ -1,6 +1,0 @@
-{
-  "id": "strands-shell",
-  "type": "python",
-  "module_path": "strands_tools.shell",
-  "functions": ["shell"]
-}

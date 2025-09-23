@@ -1,6 +1,7 @@
 {
   "id": "local-file-lister",
   "type": "python",
-  "module_path": "../sample-python-tools/local_tools.py",
+  "package_path": "../sample-python-tools",
+  "module_path": "local_tools",
   "functions": ["list_files"]
 }

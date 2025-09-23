@@ -2,7 +2,7 @@
 # Contains the core, reusable logic for the YACBA agent.
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
@@ -15,8 +15,8 @@ from framework_adapters import FrameworkAdapter
 from model_loader import StrandsModelLoader
 from custom_handler import CustomCallbackHandler
 from yacba_config import YacbaConfig
-from tool_factory import ToolFactory
-
+from tool_factory import ToolFactory, ToolCreationResult
+from yacba_types.tools import ToolProcessingResult, ToolSystemStatus
 
 class YacbaEngine:
     """
@@ -28,33 +28,90 @@ class YacbaEngine:
         self.initial_messages = initial_messages or []
         self.agent: Optional[Agent] = None
         self.loaded_tools: List[Any] = []
+        self.tool_system_status: Optional[ToolSystemStatus] = None
         self.framework_adapter: Optional[FrameworkAdapter] = None
         self._exit_stack = ExitStack()
         self._tool_factory = ToolFactory(self._exit_stack)
         self.session_manager = DelegatingSession(
             session_name=config.session_name,
         )
-        logger.debug("ChatbotManager initialized with DelegatingSession.")
+        logger.debug("YacbaEngine initialized with DelegatingSession.")
 
-        logger.debug("YacbaEngine initialized.")
-
-    def _initialize_all_tools(self) -> List[Any]:
-        """Uses a thread pool to initialize all configured tools in parallel."""
+    def _initialize_all_tools(self) -> Tuple[List[Any], ToolSystemStatus]:
+        """Initialize all tools and return consolidated status."""
         all_tools = []
+        processing_results = []
+        
         with ThreadPoolExecutor() as executor:
             future_to_config = {
-                executor.submit(self._tool_factory.create_tools, config): config
+                executor.submit(self._load_single_tool_config, config): config
                 for config in self.config.tool_configs
                 if not config.get("disabled")
             }
 
             for future in as_completed(future_to_config):
+                config = future_to_config[future]
                 try:
-                    all_tools.extend(future.result())
+                    result = future.result()
+                    processing_results.append(result)
+                    if result.has_tools:
+                        all_tools.extend(result.tools)
+                        logger.info(f"✓ Loaded {len(result.tools)} tools from '{result.config_id}' ({result.source_file})")
+                    else:
+                        logger.warning(f"✗ No tools loaded from '{result.config_id}' ({result.source_file}): {result.error_message}")
                 except Exception as e:
-                    tool_id = future_to_config[future].get("id")
-                    logger.error(f"Exception initializing tool '{tool_id}': {e}")
-        return all_tools
+                    config_id = config.get("id", "unknown")
+                    source_file = config.get("source_file", "unknown")
+                    error_result = ToolProcessingResult(
+                        config_id=config_id,
+                        source_file=source_file,
+                        success=False,
+                        tools=[],
+                        requested_functions=config.get("functions", []),
+                        found_functions=[],
+                        missing_functions=config.get("functions", []),
+                        error_message=f"Unexpected error: {e}"
+                    )
+                    processing_results.append(error_result)
+                    logger.error(f"✗ Exception loading '{config_id}' ({source_file}): {e}")
+        
+        # Create consolidated status
+        tool_system_status = ToolSystemStatus(
+            discovery_result=self.config.tool_discovery_result,
+            processing_results=processing_results,
+            total_tools_loaded=len(all_tools)
+        )
+        
+        return all_tools, tool_system_status
+
+    def _load_single_tool_config(self, config: Dict[str, Any]) -> ToolProcessingResult:
+        """Load tools from a single configuration with unified result tracking."""
+        config_id = config.get("id", "unknown")
+        source_file = config.get("source_file", "unknown")
+        
+        try:
+            creation_result = self._tool_factory.create_tools(config)
+            return ToolProcessingResult(
+                config_id=config_id,
+                source_file=source_file,
+                success=len(creation_result.tools) > 0,
+                tools=creation_result.tools,
+                requested_functions=creation_result.requested_functions,
+                found_functions=creation_result.found_functions,
+                missing_functions=creation_result.missing_functions,
+                error_message=creation_result.error
+            )
+        except Exception as e:
+            return ToolProcessingResult(
+                config_id=config_id,
+                source_file=source_file,
+                success=False,
+                tools=[],
+                requested_functions=config.get("functions", []),
+                found_functions=[],
+                missing_functions=config.get("functions", []),
+                error_message=str(e)
+            )
 
     def _setup_agent(self) -> Optional[Agent]:
         """Creates the Strands agent instance."""
@@ -89,7 +146,7 @@ class YacbaEngine:
 
     def startup(self):
         """Initializes tools and agent. To be called by the context manager."""
-        self.loaded_tools = self._initialize_all_tools()
+        self.loaded_tools, self.tool_system_status = self._initialize_all_tools()
         self.agent = self._setup_agent()
         return self.agent is not None
 

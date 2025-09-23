@@ -27,6 +27,7 @@ __all__ = [
     'ToolConfig',
     'MCPToolConfig',
     'PythonToolConfig',
+    'ToolDiscoveryResult',  # Added this
     'SessionData',
     'FileUpload',
     
