@@ -18,7 +18,6 @@ from pathlib import Path
 from yacba_types.config import ModelConfig, ToolConfig, FileUpload, ToolDiscoveryResult
 from yacba_types.content import Message
 
-
 @dataclass
 class YacbaConfig:
     """
@@ -40,7 +39,6 @@ class YacbaConfig:
     emulate_system_prompt: bool = False         # Framework compatibility
     show_tool_use: bool = False
     
-    # CLI-specific fields (YACBA's UI responsibilities)
     initial_message: Optional[str] = None       # Initial user input
     max_files: int = 20                         # File processing limits
     files_to_upload: List[FileUpload] = field(default_factory=list)  # File queue

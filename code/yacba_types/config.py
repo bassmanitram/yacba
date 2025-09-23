@@ -59,14 +59,6 @@ class ToolDiscoveryResult(NamedTuple):
         """Check if any configuration files failed to load."""
         return len(self.failed_configs) > 0
 
-# Session data types (what YACBA persists)
-class SessionMessage(TypedDict):
-    """Type definition for session message."""
-    role: Literal["user", "assistant", "system"]
-    content: Any  # Can be string or list of content blocks
-
-SessionData = List[SessionMessage]
-
 # File upload types (what YACBA processes at startup)
 class FileUpload(TypedDict):
     """Type definition for file upload information."""

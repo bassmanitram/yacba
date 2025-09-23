@@ -10,10 +10,10 @@ This package contains reusable UI components:
 - Error handling and display
 """
 
-from .messages import print_welcome_message, print_startup_info
+from ...utils.startup_messages import print_welcome_message, print_startup_info
 from .completer import YacbaCompleter
 from .session import create_prompt_session
-from .agent_interaction import handle_agent_stream, send_message_to_agent
+from ...yacba_agent import handle_agent_stream, send_message_to_agent
 from .callback_handler import YacbaCallbackHandler
 from .error_handling import format_error
 

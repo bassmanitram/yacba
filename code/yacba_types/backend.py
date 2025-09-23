@@ -1,12 +1,25 @@
 from typing import AsyncIterator, Protocol, Optional, List, Any
 
 class ChatBackend(Protocol):
-    async def stream_response(
-        self,
-        message: str,
-        files: Optional[List[Any]] = None
-    ) -> AsyncIterator[str]:
+    def startup(self):
         """
-        Asynchronously yields response chunks for a given message and optional files.
+        Startup any necessary resources for the backend.
         """
+        ...
+    def shutdown(self):
+        """
+        Clean up any resources held by the backend.
+        """
+        ...
+    async def handle_input(self, user_input: str):
+        """
+        Process user input and yield response chunks asynchronously.
+
+        Args:
+            user_input: The input string from the user.
+        """
+        ...
+    @property
+    def is_ready(self) -> bool:
+        """Check if the engine is ready for use."""
         ...

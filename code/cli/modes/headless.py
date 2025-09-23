@@ -4,12 +4,9 @@ Headless mode for YACBA CLI.
 Handles non-interactive execution for scripting and automation.
 """
 
-from yacba_manager import ChatbotManager
-from content_processor import parse_input_with_files
-from ..interface import handle_agent_stream
+from yacba_types.backend import ChatBackend
 
-
-async def run_headless_mode(manager: ChatbotManager, message: str) -> bool:
+async def run_headless_mode(backend: ChatBackend, message: str) -> bool:
     """
     Runs the chatbot non-interactively for scripting.
     
@@ -20,13 +17,5 @@ async def run_headless_mode(manager: ChatbotManager, message: str) -> bool:
     Returns:
         Success status
     """
-    if not manager.engine or not manager.engine.agent or not manager.engine.framework_adapter:
-        return False
-    
-    agent_input = parse_input_with_files(message, manager.config.max_files)
-    
-    return await handle_agent_stream(
-        manager.engine.agent, 
-        agent_input, 
-        manager.engine.framework_adapter
-    )
+
+    return await backend.handle_input(message)

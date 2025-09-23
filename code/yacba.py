@@ -12,13 +12,12 @@ from loguru import logger
 
 # Import migrated components with proper typing
 from cli import (
-    print_startup_info,
-    print_welcome_message,
     run_headless_mode,
     chat_loop_async,
 )
+from utils.startup_messages import print_startup_info, print_welcome_message
+from utils.content_processing import generate_file_content_blocks
 from yacba_manager import ChatbotManager
-from content_processor import generate_file_content_blocks
 from config_parser import parse_config
 from yacba_config import YacbaConfig
 from yacba_types import ExitCode, Message
@@ -113,16 +112,15 @@ async def main_async() -> None:
 
             # Run in appropriate mode
             if config.headless:
-                success: bool = await run_headless_mode(manager, config.initial_message)
+                success: bool = await run_headless_mode(manager.engine, config.initial_message)
                 if not success:
                     sys.exit(ExitCode.RUNTIME_ERROR)
             else:
-                await chat_loop_async(manager, config.initial_message, config.max_files)
+                await chat_loop_async(manager.engine, config.initial_message)
                 
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")
         sys.exit(ExitCode.FATAL_ERROR)
-
 
 def main() -> NoReturn:
     """ 
