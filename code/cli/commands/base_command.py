@@ -6,8 +6,6 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from loguru import logger
 
-from yacba_manager import ChatbotManager
-
 class BaseCommand(ABC):
     """
     Abstract base class for CLI meta-commands.
@@ -16,30 +14,14 @@ class BaseCommand(ABC):
     for all command handlers.
     """
     
-    def __init__(self, manager: ChatbotManager):
+    def __init__(self):
         """
         Initialize the command handler.
         
         Args:
             manager: The ChatbotManager instance for accessing engine state
         """
-        self.manager = manager
         self._command_name = self.__class__.__name__.lower().replace('commands', '')
-    
-    @property
-    def engine(self):
-        """Quick access to the engine from the manager."""
-        return self.manager.engine
-    
-    @property
-    def agent(self):
-        """Quick access to the agent from the engine."""
-        return self.engine.agent if self.engine else None
-    
-    @property
-    def session_manager(self):
-        """Quick access to the session manager from the engine."""
-        return self.engine.session_manager if self.engine else None
     
     @abstractmethod
     async def handle_command(self, command: str, args: List[str]) -> None:
@@ -89,37 +71,7 @@ class BaseCommand(ABC):
     def print_success(self, message: str) -> None:
         """Print a success message."""
         print(message)
-    
-    def check_engine_ready(self) -> bool:
-        """
-        Check if the engine and agent are ready for commands that need them.
-        
-        Returns:
-            True if engine is ready, False otherwise
-        """
-        if not self.engine:
-            self.print_error("Engine not initialized")
-            return False
-        
-        if not self.agent:
-            self.print_error("Agent not initialized")
-            return False
-        
-        return True
-    
-    def check_session_available(self) -> bool:
-        """
-        Check if session management is available.
-        
-        Returns:
-            True if session manager is available, False otherwise
-        """
-        if not self.session_manager:
-            self.print_error("Session management not available")
-            return False
-        
-        return True
-    
+       
     def format_list(self, items: List[str], prefix: str = "  • ") -> str:
         """
         Format a list of items for display.

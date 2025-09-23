@@ -15,7 +15,7 @@ def recursively_remove(obj: Any, prop: str) -> None:
             if key == prop:
                 del obj[key]
             else:
-                recursively_remove(obj[key])
+                recursively_remove(obj[key], prop)
     elif isinstance(obj, list):
         for item in obj:
-            recursively_remove(item)
+            recursively_remove(item, prop)

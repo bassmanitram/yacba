@@ -21,8 +21,8 @@ class YacbaAgent(Agent):
     """
     pass
 
-    def __init__(self, adapter: FrameworkAdapter, **kargs) -> None:
-        super(kargs)
+    def __init__(self, adapter: FrameworkAdapter, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         self.adapter = adapter
 
     async def handle_agent_stream(self,
@@ -51,7 +51,7 @@ class YacbaAgent(Agent):
             transformed_message = self.adapter.transform_content(message)
             
             # Stream the response - the CustomCallbackHandler handles all output formatting
-            async for _ in super.stream_async(transformed_message):
+            async for _ in self.stream_async(transformed_message):
                 pass
                 
             return True

@@ -7,8 +7,9 @@ about commands across all command modules.
 """
 
 from typing import List, Dict, Any
+
+from .registry import COMMAND_REGISTRY, get_command_help, validate_command
 from .base_command import BaseCommand
-from . import COMMAND_REGISTRY, get_command_help, validate_command
 
 
 class HelpCommand(BaseCommand):
@@ -78,11 +79,6 @@ class HelpCommand(BaseCommand):
         self.print_info("  • Use file('path/to/file') to upload files during conversation")
         self.print_info("  • Use Ctrl+D or Ctrl+C to exit")
     
-    def _show_command_summary(self) -> None:
-        """Show a brief summary of all commands."""
-        for cmd, info in COMMAND_REGISTRY.items():
-            self.print_info(f"  {cmd:<12} - {info['description']}")
-    
     def _group_commands_by_category(self) -> Dict[str, Dict[str, Any]]:
         """
         Group commands by logical categories for better help display.
@@ -90,25 +86,11 @@ class HelpCommand(BaseCommand):
         Returns:
             Dictionary of categories with their commands
         """
-        categories = {
-            "Session Management": {},
-            "Information": {},
-            "Application Control": {}
-        }
+        categories = {}
         
-        # Categorize commands based on their functionality
-        category_mapping = {
-            "/session": "Session Management",
-            "/clear": "Session Management",
-            "/help": "Information",
-            "/history": "Information", 
-            "/tools": "Information",
-            "/exit": "Application Control",
-            "/quit": "Application Control"
-        }
         
         for cmd, info in COMMAND_REGISTRY.items():
-            category = category_mapping.get(cmd, "Other")
+            category = info.get('category', 'General')
             if category not in categories:
                 categories[category] = {}
             categories[category][cmd] = info

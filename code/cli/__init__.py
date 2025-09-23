@@ -11,9 +11,6 @@ This package contains all command-line interface related functionality:
 from .interface import print_welcome_message, print_startup_info, YacbaCompleter
 from .modes import chat_loop_async, run_headless_mode
 
-# Import command handler for advanced usage
-from .commands import CommandHandler
-
 __all__ = [
     # Interface components
     'print_welcome_message',
@@ -23,9 +20,6 @@ __all__ = [
     # Execution modes
     'chat_loop_async',
     'run_headless_mode',
-    
-    # Command handling
-    'CommandHandler',
 ]
 
 # CLI package version

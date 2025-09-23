@@ -9,13 +9,14 @@ from typing import Optional
 
 from loguru import logger
 
+from cli.commands.registry import CommandRegistry
 from utils.content_processing import parse_input_with_files
 from yacba_types.backend import ChatBackend
 from ..interface import create_prompt_session
-from ..commands import CommandHandler
 
 async def chat_loop_async(
     backend: ChatBackend,
+    command_handler: Optional[CommandRegistry] = CommandRegistry(),
     initial_message: Optional[str] = None):
     """
     Runs the main interactive conversation loop using prompt_toolkit.
@@ -26,7 +27,6 @@ async def chat_loop_async(
         max_files: Maximum number of files to process
     """
     session = create_prompt_session()
-    command_handler = CommandHandler(backend)
 
     # Process initial message if provided
     if initial_message:
@@ -53,6 +53,7 @@ async def chat_loop_async(
                 continue
 
             # Process regular chat input
+            logger.debug(f"Calling backend.handle_input with User input: {user_input}")
             await backend.handle_input(user_input)
 
         except (KeyboardInterrupt, EOFError):

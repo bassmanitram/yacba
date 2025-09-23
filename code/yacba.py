@@ -15,6 +15,7 @@ from cli import (
     run_headless_mode,
     chat_loop_async,
 )
+from adapters.cli.commands.registry import BackendCommandRegistry
 from utils.startup_messages import print_startup_info, print_welcome_message
 from utils.content_processing import generate_file_content_blocks
 from yacba_manager import ChatbotManager
@@ -116,7 +117,7 @@ async def main_async() -> None:
                 if not success:
                     sys.exit(ExitCode.RUNTIME_ERROR)
             else:
-                await chat_loop_async(manager.engine, config.initial_message)
+                await chat_loop_async(manager.engine, BackendCommandRegistry(manager.engine), config.initial_message)
                 
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")

@@ -11,11 +11,15 @@ Note: /help is handled separately in help_command.py
 import json
 from typing import List
 
-from .base_command import BaseCommand, CommandError
+from cli.commands.base_command import CommandError
+from adapted_commands import AdaptedCommands
 
 
-class InfoCommands(BaseCommand):
+class InfoCommands(AdaptedCommands):
     """Handler for information display commands (excluding /help)."""
+
+    def __init__(self, engine):
+        super().__init__(engine)
     
     async def handle_command(self, command: str, args: List[str]) -> None:
         """
@@ -75,7 +79,7 @@ class InfoCommands(BaseCommand):
         if not self.validate_args(args, max_args=0):
             return
         
-        if not self.check_engine_ready():
+        if not self.engine.is_ready():
             return
         
         try:

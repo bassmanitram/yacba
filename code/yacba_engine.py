@@ -15,7 +15,7 @@ from utils.content_processing import parse_input_with_files
 from yacba_types.backend import ChatBackend
 from yacba_types.models import FrameworkAdapter
 from adapters.tools.factory import ToolFactory
-from cli.interface.callback_handler import YacbaCallbackHandler
+from callback_handler import YacbaCallbackHandler
 from delegating_session import DelegatingSession
 from model_loader import StrandsModelLoader
 from yacba_config import YacbaConfig
@@ -159,7 +159,7 @@ class YacbaEngine(ChatBackend):
         if not self.agent:
             raise RuntimeError("Agent is not initialized.")
         agent_input = parse_input_with_files(user_input, self.config.max_files)
-        self.agent.handle_agent_stream(agent_input)
+        await self.agent.handle_agent_stream(agent_input)
 
     def shutdown(self):
         """Shuts down resources."""
