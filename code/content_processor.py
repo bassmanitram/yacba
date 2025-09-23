@@ -9,7 +9,7 @@ from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any, Union, Optional, Generator
 
-from general_utils import guess_mimetype, scan_directory, is_likely_text_file
+from utils.file_utils import guess_mimetype, is_likely_text_file, scan_directory
 
 # Define a reasonable file size limit to avoid memory issues (e.g., 10MB)
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024

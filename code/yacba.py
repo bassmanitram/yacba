@@ -23,7 +23,7 @@ def _check_and_clear_cache_early():
     """Check for --clear-cache flag early and clear cache before config parsing."""
     # Quick check for --clear-cache flag without full argument parsing
     if '--clear-cache' in sys.argv:
-        from performance_utils import fs_cache
+        from utils.performance_utils import fs_cache
         fs_cache.clear()
         logger.info("Performance cache cleared")
 

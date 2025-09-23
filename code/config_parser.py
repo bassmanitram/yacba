@@ -31,11 +31,11 @@ from loguru import logger
 from typing import List, Tuple
 
 # Import focused types
+from utils.config_discovery import discover_tool_configs
 from yacba_types.config import ModelConfig, ToolConfig, FileUpload
 from yacba_types.base import PathLike
 from content_processor import process_path_argument
 from yacba_config import YacbaConfig
-from general_utils import discover_tool_configs
 
 # Define constants for clarity and maintainability.
 DEFAULT_SYSTEM_PROMPT = (

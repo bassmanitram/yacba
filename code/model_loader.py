@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Tuple
 from loguru import logger
 
 from strands.models.model import Model
-from general_utils import guess_framework_from_model_string
+from utils.framework_detection import guess_framework_from_model_string
 from framework_adapters import DefaultAdapter, BedrockAdapter, FrameworkAdapter
 
 class StrandsModelLoader:
