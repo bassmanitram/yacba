@@ -141,9 +141,6 @@ def main() -> NoReturn:
     except KeyboardInterrupt:
         print("\nExiting.", file=sys.stderr)
         sys.exit(ExitCode.INTERRUPTED)
-    except Exception as e:
-        logger.error(f"An unhandled exception occurred: {e}", exc_info=True)
-        sys.exit(ExitCode.FATAL_ERROR)
 
 if __name__ == "__main__":
     main()

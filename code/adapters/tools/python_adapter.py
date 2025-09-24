@@ -6,19 +6,19 @@ from yacba_types.tools import ToolCreationResult
 from .base_adapter import ToolAdapter
 from loguru import logger
 
-def _load_module_attribute(
+def _import_item(
     base_module: str,
-    attribute: str,
+    item_sub_path: str,
     package_path: Optional[str] = None,
     base_path: Optional[str] = None,
 ) -> Callable:
     """
-    Dynamically loads a attribute, using a specific directory as the root if provided.
+    Dynamically loads something, using a specific directory as the root if provided.
 
     Args:
         base_module: The first part of the module's dotted path (e.g., 'my_app.lib').
-        attribute: The second part of the path, including submodules and the
-                  attribute name (e.g., 'utils.helpers.my_func').
+        item_sub_path: The second part of the path, including submodules and the
+                  item name (e.g., 'utils.helpers.my_func', or even 'utils.helpers').
         package_path: (Optional) The relative path to a directory that should be
                       treated as the root for the import. If None, Python's
                       standard import search paths (sys.path) are used.
@@ -27,12 +27,13 @@ def _load_module_attribute(
         A reference to the dynamically loaded attribute.
     """
     # 1. Combine the inputs into a full dotted path and separate module from attribute
-    full_attribute_path = f"{base_module}.{attribute}"
+    full_item_path = f"{base_module}.{item_sub_path}"
+
     try:
-        full_module_path, attribute_name = full_attribute_path.rsplit('.', 1)
-        logger.debug(f"Loading attribute '{attribute_name}' from module '{full_module_path}' (package_path='{base_path}, package_path='{package_path}')")
+        full_module_path, item_name = full_item_path.rsplit('.', 1)
+        logger.debug(f"Loading item '{item_name}' from module '{full_module_path}' (base_path='{base_path}, package_path='{package_path}')")
     except ValueError as e:
-        raise ValueError(f"Invalid path '{full_attribute_path}'.") from e
+        raise ValueError(f"Invalid path '{full_item_path}'.") from e
 
     # 2. Decide which loading strategy to use
     if package_path:
@@ -51,25 +52,21 @@ def _load_module_attribute(
 
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        item = getattr(module, item_name)
 
     else:
-        # --- SCENARIO 2: Default behavior ---
-        # Use Python's standard import mechanism, which searches sys.path
+        # 
+        # --- SCENARIO 2: Use import tools - two cases - it's a module or it's an attribute! ---
+        # 
         try:
+            # First, try to import the full path as a module (for cases where the item is a module)
+            item = importlib.import_module(full_item_path)
+        except ImportError:
+            # If that fails, import the base module and get the attribute from it
             module = importlib.import_module(full_module_path)
-        except ModuleNotFoundError as e:
-            raise ModuleNotFoundError(
-                f"Module '{full_module_path}' not found in standard Python paths."
-            ) from e
-    # 3. Retrieve the attribute from the loaded module
-    try:
-        attribute_ref = getattr(module, attribute_name)
-    except AttributeError as e:
-        raise AttributeError(
-            f"Attribute '{attribute_name}' not found in module '{full_module_path}'."
-        ) from e
+            item = getattr(module, item_name)
 
-    return attribute_ref
+    return item
 
 class PythonToolAdapter(ToolAdapter):
     """Adapter for creating tools from local or installed Python modules."""
@@ -85,7 +82,11 @@ class PythonToolAdapter(ToolAdapter):
                 missing_functions=func_names or [],
                 error="Missing required configuration fields"
             )
+        logger.debug(f"Creating Python tools for tool_id '{tool_id}' from module '{module_path}' with functions {func_names} (package_path='{package_path}', source_file='{src_file}')")
+
         source_dir = os.path.dirname(os.path.abspath(src_file))
+        logger.debug(f"Resolved source directory for tool config '{tool_id}': {source_dir}")
+
         try:
             loaded_tools = []
             found_functions = []
@@ -97,32 +98,20 @@ class PythonToolAdapter(ToolAdapter):
                     logger.warning(f"Function spec '{func_spec}' is not a string in tool config '{tool_id}'. Skipping.")
                     missing_functions.append(str(func_spec))
                     continue
-                obj = None
+
                 try:
-                    obj = _load_module_attribute(module_path, func_spec, package_path, source_dir)
+                    logger.debug(f"Attempting to load function '{func_spec}' from module '{module_path}' (package_path '{package_path}')")
+                    obj = _import_item(module_path, func_spec, package_path, source_dir)
                 except (ImportError, AttributeError, FileNotFoundError) as e:
                     logger.warning(f"Error loading function '{func_spec}' from module '{module_path}' (package_path '{package_path}')): {e}")
                     missing_functions.append(func_spec)
                     continue
                     
-                # Accept any callable object - removed tool_spec check as it's unreliable
-                if callable(obj):
-                    # Clean up the tool name to remove path prefixes
-                    clean_function_name = func_spec.split('.')[-1]
-                    
-                    # If the object has a tool_spec, update it with clean name
-                    if hasattr(obj, 'tool_spec') and isinstance(obj.tool_spec, dict):
-                        if 'name' in obj.tool_spec:
-                            original_name = obj.tool_spec['name']
-                            obj.tool_spec['name'] = clean_function_name
-                            logger.debug(f"Renamed tool from '{original_name}' to '{clean_function_name}'")
-                    
-                    loaded_tools.append(obj)
-                    found_functions.append(func_spec)
-                    logger.debug(f"Successfully loaded callable '{func_spec}' as '{clean_function_name}' from module '{module_path}'")
-                else:
-                    logger.warning(f"Object '{func_spec}' in module '{module_path}' is not callable. Skipping.")
-                    missing_functions.append(func_spec)
+                # Clean up the tool name to remove path prefixes
+                clean_function_name = func_spec.split('.')[-1]                   
+                loaded_tools.append(obj)
+                found_functions.append(clean_function_name)
+                logger.debug(f"Successfully loaded callable '{func_spec}' as '{clean_function_name}' from module '{module_path}'")
             
             logger.info(f"Successfully loaded {len(loaded_tools)} tools from Python module: {tool_id}")
             return ToolCreationResult(
