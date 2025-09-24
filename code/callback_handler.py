@@ -36,6 +36,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         self.headless = headless
         self.show_tool_use = show_tool_use
         self.in_message = False
+        self.in_tool_use = False
         # Check env var once at startup for efficiency
         self.disable_truncation = os.environ.get('YACBA_SHOW_FULL_TOOL_INPUT', 'false').lower() == 'true'
 
@@ -88,14 +89,20 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         # This removes the verbose "Using tool..." messages for cleaner output
         if self.show_tool_use:
             current_tool_use = kwargs.get("current_tool_use", {})            
-            if current_tool_use and current_tool_use.get("name"):
-                if self.previous_tool_use != current_tool_use:
-                    self.previous_tool_use = current_tool_use
+            if current_tool_use:
+                if not self.in_tool_use:
                     self.tool_count += 1
+                    self.in_tool_use = True
+                self.previous_tool_use = current_tool_use
+            
+            if "messageStop" in event and self.in_tool_use:
+                if self.previous_tool_use:
                     self._format_and_print_tool_input(
-                        tool_name=current_tool_use.get("name", "Unknown tool"),
-                        tool_input=current_tool_use.get("input", {})
+                        tool_name=self.previous_tool_use.get("name", "Unknown tool"),
+                        tool_input=self.previous_tool_use.get("input", {})
                     )
+                    self.previous_tool_use = None
+                self.in_tool_use = False
 
         kwargs.pop("current_tool_use", None)
         
