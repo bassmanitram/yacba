@@ -3,7 +3,7 @@ from typing import Any
 from cli.commands.registry import CommandRegistry
 from cli.commands.base_command import BaseCommand
 from .adapted_commands import AdaptedCommands
-from yacba_engine import YacbaEngine
+from core.engine import YacbaEngine
 
 COMMAND_REGISTRY = {
     # Session management
@@ -61,4 +61,4 @@ class BackendCommandRegistry(CommandRegistry):
 			return super()._instantiate_handler(command, handler_class)
 
 		# For adapted commands, pass the engine instance
-		return handler_class(self, self.engine)	
+		return handler_class(self, self.engine)

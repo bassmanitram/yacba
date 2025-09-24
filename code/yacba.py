@@ -18,9 +18,7 @@ from cli import (
 from adapters.cli.commands.registry import BackendCommandRegistry
 from utils.startup_messages import print_startup_info, print_welcome_message
 from utils.content_processing import generate_file_content_blocks
-from yacba_manager import ChatbotManager
-from config_parser import parse_config
-from yacba_config import YacbaConfig
+from core import ChatbotManager, parse_config, YacbaConfig
 from yacba_types import ExitCode, Message
 
 def _check_and_clear_cache_early():

@@ -1,4 +1,4 @@
-# yacba_engine.py
+# engine.py
 # Contains the core, reusable logic for the YACBA agent.
 
 import os
@@ -10,15 +10,15 @@ from loguru import logger
 from strands import Agent
 # Import the base class for correct type hinting
 from strands.session.session_manager import SessionManager
-from yacba_agent import YacbaAgent
+from .agent import YacbaAgent
 from utils.content_processing import parse_input_with_files
 from yacba_types.backend import ChatBackend
 from yacba_types.models import FrameworkAdapter
 from adapters.tools.factory import ToolFactory
-from callback_handler import YacbaCallbackHandler
-from delegating_session import DelegatingSession
-from model_loader import StrandsModelLoader
-from yacba_config import YacbaConfig
+from .callback_handler import YacbaCallbackHandler
+from .session import DelegatingSession
+from .model_loader import StrandsModelLoader
+from .config import YacbaConfig
 from yacba_types.tools import ToolProcessingResult, ToolSystemStatus
 
 class YacbaEngine(ChatBackend):

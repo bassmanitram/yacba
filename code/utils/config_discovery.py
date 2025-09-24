@@ -1,32 +1,73 @@
 import glob
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 from loguru import logger
 
 from yacba_types.tools import ToolConfig
 from yacba_types.config import ToolDiscoveryResult
 from yacba_types.base import PathLike
-from .performance_utils import cached_operation, perf_monitor
+from .performance_utils import perf_monitor
 
-@cached_operation("tool_discovery")
-def discover_tool_configs(directory: Optional[PathLike]) -> ToolDiscoveryResult:
+# Removed @cached_operation decorator to avoid serialization issues with NamedTuple
+def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple[List[ToolConfig], ToolDiscoveryResult]:
     """
     Enhanced discovery with detailed error reporting.
-    Discovers and loads tool configurations from *.tools.json files with caching.
+    Discovers and loads tool configurations from *.tools.json files.
     YACBA only validates the configuration structure, not tool functionality.
     
     Args:
-        directory: Directory to search for tool configs, None to disable discovery
+        paths: Directory path(s) to search for tool configs, or None to disable discovery
+        
+    Returns:
+        Tuple of (successful_configs, discovery_result)
+    """
+    if paths is None:
+        logger.info("Tool discovery is disabled by command-line option.")
+        empty_result = ToolDiscoveryResult([], [], 0)
+        return [], empty_result
+    
+    # Normalize to list
+    if isinstance(paths, (str, Path)):
+        path_list = [paths]
+    else:
+        path_list = list(paths)
+    
+    if not path_list:
+        logger.info("No tool configuration paths provided.")
+        empty_result = ToolDiscoveryResult([], [], 0)
+        return [], empty_result
+    
+    all_successful_configs: List[ToolConfig] = []
+    all_failed_configs: List[Dict[str, Any]] = []
+    total_files_scanned = 0
+    
+    for directory in path_list:
+        result = _discover_single_directory(directory)
+        all_successful_configs.extend(result.successful_configs)
+        all_failed_configs.extend(result.failed_configs)
+        total_files_scanned += result.total_files_scanned
+    
+    discovery_result = ToolDiscoveryResult(
+        all_successful_configs, 
+        all_failed_configs, 
+        total_files_scanned
+    )
+    
+    logger.info(f"Total tool discovery complete: {len(all_successful_configs)} successful, {len(all_failed_configs)} failed from {len(path_list)} directories")
+    return all_successful_configs, discovery_result
+
+def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
+    """
+    Discover tool configurations from a single directory.
+    
+    Args:
+        directory: Directory to search for tool configs
         
     Returns:
         ToolDiscoveryResult with successful configs, failed configs, and scan count
     """
-    if directory is None:
-        logger.info("Tool discovery is disabled by command-line option.")
-        return ToolDiscoveryResult([], [], 0)
-    
     dir_path = Path(directory)
     if not dir_path.exists():
         logger.warning(f"Tools directory not found: '{directory}'. Skipping tool discovery.")
@@ -99,7 +140,7 @@ def discover_tool_configs(directory: Optional[PathLike]) -> ToolDiscoveryResult:
             perf_monitor.increment_counter("tool_config_errors")
             logger.error(f"✗ Unexpected error loading tool config '{file_path}': {error_msg}")
     
-    logger.info(f"Tool discovery complete: {len(successful_configs)} successful, {len(failed_configs)} failed")
+    logger.info(f"Directory '{directory}' discovery complete: {len(successful_configs)} successful, {len(failed_configs)} failed")
     return ToolDiscoveryResult(successful_configs, failed_configs, len(config_files))
 
 def _validate_tool_config_detailed(config: Dict[str, Any]) -> List[str]:

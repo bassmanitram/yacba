@@ -5,8 +5,8 @@ Resource manager to orchestrates the core engine.
 from typing import Optional
 from loguru import logger
 
-from yacba_config import YacbaConfig
-from yacba_engine import YacbaEngine
+from .config import YacbaConfig
+from .engine import YacbaEngine
 
 
 class ChatbotManager:
