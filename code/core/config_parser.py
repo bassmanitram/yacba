@@ -26,6 +26,7 @@ from utils.file_utils import (
 )
 from utils.content_processing import process_path_argument
 from utils.config_discovery import discover_tool_configs
+from utils.model_config_parser import parse_model_config, ModelConfigError
 from yacba_types.config import ModelConfig, ToolConfig, FileUpload, ToolDiscoveryResult
 from yacba_types.base import PathLike
 from .config import YacbaConfig, ConversationManagerType
@@ -106,13 +107,15 @@ def _process_file_uploads(file_paths: List[str]) -> List[FileUpload]:
     
     return uploads
 
-def _create_model_config(model_string: str, **kwargs) -> ModelConfig:
+def _create_model_config(model_string: str, config_file: Optional[str] = None, 
+                        config_overrides: Optional[List[str]] = None) -> ModelConfig:
     """
     Create a ModelConfig object from the model string and additional parameters.
     
     Args:
         model_string: The model string in format 'framework:model'
-        **kwargs: Additional model configuration parameters
+        config_file: Optional path to model configuration JSON file
+        config_overrides: Optional list of configuration overrides
         
     Returns:
         ModelConfig object
@@ -125,11 +128,22 @@ def _create_model_config(model_string: str, **kwargs) -> ModelConfig:
         framework = "litellm"
         model_id = model_string
     
-    return ModelConfig(
-        framework=framework,
-        model_id=model_id,
-        **kwargs
-    )
+    # Parse model configuration from file and overrides
+    try:
+        model_config_dict = parse_model_config(config_file, config_overrides)
+        logger.debug(f"Parsed model config: {len(model_config_dict)} properties")
+    except ModelConfigError as e:
+        logger.error(f"Model configuration error: {e}")
+        raise ValueError(f"Model configuration error: {e}")
+    
+    # Add framework and model_id to the config dict
+    model_config_dict['framework'] = framework
+    model_config_dict['model_id'] = model_id
+    
+    # Create ModelConfig with all the configuration
+    model_config = ModelConfig(**model_config_dict)
+    
+    return model_config
 
 def _setup_argument_parser() -> argparse.ArgumentParser:
     """
@@ -154,6 +168,13 @@ Examples:
   yacba --conversation-manager summarizing # Use summarizing conversation management
   yacba --window-size 60 --summary-ratio 0.4 # Custom conversation management settings
   
+  # Model configuration examples:
+  yacba --model-config sample-model-configs/openai-gpt4.json  # Load config from file
+  yacba -c temperature:0.8 -c max_tokens:2048                # Set individual properties
+  yacba --model-config base.json -c temperature:0.9          # File + overrides
+  yacba -c "response_format.type:json_object"                # Nested properties
+  yacba -c "safety_settings[0].threshold:BLOCK_LOW_AND_ABOVE" # Array indexing
+  
 Environment Variables:
   YACBA_MODEL_ID      Default model (default: {default_model})
   YACBA_SYSTEM_PROMPT Default system prompt
@@ -167,6 +188,23 @@ Environment Variables:
         "-m", "--model",
         default=default_model,
         help=f"The model to use, in <framework>:<model_id> format. Default: {default_model} (or from YACBA_MODEL_ID)."
+    )
+    
+    # Model configuration options
+    parser.add_argument(
+        "--model-config",
+        help="Path to a JSON file containing model configuration (e.g., temperature, max_tokens)."
+    )
+    
+    parser.add_argument(
+        "-c", "--config-override",
+        action="append",
+        dest="config_overrides",
+        help=(
+            "Override model configuration property. Format: 'property.path:value'. "
+            "Can be used multiple times. Supports nested properties (response_format.type:json_object) "
+            "and array indexing (safety_settings[0].threshold:BLOCK_LOW_AND_ABOVE)."
+        )
     )
     
     # System prompt
@@ -337,6 +375,7 @@ def parse_config() -> YacbaConfig:
     - Environment variable processing
     - File upload processing
     - Tool configuration discovery
+    - Model configuration parsing
     - Configuration validation
     
     Returns:
@@ -371,8 +410,18 @@ def parse_config() -> YacbaConfig:
                 logger.error(f"Error discovering tool configurations: {e}")
                 sys.exit(1)
         
-        # Create model configuration
-        model_config = _create_model_config(args.model)
+        # Create model configuration with file and overrides
+        try:
+            model_config = _create_model_config(
+                args.model, 
+                args.model_config, 
+                args.config_overrides
+            )
+            if args.model_config or args.config_overrides:
+                logger.info(f"Applied model configuration: {len(model_config)} properties")
+        except Exception as e:
+            logger.error(f"Error creating model configuration: {e}")
+            sys.exit(1)
         
         # Determine prompt source for display
         prompt_source = "environment" if os.environ.get("YACBA_SYSTEM_PROMPT") else "default"
