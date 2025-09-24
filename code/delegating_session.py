@@ -86,15 +86,15 @@ class DelegatingSession(SessionManager):
         if self._active_session:
             self._active_session.sync_agent(agent)
 
-    def clear(self, agent: "Agent", **kwargs: Any) -> None:
+    def clear(self) -> None:
         """
         Clears the agent's in-memory messages. If a session is active,
         it also clears the persisted session file by overwriting it with an
         empty history, keeping the session active.
         """
         # Step 1: Always clear the agent's in-memory message list.
-        if agent and agent.messages:
-            agent.messages.clear()
+        if self._agent and self._agent.messages:
+            self._agent.messages.clear()
             logger.debug("Cleared agent's in-memory message list.")
 
         # Step 2: If a session is active, clear its persisted file data
