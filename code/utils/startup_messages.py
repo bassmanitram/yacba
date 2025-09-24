@@ -15,7 +15,7 @@ def print_welcome_message():
     """Prints the initial welcome message and instructions to stdout."""
     print("Welcome to Yet Another ChatBot Agent!")
     print("Type 'exit' or 'quit' to end. Type /help for a list of commands.")
-    print("Use Alt+Enter for a new line. Use CTRL-D or CTRL-C to exit.")
+    print("Use Enter to add new lines. Use Alt+Enter or Ctrl+J to send messages.")
     print("To upload a file in-chat, use the format: file('path/to/file.ext')")
 
 
