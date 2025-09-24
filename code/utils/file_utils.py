@@ -1,4 +1,4 @@
-from glob import glob
+import glob
 import mimetypes
 import os
 from pathlib import Path

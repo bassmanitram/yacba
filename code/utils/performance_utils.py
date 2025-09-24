@@ -35,6 +35,9 @@ class FileSystemCache:
     """
     A two-tier file system cache for expensive operations.
     Uses an in-memory LRU cache for speed and a disk-based cache for persistence.
+    
+    Note: This cache is designed for simple data structures. Complex objects like
+    NamedTuple instances may not serialize/deserialize correctly through JSON.
     """
     
     def __init__(self, cache_dir: str = ".yacba_cache", memory_limit: int = 256):
@@ -57,6 +60,18 @@ class FileSystemCache:
         key_data = f"{operation}:{processed_args}:{sorted(kwargs.items())}"
         return hashlib.md5(key_data.encode()).hexdigest()
     
+    def _is_serializable(self, obj: Any) -> bool:
+        """Check if an object can be safely serialized to JSON."""
+        try:
+            json.dumps(obj)
+            return True
+        except (TypeError, ValueError):
+            return False
+    
+    def _has_namedtuple_attributes(self, obj: Any) -> bool:
+        """Check if an object looks like a NamedTuple (has _fields attribute)."""
+        return hasattr(obj, '_fields') and hasattr(obj, '_asdict')
+    
     def get(self, operation: str, *args, **kwargs) -> Optional[Any]:
         """Get cached result if available, checking memory first, then disk."""
         cache_key = self._get_cache_key(operation, *args, **kwargs)
@@ -68,7 +83,7 @@ class FileSystemCache:
                 self._memory_cache.move_to_end(cache_key)  # Mark as recently used
                 return self._memory_cache[cache_key]
         
-        # Tier 2: Check disk cache
+        # Tier 2: Check disk cache (but skip for complex objects)
         cache_file = self.cache_dir / f"{cache_key}.json"
         if cache_file.exists():
             try:
@@ -95,11 +110,21 @@ class FileSystemCache:
         cache_key = self._get_cache_key(operation, *args, **kwargs)
         
         with self._lock:
-            # Store in memory LRU cache
+            # Store in memory LRU cache (always works)
             self._memory_cache[cache_key] = result
             self._memory_cache.move_to_end(cache_key)
             if len(self._memory_cache) > self._memory_cache_max_size:
                 self._memory_cache.popitem(last=False)
+        
+        # Only store on disk if the object is safely serializable
+        # Skip disk caching for NamedTuple and other complex objects
+        if self._has_namedtuple_attributes(result):
+            logger.debug(f"Skipping disk cache for NamedTuple result: {operation}")
+            return
+        
+        if not self._is_serializable(result):
+            logger.debug(f"Skipping disk cache for non-serializable result: {operation}")
+            return
         
         # Store on disk
         cache_file = self.cache_dir / f"{cache_key}.json"
