@@ -31,7 +31,7 @@ async def chat_loop_async(
     # Process initial message if provided
     if initial_message:
         print(f"You: {initial_message}")
-        await command_handler.handle(initial_message)
+        await backend.handle_input(user_input)
         print()
 
     # Main interaction loop
@@ -49,7 +49,7 @@ async def chat_loop_async(
 
             # Handle meta-commands
             if user_input.strip().startswith("/"):
-                command_handler.handle(user_input.strip())
+                await command_handler.handle_command(user_input.strip())
                 continue
 
             # Process regular chat input

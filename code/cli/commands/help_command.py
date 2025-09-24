@@ -8,7 +8,7 @@ about commands across all command modules.
 
 from typing import List, Dict, Any
 
-from .registry import COMMAND_REGISTRY, get_command_help, validate_command
+from .registry import COMMAND_REGISTRY
 from .base_command import BaseCommand
 
 
@@ -45,8 +45,8 @@ class HelpCommand(BaseCommand):
             if not command.startswith('/'):
                 command = f'/{command}'
             
-            if validate_command(command):
-                help_text = get_command_help(command)
+            if self.registry.validate_command(command):
+                help_text = self.registry.get_command_help(command)
                 self.print_info(help_text)
             else:
                 self.print_error(f"Unknown command: {command}")

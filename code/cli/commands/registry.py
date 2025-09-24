@@ -1,6 +1,8 @@
 # Command registry for validation and help generation
-from typing import Any
+from typing import Any, Optional
 from loguru import logger
+
+from yacba_types.cli import CliCommandRegistry
 
 from .base_command import BaseCommand, CommandError
 
@@ -32,7 +34,7 @@ COMMAND_REGISTRY = {
     }
 }
 
-class CommandRegistry:
+class CommandRegistry(CliCommandRegistry):
 	"""Utility class for command registry operations."""
 	def __init__(self):
 		self.commands = COMMAND_REGISTRY
@@ -48,7 +50,7 @@ class CommandRegistry:
 		module = __import__(module_path, fromlist=[class_name])
 		return getattr(module, class_name)
 	
-	def _instantiate_handler(self, command: str, handler_class: Any) -> BaseCommand:
+	def _instantiate_handler(self, handler_class_name: str, handler_class: Any) -> BaseCommand:
 		"""
 		Instantiate a command handler class.
 		
@@ -61,7 +63,7 @@ class CommandRegistry:
 		Raises:
 			Any error that instantiation might raise
 		"""
-		return handler_class()
+		return handler_class(self)
 
 	def _create_handler(self, handler_class_name: str) -> BaseCommand:
 		"""
@@ -79,7 +81,7 @@ class CommandRegistry:
 		handler_class = self._load_handler(handler_class_name)
 		if not issubclass(handler_class, BaseCommand):
 			raise TypeError(f"Handler {handler_class_name} is not a subclass of BaseCommand")
-		return self._instantiate_handler(handler_class)
+		return self._instantiate_handler(handler_class_name, handler_class)
 				
 	def add_command(self, command: str, handler: str, category: str, description: str, usage: list) -> None:
 		"""
@@ -153,11 +155,11 @@ class CommandRegistry:
 			# MainLoop commands are handled directly in the main application loop
 			return None
 
-		if command in self.command_cache:
+		if handler_class in self.command_cache:
 			return self.command_cache[handler_class]
 				
 		handler_instance = self._create_handler(handler_class)
-		self.command_cache[command] = handler_instance
+		self.command_cache[handler_class] = handler_instance
 		return handler_instance
 	
 	def validate_command(self, command: str) -> bool:
@@ -172,7 +174,7 @@ class CommandRegistry:
 		"""
 		return command in self.commands
 	
-	def handle_command(self, command: str, args: list) -> None:
+	async def handle_command(self, command_string: str) -> None:
 		"""
 		Handle a command by invoking its handler.
 		
@@ -183,16 +185,25 @@ class CommandRegistry:
 		Raises:
 			CommandError if command is not recognized or handling fails
 		"""
-		if not command.startswith('/'):
-			command = f'/{command}'
+		logger.debug(f"Handling command: {command_string}")
+		if not command_string.startswith('/'):
+			command_string = f'/{command_string}'
 			
+		parts = command_string.split()
+		command = parts[0]
+		args = parts[1:]
+
+		logger.debug(f"Command: {command}, Args: {args}")
 		if not self.validate_command(command):
+			logger.debug(f"Unrecognized command: {command}")
 			raise CommandError(f"Command {command} is not recognized.", command=command)
 		
 		try:
 			handler = self.get_command_handler(command)
+			logger.debug(f"Command handler: {handler}")
 			if handler:
-				handler.handle_command(command, args)
+				logger.debug(f"Invoking handler for command: {command} with args: {args}")
+				await handler.handle_command(command, args)
 		except Exception as e:
-			logger.error(f"Error handling command {command}: {e}")
-			print(f"Error handling command {command}: {e}")
+			logger.error(f"Error handling command {command_string}: {e}")
+			print(f"Error handling command {command_string}: {e}")

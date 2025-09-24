@@ -12,14 +12,14 @@ import json
 from typing import List
 
 from cli.commands.base_command import CommandError
-from adapted_commands import AdaptedCommands
+from .adapted_commands import AdaptedCommands
 
 
 class InfoCommands(AdaptedCommands):
     """Handler for information display commands (excluding /help)."""
 
-    def __init__(self, engine):
-        super().__init__(engine)
+    def __init__(self, registry, engine):
+        super().__init__(registry, engine)
     
     async def handle_command(self, command: str, args: List[str]) -> None:
         """
@@ -51,7 +51,7 @@ class InfoCommands(AdaptedCommands):
         if not self.validate_args(args, max_args=0):
             return
         
-        if not self.check_engine_ready():
+        if not self.engine.is_ready:
             return
         
         try:
@@ -79,7 +79,7 @@ class InfoCommands(AdaptedCommands):
         if not self.validate_args(args, max_args=0):
             return
         
-        if not self.engine.is_ready():
+        if not self.engine.is_ready:
             return
         
         try:

@@ -43,6 +43,7 @@ class BackendCommandRegistry(CommandRegistry):
 	"""Utility class for command registry operations."""
 	def __init__(self, engine: YacbaEngine):
 		super().__init__()
+		self.engine = engine
 		self.commands.update(COMMAND_REGISTRY)
 
 	def _instantiate_handler(self, command: str, handler_class: Any) -> BaseCommand:
@@ -60,4 +61,4 @@ class BackendCommandRegistry(CommandRegistry):
 			return super()._instantiate_handler(command, handler_class)
 
 		# For adapted commands, pass the engine instance
-		return handler_class(self.engine)	
+		return handler_class(self, self.engine)	

@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from loguru import logger
 
+from yacba_types.cli import CliCommandRegistry
+
 class BaseCommand(ABC):
     """
     Abstract base class for CLI meta-commands.
@@ -14,7 +16,7 @@ class BaseCommand(ABC):
     for all command handlers.
     """
     
-    def __init__(self):
+    def __init__(self, registry: CliCommandRegistry):
         """
         Initialize the command handler.
         
@@ -22,6 +24,7 @@ class BaseCommand(ABC):
             manager: The ChatbotManager instance for accessing engine state
         """
         self._command_name = self.__class__.__name__.lower().replace('commands', '')
+        self.registry = registry
     
     @abstractmethod
     async def handle_command(self, command: str, args: List[str]) -> None:
