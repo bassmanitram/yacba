@@ -4,6 +4,7 @@ Prompt session management for YACBA CLI.
 Handles the setup and configuration of interactive prompt sessions.
 """
 
+from typing import Optional, Union, List, Dict
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
@@ -14,7 +15,8 @@ from .completer import YacbaCompleter
 
 def create_prompt_session(
     history_file: str = ".yacba_history",
-    completer: YacbaCompleter = None
+    completer: Optional[YacbaCompleter] = None,
+    command_registry: Optional[Union[Dict, List[str]]] = None
 ) -> PromptSession:
     """
     Create a configured prompt session for interactive input.
@@ -22,12 +24,17 @@ def create_prompt_session(
     Args:
         history_file: Path to history file
         completer: Tab completer instance (creates default if None)
+        command_registry: Command registry dict or list of commands for completion
         
     Returns:
         Configured PromptSession instance
     """
     history = FileHistory(history_file)
-    completer = completer or YacbaCompleter()
+    
+    # Create completer with dynamic command registry if available
+    if completer is None:
+        completer = YacbaCompleter(command_registry)
+    
     key_bindings = _create_key_bindings()
     
     return PromptSession(

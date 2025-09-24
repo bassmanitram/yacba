@@ -23,15 +23,20 @@ async def chat_loop_async(
 
     Args:
         backend: ChatBackend instance
+        command_handler: Command registry for handling meta-commands
         initial_message: Optional initial message to send
-        max_files: Maximum number of files to process
     """
-    session = create_prompt_session()
+    # Create prompt session with dynamic command completion
+    command_registry = None
+    if command_handler and hasattr(command_handler, 'commands'):
+        command_registry = command_handler.commands
+    
+    session = create_prompt_session(command_registry=command_registry)
 
     # Process initial message if provided
     if initial_message:
         print(f"You: {initial_message}")
-        await backend.handle_input(user_input)
+        await backend.handle_input(initial_message)
         print()
 
     # Main interaction loop

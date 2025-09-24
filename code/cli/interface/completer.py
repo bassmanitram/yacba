@@ -5,7 +5,7 @@ Provides intelligent completion for meta-commands and file paths.
 """
 
 import re
-from typing import List
+from typing import List, Optional, Union
 
 from prompt_toolkit.completion import Completer, PathCompleter, Completion
 from prompt_toolkit.document import Document
@@ -21,23 +21,34 @@ class YacbaCompleter(Completer):
     - Command arguments where appropriate
     """
     
-    def __init__(self, meta_commands: List[str] = None):
+    def __init__(self, meta_commands: Optional[Union[List[str], dict]] = None):
         """
         Initialize the completer with path completion support.
         
         Args:
-            meta_commands: List of meta-commands to complete (uses default if None)
+            meta_commands: List of meta-commands or command registry dict to complete.
+                          Uses default commands if None.
         """
         self.path_completer = PathCompleter()
-        self.meta_commands = meta_commands or [
-            "/help",
-            "/session", 
-            "/clear",
-            "/history",
-            "/tools",
-            "/exit",
-            "/quit",
-        ]
+        
+        # Handle different input types for meta_commands
+        if meta_commands is None:
+            # Default fallback commands
+            self.meta_commands = [
+                "/help",
+                "/session", 
+                "/clear",
+                "/history",
+                "/tools",
+                "/exit",
+                "/quit",
+            ]
+        elif isinstance(meta_commands, dict):
+            # Extract commands from registry dict
+            self.meta_commands = [cmd for cmd in meta_commands.keys() if cmd.startswith('/')]
+        else:
+            # Direct list of commands
+            self.meta_commands = meta_commands
 
     def get_completions(self, document: Document, complete_event):
         """
