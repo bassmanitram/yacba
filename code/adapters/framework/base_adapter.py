@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Dict, List, Optional, Tuple
 
 import litellm
@@ -39,8 +40,20 @@ class DefaultAdapter:
         if "litellm" in model_string:
             logger.debug("LiteLLM model detected. Cleaning tool schemas to remove 'additionalProperties'.")
             for tool in tools:
-                if hasattr(tool, 'tool_spec'):
+                if hasattr(tool, 'TOOL_SPEC'):
+                    logger.trace(f"Cleaning TOOL_SPEC for tool: {getattr(tool, 'name', 'unnamed-tool')}")
+                    recursively_remove(tool.TOOL_SPEC, "additionalProperties")
+                elif hasattr(tool, '_tool_spec'):
+                    logger.trace(f"Cleaning _tool_spec for tool: {getattr(tool, 'name', 'unnamed-tool')}")
                     recursively_remove(tool.tool_spec, "additionalProperties")
+                else:
+                    module_funcs = [name for name in dir(tool) if callable(getattr(tool, name))]
+                    for func_name in module_funcs:
+                        func = getattr(tool, func_name)
+                        if hasattr(func, '_tool_spec'):
+                            logger.trace(f"Cleaning _tool_spec for tool: {getattr(func, 'name', func_name)}")
+                            recursively_remove(func._tool_spec, "additionalProperties")
+
         return tools
 
     def prepare_agent_args(

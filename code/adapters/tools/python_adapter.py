@@ -70,7 +70,7 @@ def _import_item(
 
 class PythonToolAdapter(ToolAdapter):
     """Adapter for creating tools from local or installed Python modules."""
-    def create(self, config: Dict[str, Any]) -> ToolCreationResult:
+    def create(self, config: Dict[str, Any], schema_normalizer = None) -> ToolCreationResult:
         """Creates a tool or tools based on the provided configuration."""
         tool_id, module_path, package_path, func_names, src_file = (config.get(k) for k in ["id", "module_path", "package_path", "functions", "source_file"])
         if not all([tool_id, module_path, func_names, src_file]):
@@ -101,15 +101,15 @@ class PythonToolAdapter(ToolAdapter):
 
                 try:
                     logger.debug(f"Attempting to load function '{func_spec}' from module '{module_path}' (package_path '{package_path}')")
-                    obj = _import_item(module_path, func_spec, package_path, source_dir)
+                    tool = _import_item(module_path, func_spec, package_path, source_dir)
                 except (ImportError, AttributeError, FileNotFoundError) as e:
                     logger.warning(f"Error loading function '{func_spec}' from module '{module_path}' (package_path '{package_path}')): {e}")
                     missing_functions.append(func_spec)
                     continue
                     
                 # Clean up the tool name to remove path prefixes
-                clean_function_name = func_spec.split('.')[-1]                   
-                loaded_tools.append(obj)
+                clean_function_name = func_spec.split('.')[-1]
+                loaded_tools.append(tool)
                 found_functions.append(clean_function_name)
                 logger.debug(f"Successfully loaded callable '{func_spec}' as '{clean_function_name}' from module '{module_path}'")
             
