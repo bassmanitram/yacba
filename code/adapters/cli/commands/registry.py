@@ -36,6 +36,18 @@ COMMAND_REGISTRY = {
 		'category': 'Information',
         'description': 'List available tools',
         'usage': ['/tools - Show currently loaded tools']
+    },
+    '/conversation-manager': {
+        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'category': 'Information',
+        'description': 'Show conversation manager configuration',
+        'usage': ['/conversation-manager - Display current conversation management settings']
+    },
+    '/conversation-stats': {
+        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'category': 'Information', 
+        'description': 'Show conversation statistics',
+        'usage': ['/conversation-stats - Display conversation memory usage and statistics']
     }
 }
 

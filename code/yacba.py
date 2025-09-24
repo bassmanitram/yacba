@@ -96,13 +96,14 @@ async def main_async() -> None:
                 logger.error("Failed to initialize the agent engine. Exiting.")
                 sys.exit(ExitCode.INITIALIZATION_ERROR)
 
-            # Enhanced startup information with tool loading details
+            # Enhanced startup information with tool loading details and conversation manager info
             print_startup_info(
                 model_id=config.model_string,
                 system_prompt=config.system_prompt,
                 prompt_source=config.prompt_source,
                 tool_system_status=manager.engine.tool_system_status,
                 startup_files=[(upload["path"], upload["mimetype"]) for upload in config.files_to_upload],
+                conversation_manager_info=manager.engine.conversation_manager_info,
                 output_file=sys.stderr
             )
             

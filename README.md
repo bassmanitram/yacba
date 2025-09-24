@@ -9,6 +9,10 @@ Yacba provides a flexible and configurable command-line AI agent powered by the 
 *   **Extensible Tool Integration:** Dynamically load tools for the agent from various sources:
     *   **MCP Servers:** Connect to tools provided by local or remote Model Context Protocol (MCP) servers over `stdio` or `http`.
     *   **Local Python Modules:** Integrate your own Python functions decorated with `@tool`.
+*   **Advanced Conversation Management:** Intelligent management of conversation history to handle long sessions efficiently:
+    *   **Sliding Window:** Maintains a configurable window of recent messages while automatically removing older ones.
+    *   **Summarization:** Creates intelligent summaries of older conversation context instead of discarding it, preserving important information.
+    *   **Context Overflow Protection:** Automatically handles model context limits without losing conversation continuity.
 *   **Advanced File Handling:**
     *   **Startup Uploads:** Upload multiple files or entire directories at startup using the `-f` flag.
         *   Recursively scans directories with optional glob filters (e.g., `-f my_dir[*.py,*.js]`).
@@ -116,6 +120,18 @@ cat report.txt | ./yacba --headless
 | `--show-perf-stats` | Displays performance statistics (timings, cache hits/misses) on exit. |
 | `--disable-cache` | Disables the performance cache for the current run. |
 
+### **Conversation Management Options**
+
+| Flag | Description |
+| :--- | :--- |
+| `--conversation-manager` | Choose conversation management strategy: `null` (disabled), `sliding_window` (default), or `summarizing`. |
+| `--window-size` | Maximum number of messages to keep in sliding window mode. Default: 40. |
+| `--preserve-recent` | Number of recent messages to always preserve in summarizing mode. Default: 10. |
+| `--summary-ratio` | Ratio of messages to summarize vs keep (0.1-0.8) in summarizing mode. Default: 0.3. |
+| `--summarization-model` | Optional separate model for summarization (e.g., `litellm:gemini/gemini-1.5-flash` for cheaper summaries). |
+| `--custom-summarization-prompt` | Custom system prompt for summarization. If not provided, uses built-in prompt. |
+| `--no-truncate-results` | Disable truncation of tool results when context window is exceeded. |
+
 ## **Interactive Meta-Commands**
 
 While in an interactive session, you can use the following commands:
@@ -127,7 +143,59 @@ While in an interactive session, you can use the following commands:
 | `/clear` | Clear the agent's current conversation history and start fresh. |
 | `/history` | Print the current conversation history as a JSON object. |
 | `/tools` | List the names of all tools currently available to the agent. |
+| `/conversation-manager` | Display current conversation management configuration and settings. |
+| `/conversation-stats` | Show conversation statistics including message counts and memory usage. |
 | `/exit`, `/quit` | Exit the application. |
+
+## **Conversation Management**
+
+Yacba provides intelligent conversation management to handle long sessions efficiently without losing important context.
+
+### **Sliding Window Mode (Default)**
+
+Maintains a configurable window of recent messages, automatically removing older ones when the window size is exceeded.
+
+```bash
+# Use sliding window with 60 messages
+./yacba --conversation-manager sliding_window --window-size 60
+
+# Disable tool result truncation
+./yacba --conversation-manager sliding_window --no-truncate-results
+```
+
+**Best for:** General conversations, development sessions, most interactive use cases.
+
+### **Summarizing Mode**
+
+Creates intelligent summaries of older conversation context instead of discarding it, preserving important information while keeping memory usage manageable.
+
+```bash
+# Use summarizing with default settings
+./yacba --conversation-manager summarizing
+
+# Custom summarization settings
+./yacba --conversation-manager summarizing \
+  --summary-ratio 0.4 \
+  --preserve-recent 15 \
+  --summarization-model "litellm:gemini/gemini-1.5-flash"
+
+# Custom summarization prompt
+./yacba --conversation-manager summarizing \
+  --custom-summarization-prompt "Create a technical summary focusing on code and decisions made."
+```
+
+**Best for:** Long research sessions, complex projects, conversations where preserving context history is important.
+
+### **Null Mode**
+
+Disables conversation management entirely, keeping full conversation history in memory.
+
+```bash
+# Disable conversation management
+./yacba --conversation-manager null
+```
+
+**Best for:** Short sessions, debugging, when you need complete message history.
 
 ## **Configuring Tools**
 
@@ -190,6 +258,19 @@ Analyze a Python project directory using a custom tool for listing files, runnin
   --session-name "code-review-llama3"
 ```
 
+### **Long Research Session with Summarization**
+
+Start a long research session that will intelligently summarize older context to maintain conversation continuity.
+
+```bash
+./yacba \
+  --conversation-manager summarizing \
+  --summary-ratio 0.3 \
+  --preserve-recent 15 \
+  --summarization-model "litellm:gemini/gemini-1.5-flash" \
+  --session "research-project"
+```
+
 ### **Headless Scripting with AWS Tools**
 
 Use headless mode to ask the AWS CLI tool to list S3 buckets and pipe the output to a file.
@@ -199,4 +280,17 @@ Use headless mode to ask the AWS CLI tool to list S3 buckets and pipe the output
   -m bedrock:anthropic.claude-3-sonnet-20240229-v1:0 \
   -t "/path/to/aws/tool/config" \
   -i "Using my tools, list all of my S3 buckets in the us-east-1 region." > s3_buckets.txt
+```
+
+### **Development Session with Sliding Window**
+
+Set up a development session with a larger sliding window for code review and debugging.
+
+```bash
+./yacba \
+  --conversation-manager sliding_window \
+  --window-size 80 \
+  --session "development" \
+  -t "./tools/" \
+  -f "src/[*.py,*.js]"
 ```

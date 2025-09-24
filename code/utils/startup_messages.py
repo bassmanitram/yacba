@@ -5,7 +5,7 @@ Handles welcome messages, startup information, and status reporting.
 """
 
 import sys
-from typing import List, TextIO
+from typing import List, TextIO, Optional
 from pathlib import Path
 
 from yacba_types.tools import ToolSystemStatus
@@ -25,10 +25,11 @@ def print_startup_info(
     prompt_source: str,
     tool_system_status: ToolSystemStatus,
     startup_files: List[tuple[str, str]],
+    conversation_manager_info: Optional[str] = None,
     output_file: TextIO = sys.stdout,
 ):
     """
-    Enhanced startup info with unified tool status reporting.
+    Enhanced startup info with unified tool status reporting and conversation manager info.
     
     Args:
         model_id: Model identifier string
@@ -36,6 +37,7 @@ def print_startup_info(
         prompt_source: Source of the system prompt
         tool_system_status: Status of tool loading
         startup_files: List of uploaded files
+        conversation_manager_info: Information about conversation manager configuration
         output_file: Output stream for messages
     """
     
@@ -46,6 +48,10 @@ def print_startup_info(
     
     # Display basic configuration
     _print_basic_config(write, model_id, system_prompt, prompt_source)
+    
+    # Display conversation manager configuration
+    if conversation_manager_info:
+        _print_conversation_manager_info(write, conversation_manager_info)
     
     # Display tool status
     _print_tool_status(write, tool_system_status)
@@ -62,6 +68,11 @@ def _print_basic_config(write_func, model_id: str, system_prompt: str, prompt_so
     ellipsis = "..." if "\n" in system_prompt else ""
     write_func(f'System Prompt (from {prompt_source}): "{first_line}{ellipsis}"')
     write_func(f"Model: {model_id}")
+
+
+def _print_conversation_manager_info(write_func, conversation_manager_info: str):
+    """Print conversation manager configuration information."""
+    write_func(f"{conversation_manager_info}")
 
 
 def _print_tool_status(write_func, tool_system_status: ToolSystemStatus):

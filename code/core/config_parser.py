@@ -28,7 +28,7 @@ from utils.content_processing import process_path_argument
 from utils.config_discovery import discover_tool_configs
 from yacba_types.config import ModelConfig, ToolConfig, FileUpload, ToolDiscoveryResult
 from yacba_types.base import PathLike
-from .config import YacbaConfig
+from .config import YacbaConfig, ConversationManagerType
 
 # Define constants for clarity and maintainability.
 DEFAULT_MODEL = "litellm:gemini/gemini-1.5-flash"
@@ -151,6 +151,8 @@ Examples:
   yacba -i "Hello, world!" --headless     # Headless mode with message
   yacba -f document.pdf -i "Analyze this" # Upload file and analyze
   yacba --session my-session              # Use named session
+  yacba --conversation-manager summarizing # Use summarizing conversation management
+  yacba --window-size 60 --summary-ratio 0.4 # Custom conversation management settings
   
 Environment Variables:
   YACBA_MODEL_ID      Default model (default: {default_model})
@@ -210,6 +212,51 @@ Environment Variables:
         help=f"Session name for conversation persistence. Default: {_get_default_session_name()} (or from YACBA_SESSION_NAME)."
     )
     
+    # Conversation Management
+    parser.add_argument(
+        "--conversation-manager",
+        choices=["null", "sliding_window", "summarizing"],
+        default="sliding_window",
+        help="Conversation management strategy. 'null' disables management, 'sliding_window' keeps recent messages, 'summarizing' creates summaries of older context. Default: sliding_window."
+    )
+    
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=40,
+        help="Maximum number of messages in sliding window mode. Default: 40."
+    )
+    
+    parser.add_argument(
+        "--preserve-recent",
+        type=int,
+        default=10,
+        help="Number of recent messages to always preserve in summarizing mode. Default: 10."
+    )
+    
+    parser.add_argument(
+        "--summary-ratio",
+        type=float,
+        default=0.3,
+        help="Ratio of messages to summarize vs keep (0.1-0.8) in summarizing mode. Default: 0.3."
+    )
+    
+    parser.add_argument(
+        "--summarization-model",
+        help="Optional separate model for summarization (e.g., 'litellm:gemini/gemini-1.5-flash' for cheaper summaries)."
+    )
+    
+    parser.add_argument(
+        "--custom-summarization-prompt",
+        help="Custom system prompt for summarization. If not provided, uses built-in prompt."
+    )
+    
+    parser.add_argument(
+        "--no-truncate-results",
+        action="store_true",
+        help="Disable truncation of tool results when context window is exceeded."
+    )
+    
     # Execution modes
     parser.add_argument(
         "-i", "--initial-message",
@@ -267,6 +314,19 @@ def _validate_configuration(config: YacbaConfig) -> None:
     # Validate session name
     if not config.session_name or not config.session_name.strip():
         raise ValueError("Session name cannot be empty")
+    
+    # Validate conversation manager configuration
+    if config.conversation_manager_type == "summarizing":
+        # Additional validation for summarizing mode
+        if config.preserve_recent_messages >= config.sliding_window_size:
+            raise ValueError("--preserve-recent must be less than --window-size")
+        
+        if not (0.1 <= config.summary_ratio <= 0.8):
+            raise ValueError("--summary-ratio must be between 0.1 and 0.8")
+    
+    # Validate summarization model if provided
+    if config.summarization_model:
+        _validate_model_string(config.summarization_model)
 
 def parse_config() -> YacbaConfig:
     """
@@ -339,6 +399,15 @@ def parse_config() -> YacbaConfig:
             # Session management
             session_name=args.session,
             agent_id=args.agent_id,
+            
+            # Conversation management
+            conversation_manager_type=args.conversation_manager,
+            sliding_window_size=args.window_size,
+            preserve_recent_messages=args.preserve_recent,
+            summary_ratio=args.summary_ratio,
+            summarization_model=args.summarization_model,
+            custom_summarization_prompt=args.custom_summarization_prompt,
+            should_truncate_results=not args.no_truncate_results,
             
             # Execution mode
             headless=args.headless,

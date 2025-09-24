@@ -4,6 +4,8 @@ Information display commands for YACBA CLI.
 Handles commands that display information about the current state:
 - /history: Display conversation history
 - /tools: List currently loaded tools
+- /conversation-manager: Show conversation manager info
+- /conversation-stats: Show conversation management statistics
 
 Note: /help is handled separately in help_command.py
 """
@@ -23,7 +25,7 @@ class InfoCommands(AdaptedCommands):
     
     async def handle_command(self, command: str, args: List[str]) -> None:
         """
-        Handle info commands like /history, /tools.
+        Handle info commands like /history, /tools, /conversation-manager.
         
         Args:
             command: The command to execute
@@ -34,6 +36,10 @@ class InfoCommands(AdaptedCommands):
                 await self._show_history(args)
             elif command == "/tools":
                 await self._list_tools(args)
+            elif command == "/conversation-manager":
+                await self._show_conversation_manager_info(args)
+            elif command == "/conversation-stats":
+                await self._show_conversation_stats(args)
             else:
                 self.print_error(f"Unknown info command: {command}")
         except CommandError as e:
@@ -97,6 +103,112 @@ class InfoCommands(AdaptedCommands):
                 
         except Exception as e:
             self.print_error(f"Failed to list tools: {e}")
+    
+    async def _show_conversation_manager_info(self, args: List[str]) -> None:
+        """
+        Show information about the current conversation manager configuration.
+        
+        Args:
+            args: Should be empty for this command
+        """
+        if not self.validate_args(args, max_args=0):
+            return
+        
+        if not self.engine.is_ready:
+            return
+        
+        try:
+            config = self.engine.config
+            manager = self.engine.conversation_manager
+            
+            self.print_info("Conversation Manager Configuration:")
+            self.print_info(f"  Type: {config.conversation_manager_type}")
+            
+            if config.conversation_manager_type == "sliding_window":
+                self.print_info(f"  Window Size: {config.sliding_window_size} messages")
+                self.print_info(f"  Truncate Results: {'Yes' if config.should_truncate_results else 'No'}")
+            
+            elif config.conversation_manager_type == "summarizing":
+                self.print_info(f"  Summary Ratio: {config.summary_ratio} ({int(config.summary_ratio * 100)}%)")
+                self.print_info(f"  Preserve Recent: {config.preserve_recent_messages} messages")
+                if config.summarization_model:
+                    self.print_info(f"  Summarization Model: {config.summarization_model}")
+                else:
+                    self.print_info(f"  Summarization Model: Same as main model ({config.model_string})")
+                if config.custom_summarization_prompt:
+                    self.print_info(f"  Custom Prompt: Yes")
+                else:
+                    self.print_info(f"  Custom Prompt: No (using default)")
+            
+            elif config.conversation_manager_type == "null":
+                self.print_info("  No conversation management (all history preserved)")
+            
+            # Show current state if manager exists
+            if manager and hasattr(manager, 'removed_message_count'):
+                self.print_info(f"  Messages Removed: {manager.removed_message_count}")
+            
+        except Exception as e:
+            self.print_error(f"Failed to show conversation manager info: {e}")
+    
+    async def _show_conversation_stats(self, args: List[str]) -> None:
+        """
+        Show conversation statistics and current memory usage.
+        
+        Args:
+            args: Should be empty for this command
+        """
+        if not self.validate_args(args, max_args=0):
+            return
+        
+        if not self.engine.is_ready:
+            return
+        
+        try:
+            agent = self.agent
+            manager = self.engine.conversation_manager
+            
+            current_messages = len(agent.messages) if agent.messages else 0
+            total_removed = manager.removed_message_count if manager and hasattr(manager, 'removed_message_count') else 0
+            total_processed = current_messages + total_removed
+            
+            self.print_info("Conversation Statistics:")
+            self.print_info(f"  Current Messages: {current_messages}")
+            self.print_info(f"  Removed Messages: {total_removed}")
+            self.print_info(f"  Total Processed: {total_processed}")
+            
+            if total_processed > 0:
+                retention_rate = (current_messages / total_processed) * 100
+                self.print_info(f"  Retention Rate: {retention_rate:.1f}%")
+            
+            # Show message breakdown if we have messages
+            if agent.messages:
+                user_messages = sum(1 for msg in agent.messages if msg.get('role') == 'user')
+                assistant_messages = sum(1 for msg in agent.messages if msg.get('role') == 'assistant')
+                other_messages = current_messages - user_messages - assistant_messages
+                
+                self.print_info("  Message Breakdown:")
+                self.print_info(f"    User: {user_messages}")
+                self.print_info(f"    Assistant: {assistant_messages}")
+                if other_messages > 0:
+                    self.print_info(f"    Other: {other_messages}")
+                
+                # Check for tool use messages
+                tool_use_messages = sum(
+                    1 for msg in agent.messages 
+                    if any('toolUse' in str(content) for content in msg.get('content', []))
+                )
+                tool_result_messages = sum(
+                    1 for msg in agent.messages 
+                    if any('toolResult' in str(content) for content in msg.get('content', []))
+                )
+                
+                if tool_use_messages > 0 or tool_result_messages > 0:
+                    self.print_info("  Tool Messages:")
+                    self.print_info(f"    Tool Use: {tool_use_messages}")
+                    self.print_info(f"    Tool Results: {tool_result_messages}")
+            
+        except Exception as e:
+            self.print_error(f"Failed to show conversation stats: {e}")
     
     def _get_tool_info(self, tool, index: int) -> str:
         """
@@ -162,7 +274,9 @@ class InfoCommands(AdaptedCommands):
         """
         usage_map = {
             "/history": "/history - Display the current conversation history as JSON",
-            "/tools": "/tools - List all currently loaded tools with details"
+            "/tools": "/tools - List all currently loaded tools with details",
+            "/conversation-manager": "/conversation-manager - Show conversation manager configuration",
+            "/conversation-stats": "/conversation-stats - Show conversation statistics and memory usage"
         }
         
         return usage_map.get(command, super().get_command_usage(command))

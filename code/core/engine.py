@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
 
 from strands import Agent
+from strands.agent.conversation_manager import ConversationManager
 # Import the base class for correct type hinting
 from strands.session.session_manager import SessionManager
 from .agent import YacbaAgent
@@ -19,17 +20,19 @@ from .callback_handler import YacbaCallbackHandler
 from .session import DelegatingSession
 from .model_loader import StrandsModelLoader
 from .config import YacbaConfig
+from .conversation_manager_factory import ConversationManagerFactory
 from yacba_types.tools import ToolProcessingResult, ToolSystemStatus
 
 class YacbaEngine(ChatBackend):
     """
     The core, UI-agnostic engine for YACBA. It manages the agent, tools,
-    and model, but has no knowledge of the command line or session files.
+    model, and conversation management, but has no knowledge of the command line or session files.
     """
     def __init__(self, config: YacbaConfig, initial_messages: Optional[List[Dict[str, Any]]] = None):
         self.config = config
         self.initial_messages = initial_messages or []
         self.agent: Optional[Agent] = None
+        self.conversation_manager: Optional[ConversationManager] = None
         self.loaded_tools: List[Any] = []
         self.tool_system_status: Optional[ToolSystemStatus] = None
         self.framework_adapter: Optional[FrameworkAdapter] = None
@@ -116,6 +119,22 @@ class YacbaEngine(ChatBackend):
                 error_message=str(e)
             )
 
+    def _create_conversation_manager(self) -> ConversationManager:
+        """Create and configure the conversation manager."""
+        try:
+            manager = ConversationManagerFactory.create_conversation_manager(self.config)
+            
+            # Log the conversation manager configuration
+            manager_info = ConversationManagerFactory.get_manager_info(manager, self.config)
+            logger.info(manager_info)
+            
+            return manager
+        except Exception as e:
+            logger.error(f"Failed to create conversation manager: {e}")
+            logger.info("Falling back to null conversation manager")
+            from strands.agent.conversation_manager import NullConversationManager
+            return NullConversationManager()
+
     def _setup_agent(self) -> Optional[Agent]:
         """Creates the Strands agent instance."""
         try:
@@ -125,6 +144,9 @@ class YacbaEngine(ChatBackend):
             
             # Allow the adapter to make any necessary modifications to the tool schemas.
             self.loaded_tools = self.framework_adapter.adapt_tools(self.loaded_tools, self.config.model_string)
+
+            # Create conversation manager
+            self.conversation_manager = self._create_conversation_manager()
 
             agent_args = self.framework_adapter.prepare_agent_args(
                 system_prompt=self.config.system_prompt,
@@ -140,9 +162,10 @@ class YacbaEngine(ChatBackend):
                 tools=self.loaded_tools, 
                 callback_handler=YacbaCallbackHandler(headless=self.config.headless, show_tool_use=self.config.show_tool_use),
                 session_manager=self.session_manager,
+                conversation_manager=self.conversation_manager,  # Add conversation manager
                 **agent_args
             )
-            logger.info("Agent successfully created.")
+            logger.info("Agent successfully created with conversation management.")
             return self.agent
         except Exception as e:
             logger.error(f"Fatal error initializing the agent: {e}", exc_info=True)
@@ -174,3 +197,10 @@ class YacbaEngine(ChatBackend):
             self.agent is not None and 
             self.framework_adapter is not None
         )
+    
+    @property
+    def conversation_manager_info(self) -> str:
+        """Get information about the current conversation manager."""
+        if self.conversation_manager:
+            return ConversationManagerFactory.get_manager_info(self.conversation_manager, self.config)
+        return "Conversation Management: Not initialized"
