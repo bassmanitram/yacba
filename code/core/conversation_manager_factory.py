@@ -56,11 +56,23 @@ class ConversationManagerFactory:
                 # Create optional summarization agent if a different model is specified
                 summarization_agent = None
                 if config.summarization_model:
-                    summarization_agent = ConversationManagerFactory._create_summarization_agent(
-                        config.summarization_model, 
-                        config.model_config
-                    )
+                    logger.debug(f"Creating summarization agent with model: {config.summarization_model}")
+                    try:
+                        summarization_agent = ConversationManagerFactory._create_summarization_agent(
+                            config.summarization_model, 
+                            config.model_config
+                        )
+                        if summarization_agent:
+                            logger.info(f"Successfully created summarization agent")
+                        else:
+                            logger.warning(f"Failed to create summarization agent, proceeding without one")
+                    except Exception as e:
+                        logger.error(f"Error creating summarization agent: {e}")
+                        logger.info("Proceeding without summarization agent")
+                        summarization_agent = None
                 
+                # Create the summarizing conversation manager
+                logger.debug("Creating SummarizingConversationManager instance")
                 return SummarizingConversationManager(
                     summary_ratio=config.summary_ratio,
                     preserve_recent_messages=config.preserve_recent_messages,
@@ -73,6 +85,7 @@ class ConversationManagerFactory:
                 
         except Exception as e:
             logger.error(f"Failed to create conversation manager: {e}")
+            logger.debug("Exception details:", exc_info=True)
             logger.info("Falling back to NullConversationManager")
             return NullConversationManager()
     
@@ -89,7 +102,7 @@ class ConversationManagerFactory:
             Configured agent for summarization, or None if creation fails
         """
         try:
-            logger.debug(f"Creating summarization agent with model: {model_string}")
+            logger.debug(f"Loading summarization model: {model_string}")
             
             loader = StrandsModelLoader()
             model, adapter = loader.create_model(model_string, base_model_config)
@@ -98,9 +111,9 @@ class ConversationManagerFactory:
                 logger.warning(f"Failed to create summarization model: {model_string}")
                 return None
             
-            # Create a lightweight agent for summarization (no tools, simple callback)
-            from .callback_handler import YacbaCallbackHandler
+            logger.debug("Summarization model loaded successfully")
             
+            # Create agent args for summarization agent
             agent_args = adapter.prepare_agent_args(
                 system_prompt="You are a conversation summarizer.",
                 messages=[],
@@ -108,16 +121,18 @@ class ConversationManagerFactory:
                 emulate_system_prompt=False
             )
             
-            # Import here to avoid circular dependency
-            from .agent import YacbaAgent
+            logger.debug("Creating summarization agent with lightweight configuration")
             
-            summarization_agent = YacbaAgent(
-                adapter=adapter,
-                agent_id="yacba_summarization_agent",
+            # Import here to avoid circular dependency
+            from .callback_handler import YacbaCallbackHandler
+            
+            # Create a lightweight agent for summarization (no tools, simple callback)
+            summarization_agent = Agent(
                 model=model,
                 tools=[],  # No tools for summarization
                 callback_handler=YacbaCallbackHandler(headless=True, show_tool_use=False),
-                session_manager=None,  # No session management for summarization agent
+                conversation_manager=None,  # No conversation management for summarization agent
+                agent_id="yacba_summarization_agent",
                 **agent_args
             )
             
@@ -126,6 +141,7 @@ class ConversationManagerFactory:
             
         except Exception as e:
             logger.error(f"Failed to create summarization agent: {e}")
+            logger.debug("Summarization agent creation exception:", exc_info=True)
             return None
     
     @staticmethod

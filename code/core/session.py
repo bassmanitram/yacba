@@ -25,7 +25,7 @@ class DelegatingSession(SessionManager):
         """Initializes the proxy, optionally setting the first active session."""
         super().__init__(session_id=session_name or "inactive")
         
-        self._sessions_home = Path(sessions_home or Path.home() / ".yacba/strands/sessions")  # Default to ~/.yacba
+        self._sessions_home = Path(sessions_home or Path(sessions_home or Path.home() / ".yacba/strands/sessions"))  # Default to ~/.yacba
         self._active_session = None
         self._agent = None
         self.session_id = session_name or "inactive"
@@ -34,6 +34,7 @@ class DelegatingSession(SessionManager):
         """
         Creates and activates a new FileSessionManager. It then calls the new
         session's initialize() method to sync its history with the agent.
+        Handles conversation manager type changes gracefully.
         """
         if not self._agent:
             logger.error("Cannot set active session: DelegatingSession has not been initialized with an agent yet.")
@@ -43,9 +44,39 @@ class DelegatingSession(SessionManager):
         self.session_id = session_name
         
         new_session = FileSessionManager(session_id=session_name, storage_dir=str(self._sessions_home))
-        new_session.initialize(self._agent)
-        self._active_session = new_session
         
+        # Try to initialize the session, but handle conversation manager state conflicts
+        try:
+            new_session.initialize(self._agent)
+        except ValueError as e:
+            if "Invalid conversation manager state" in str(e):
+                logger.warning(f"Session '{session_name}' has incompatible conversation manager state.")
+                logger.info("This can happen when switching between conversation manager types (e.g., sliding_window <-> summarizing).")
+                logger.info("Creating a new session to avoid conflicts...")
+                
+                # Clear any existing session data and start fresh
+                session_path = Path(self._sessions_home) / f"session_{session_name}"
+                if session_path.exists():
+                    logger.debug(f"Backing up incompatible session data to {session_path}.backup")
+                    backup_path = Path(str(session_path) + ".backup")
+                    if backup_path.exists():
+                        import shutil
+                        shutil.rmtree(backup_path)
+                    session_path.rename(backup_path)
+                
+                # Create a fresh session
+                new_session = FileSessionManager(session_id=session_name, storage_dir=str(self._sessions_home))
+                new_session.initialize(self._agent)
+                logger.info(f"Created fresh session '{session_name}' with current conversation manager type.")
+            else:
+                # Re-raise other ValueError types
+                raise
+        except Exception as e:
+            logger.error(f"Failed to initialize session '{session_name}': {e}")
+            logger.info("Continuing without persistent session...")
+            return
+        
+        self._active_session = new_session
         logger.info(f"DelegatingSession is now active for session_id: '{self.session_id}'. Agent history has been updated.")
 
     def list_sessions(self) -> List[str]:
@@ -105,4 +136,3 @@ class DelegatingSession(SessionManager):
         #    # pylint: disable=protected-access
         #    self._active_session._save([])
         #    logger.info(f"Cleared session file for '{self.session_id}'. Session remains active.")
-

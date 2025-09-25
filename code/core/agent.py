@@ -19,11 +19,20 @@ class YacbaAgent(Agent):
     A subclass of Agent that could include additional YACBA-specific functionality.
     Currently, it behaves the same as the base Agent class.
     """
-    pass
 
     def __init__(self, adapter: FrameworkAdapter, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+        """
+        Initialize YacbaAgent with framework adapter.
+        
+        Args:
+            adapter: Framework adapter for this agent
+            **kwargs: All other arguments passed to parent Agent constructor
+        """
+        # Store adapter before calling parent constructor
         self.adapter = adapter
+        
+        # Call parent constructor with all other arguments
+        super().__init__(**kwargs)
 
     async def handle_agent_stream(self,
         message: Union[str, List[Dict[str, Any]]]) -> bool:
