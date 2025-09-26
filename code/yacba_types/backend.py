@@ -1,4 +1,4 @@
-from typing import AsyncIterator, Protocol, Optional, List, Any
+from typing import Protocol
 
 class ChatBackend(Protocol):
     def startup(self):

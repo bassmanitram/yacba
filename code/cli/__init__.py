@@ -14,9 +14,9 @@ from .modes import chat_loop_async, run_headless_mode
 __all__ = [
     # Interface components
     'print_welcome_message',
-    'print_startup_info', 
+    'print_startup_info',
     'YacbaCompleter',
-    
+
     # Execution modes
     'chat_loop_async',
     'run_headless_mode',

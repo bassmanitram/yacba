@@ -6,8 +6,7 @@ Fully typed version using yacba_types.
 import sys
 import os
 import asyncio
-import argparse
-from typing import NoReturn, List, Dict, Any, Optional
+from typing import NoReturn, List, Optional
 from loguru import logger
 
 # Import migrated components with proper typing
@@ -16,6 +15,7 @@ from cli import (
     chat_loop_async,
 )
 from adapters.cli.commands.registry import BackendCommandRegistry
+from adapters.cli.completer import YacbaCompleter
 from utils.startup_messages import print_startup_info, print_welcome_message
 from utils.content_processing import files_to_content_blocks
 from core import ChatbotManager, parse_config, YacbaConfig
@@ -33,10 +33,10 @@ def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[
     """
     Processes startup files using a memory-efficient generator and formats them
     into a single multi-modal message for the agent.
-    
+
     Args:
         files_to_upload: A list of tuples containing file paths and their mimetypes.
-        
+
     Returns:
         A list containing a single user message with file content, or None if no files.
     """
@@ -52,23 +52,23 @@ def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[
         intro_block = {"type": "text", "text": "The user has uploaded the following files for analysis:"}
         # Append the concluding text
         outro_block = {"type": "text", "text": "\nPlease acknowledge you have received these files and await my instructions."}
-        
+
         final_content = [intro_block] + content_blocks + [outro_block]
         return [{"role": "user", "content": final_content}]
-    
+
     return None
 
 async def main_async() -> None:
     """
     Main async function to orchestrate the chatbot application.
     It parses config, sets up the manager, and runs the appropriate loop.
-    
+
     Raises:
         SystemExit: On configuration errors or initialization failures
     """
     # Clear cache early if requested, before config parsing
     _check_and_clear_cache_early()
-    
+
     # Parse configuration using migrated config parser
     config: YacbaConfig = parse_config()
 
@@ -88,7 +88,7 @@ async def main_async() -> None:
     )
 
     logger.info("Starting up Chatbot Manager...")
-    
+
     # Use the migrated ChatbotManager with proper error handling
     try:
         with ChatbotManager(config) as manager:
@@ -106,33 +106,41 @@ async def main_async() -> None:
                 conversation_manager_info=manager.engine.conversation_manager_info,
                 output_file=sys.stderr
             )
-            
+
             if not config.headless and config.tool_configs:
                 print("Tools initialized.")
 
             # Run in appropriate mode
             if config.headless:
-                success: bool = await run_headless_mode(manager.engine, config.initial_message)
+                success: bool = await run_headless_mode(
+                    manager.engine,
+                    config.initial_message)
                 if not success:
                     sys.exit(ExitCode.RUNTIME_ERROR)
             else:
-                await chat_loop_async(manager.engine, BackendCommandRegistry(manager.engine), config.initial_message)
-                
+                command_registry = BackendCommandRegistry(manager.engine)
+                completer = YacbaCompleter(command_registry.list_commands())
+                await chat_loop_async(
+                    manager.engine,
+                    command_registry,
+                    completer,
+                    config.initial_message)
+
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")
         sys.exit(ExitCode.FATAL_ERROR)
 
 def main() -> NoReturn:
-    """ 
+    """
     Synchronous main entry point. Configures logging and runs the async application.
-    
+
     This function never returns normally - it either completes successfully
     or exits with an error code.
     """
     log_level: str = os.environ.get("LOGURU_LEVEL", "INFO").upper()
     logger.remove()
     logger.add(sys.stderr, level=log_level)
-    
+
     try:
         asyncio.run(main_async())
         # If we get here, the application completed successfully

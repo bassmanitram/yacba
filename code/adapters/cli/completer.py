@@ -10,59 +10,40 @@ from typing import List, Optional, Union
 from prompt_toolkit.completion import Completer, PathCompleter, Completion
 from prompt_toolkit.document import Document
 
-
 class YacbaCompleter(Completer):
     """
     A context-aware completer that switches between meta-command and path completion.
-    
+
     Provides intelligent tab completion for:
     - Meta-commands (e.g., /help, /session)
     - File paths in file() syntax
     - Command arguments where appropriate
     """
-    
-    def __init__(self, meta_commands: Optional[Union[List[str], dict]] = None):
+
+    def __init__(self, meta_commands: Optional[Union[List[str], dict]] = []):
         """
         Initialize the completer with path completion support.
-        
+
         Args:
             meta_commands: List of meta-commands or command registry dict to complete.
                           Uses default commands if None.
         """
         self.path_completer = PathCompleter()
-        
-        # Handle different input types for meta_commands
-        if meta_commands is None:
-            # Default fallback commands
-            self.meta_commands = [
-                "/help",
-                "/session", 
-                "/clear",
-                "/history",
-                "/tools",
-                "/exit",
-                "/quit",
-            ]
-        elif isinstance(meta_commands, dict):
-            # Extract commands from registry dict
-            self.meta_commands = [cmd for cmd in meta_commands.keys() if cmd.startswith('/')]
-        else:
-            # Direct list of commands
-            self.meta_commands = meta_commands
+        self.meta_commands = meta_commands
 
     def get_completions(self, document: Document, complete_event):
         """
         Generate completions based on the current input context.
-        
+
         Args:
             document: Current document state
             complete_event: Completion event details
-            
+
         Yields:
             Completion objects for matching items
         """
         text = document.text_before_cursor
-        
+
         # Check for in-chat file upload syntax
         if self._is_file_completion_context(text):
             yield from self._get_file_completions(text, document, complete_event)
@@ -108,7 +89,7 @@ class YacbaCompleter(Completer):
     def add_command(self, command: str):
         """
         Add a new command to the completion list.
-        
+
         Args:
             command: Command to add (should start with '/')
         """
@@ -118,7 +99,7 @@ class YacbaCompleter(Completer):
     def remove_command(self, command: str):
         """
         Remove a command from the completion list.
-        
+
         Args:
             command: Command to remove
         """

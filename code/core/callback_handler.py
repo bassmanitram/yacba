@@ -14,11 +14,11 @@ MAX_VALUE_LENGTH = 90
 class YacbaCallbackHandler(PrintingCallbackHandler):
     """
     A callback handler that can optionally suppress tool use details for cleaner output.
-    
+
     This handler allows configurable control over tool execution feedback:
     - When show_tool_use=False (default): Suppresses verbose tool execution details
     - When show_tool_use=True: Shows full tool execution feedback
-    
+
     It is also responsible for:
     - Printing the "Chatbot: " prefix in interactive mode.
     - Printing the final newline after a response in interactive mode.
@@ -27,7 +27,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
     def __init__(self, headless: bool = False, show_tool_use: bool = False):
         """
         Initialize the callback handler.
-        
+
         Args:
             headless: Whether running in headless mode (no interactive prompts)
             show_tool_use: Whether to show verbose tool execution feedback
@@ -63,13 +63,13 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
     def __call__(self, **kwargs: Any) -> None:
         """
         Intercepts feedback events from the agent to control terminal output.
-        
+
         Args:
             **kwargs: Event data from the agent
         """
 
         logger.trace("SilentToolUseCallbackHandler.__call__ arguments: {}", kwargs)
-        
+
         event = kwargs.get("event", {})
 
         # In interactive mode, handle the "Chatbot:" prefix and final newline.
@@ -88,13 +88,13 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         # If show_tool_use is False (default), suppress the tool use details
         # This removes the verbose "Using tool..." messages for cleaner output
         if self.show_tool_use:
-            current_tool_use = kwargs.get("current_tool_use", {})            
+            current_tool_use = kwargs.get("current_tool_use", {})
             if current_tool_use:
                 if not self.in_tool_use:
                     self.tool_count += 1
                     self.in_tool_use = True
                 self.previous_tool_use = current_tool_use
-            
+
             if "messageStop" in event and self.in_tool_use:
                 if self.previous_tool_use:
                     self._format_and_print_tool_input(
@@ -105,7 +105,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
                 self.in_tool_use = False
 
         kwargs.pop("current_tool_use", None)
-        
+
         # Pass the remaining arguments (like messageChunk) to the parent handler,
         # which prints the actual content from the language model.
         super().__call__(**kwargs)

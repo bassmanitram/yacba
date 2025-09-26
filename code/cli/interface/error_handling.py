@@ -11,14 +11,13 @@ from loguru import logger
 from strands import Agent
 from yacba_types.models import FrameworkAdapter
 
-
 def format_error(e: Exception) -> str:
     """
     Extracts detailed information from exceptions for better user feedback.
-    
+
     Args:
         e: Exception to format
-        
+
     Returns:
         Formatted error message with details
     """
@@ -26,13 +25,12 @@ def format_error(e: Exception) -> str:
     message = getattr(e, "message", None)
     if message:
         details += f"\nMessage: {message}"
-    
+
     response = getattr(e, "response", None)
     if response and hasattr(response, "text"):
         details += f"\nOriginal Response: {response.text}"
-        
-    return str(e)
 
+    return str(e)
 
 async def handle_agent_stream(
     agent: Agent,
@@ -41,12 +39,12 @@ async def handle_agent_stream(
 ) -> bool:
     """
     Drives the agent's streaming response and handles potential errors.
-    
+
     Args:
         agent: The agent instance
         message: Message to send to the agent
         adapter: Framework adapter for error handling
-        
+
     Returns:
         True on success, False on failure
     """

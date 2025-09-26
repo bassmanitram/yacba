@@ -10,32 +10,32 @@ from strands.tools.mcp import MCPClient
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
-
 class MCPStdIOAdapter(ToolAdapter):
     """Adapter for creating MCP tools from a stdio command."""
     def create(self, config: Dict[str, Any]) -> ToolCreationResult:
         server_id = config.get("id", "unknown-stdio-server")
         logger.debug(f"Starting MCP server '{server_id}' with command: {config.get('command')}")
-        
+
         process_env = os.environ.copy()
         if 'env' in config:
             process_env.update(config['env'])
-        
+
         params = StdioServerParameters(command=config["command"], args=config.get("args", []), env=process_env)
-        client_factory = lambda: stdio_client(params)
-        
+
+        def create_stdio_client():
+            return stdio_client(params)
+
         try:
-            client = self.exit_stack.enter_context(MCPClient(client_factory))
+            client = self.exit_stack.enter_context(MCPClient(create_stdio_client))
             all_tools = client.list_tools_sync()
-            
+
             # Check if specific functions were requested
             requested_functions = config.get("functions", [])
             if requested_functions:
                 # Filter tools to only include requested functions
-                available_tool_names = [tool.tool_spec.get('name', '') for tool in all_tools if hasattr(tool, 'tool_spec')]
                 found_functions = []
                 filtered_tools = []
-                
+
                 for requested_func in requested_functions:
                     found = False
                     for tool in all_tools:
@@ -46,7 +46,7 @@ class MCPStdIOAdapter(ToolAdapter):
                             break
                     if not found:
                         logger.warning(f"MCP server '{server_id}' does not provide requested function '{requested_func}'")
-                
+
                 missing_functions = [f for f in requested_functions if f not in found_functions]
                 tools_to_return = filtered_tools
             else:
@@ -55,7 +55,7 @@ class MCPStdIOAdapter(ToolAdapter):
                 found_functions = [tool.tool_spec.get('name', 'unnamed') for tool in all_tools if hasattr(tool, 'tool_spec')]
                 missing_functions = []
                 tools_to_return = all_tools
-            
+
             logger.info(f"Successfully loaded {len(tools_to_return)} tools from MCP server: {server_id}")
             return ToolCreationResult(
                 tools=tools_to_return,
@@ -73,7 +73,6 @@ class MCPStdIOAdapter(ToolAdapter):
                 missing_functions=config.get("functions", []),
                 error=str(e)
             )
-
 
 class MCPHTTPAdapter(ToolAdapter):
     """Adapter for creating MCP tools from an HTTP endpoint."""
@@ -81,20 +80,21 @@ class MCPHTTPAdapter(ToolAdapter):
         server_id = config.get("id", "unknown-http-server")
         url = config.get("url")
         logger.debug(f"Connecting to MCP server '{server_id}' via HTTP at {url}")
-        
-        client_factory = lambda: streamablehttp_client(url)
-        
+
+        def create_http_client():
+            return streamablehttp_client(url)
+
         try:
-            client = self.exit_stack.enter_context(MCPClient(client_factory))
+            client = self.exit_stack.enter_context(MCPClient(create_http_client))
             all_tools = client.list_tools_sync()
-            
+
             # Check if specific functions were requested
             requested_functions = config.get("functions", [])
             if requested_functions:
                 # Filter tools to only include requested functions
                 found_functions = []
                 filtered_tools = []
-                
+
                 for requested_func in requested_functions:
                     found = False
                     for tool in all_tools:
@@ -105,7 +105,7 @@ class MCPHTTPAdapter(ToolAdapter):
                             break
                     if not found:
                         logger.warning(f"MCP server '{server_id}' does not provide requested function '{requested_func}'")
-                
+
                 missing_functions = [f for f in requested_functions if f not in found_functions]
                 tools_to_return = filtered_tools
             else:
@@ -114,7 +114,7 @@ class MCPHTTPAdapter(ToolAdapter):
                 found_functions = [tool.tool_spec.get('name', 'unnamed') for tool in all_tools if hasattr(tool, 'tool_spec')]
                 missing_functions = []
                 tools_to_return = all_tools
-            
+
             logger.info(f"Successfully loaded {len(tools_to_return)} tools from MCP server: {server_id}")
             return ToolCreationResult(
                 tools=tools_to_return,
@@ -132,4 +132,3 @@ class MCPHTTPAdapter(ToolAdapter):
                 missing_functions=config.get("functions", []),
                 error=str(e)
             )
-

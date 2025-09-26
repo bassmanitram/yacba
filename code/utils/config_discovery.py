@@ -17,10 +17,10 @@ def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple
     Enhanced discovery with detailed error reporting.
     Discovers and loads tool configurations from *.tools.json files.
     YACBA only validates the configuration structure, not tool functionality.
-    
+
     Args:
         paths: Directory path(s) to search for tool configs, or None to disable discovery
-        
+
     Returns:
         Tuple of (successful_configs, discovery_result)
     """
@@ -28,44 +28,44 @@ def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple
         logger.info("Tool discovery is disabled by command-line option.")
         empty_result = ToolDiscoveryResult([], [], 0)
         return [], empty_result
-    
+
     # Normalize to list
     if isinstance(paths, (str, Path)):
         path_list = [paths]
     else:
         path_list = list(paths)
-    
+
     if not path_list:
         logger.info("No tool configuration paths provided.")
         empty_result = ToolDiscoveryResult([], [], 0)
         return [], empty_result
-    
+
     all_successful_configs: List[ToolConfig] = []
     all_failed_configs: List[Dict[str, Any]] = []
     total_files_scanned = 0
-    
+
     for directory in path_list:
         result = _discover_single_directory(directory)
         all_successful_configs.extend(result.successful_configs)
         all_failed_configs.extend(result.failed_configs)
         total_files_scanned += result.total_files_scanned
-    
+
     discovery_result = ToolDiscoveryResult(
-        all_successful_configs, 
-        all_failed_configs, 
+        all_successful_configs,
+        all_failed_configs,
         total_files_scanned
     )
-    
+
     logger.info(f"Total tool discovery complete: {len(all_successful_configs)} successful, {len(all_failed_configs)} failed from {len(path_list)} directories")
     return all_successful_configs, discovery_result
 
 def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
     """
     Discover tool configurations from a single directory.
-    
+
     Args:
         directory: Directory to search for tool configs
-        
+
     Returns:
         ToolDiscoveryResult with successful configs, failed configs, and scan count
     """
@@ -81,17 +81,17 @@ def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
     failed_configs: List[Dict[str, Any]] = []
     search_pattern = str(dir_path / '*.tools.json')
     config_files = list(glob.glob(search_pattern))
-    
+
     perf_monitor.increment_counter("tool_discovery_attempts")
     logger.info(f"Scanning {len(config_files)} tool configuration files in '{directory}'")
-    
+
     for file_path in config_files:
         try:
             config_data = load_structured_file(file_path, 'auto')
-                
+
             # Add source file reference for debugging
             config_data['source_file'] = file_path
-            
+
             # Enhanced validation with detailed error messages
             validation_errors = _validate_tool_config_detailed(config_data)
             if not validation_errors:
@@ -108,7 +108,7 @@ def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
                 })
                 perf_monitor.increment_counter("invalid_tool_configs")
                 logger.warning(f"✗ Failed to load tool config from {file_path}: {error_msg}")
-                
+
         except json.JSONDecodeError as e:
             error_msg = f"JSON parsing error: {e}"
             failed_configs.append({
@@ -123,7 +123,7 @@ def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
             error_msg = f"File read error: {e}"
             failed_configs.append({
                 'file_path': file_path,
-                'config_id': 'unknown', 
+                'config_id': 'unknown',
                 'error': error_msg,
                 'config_data': None
             })
@@ -139,7 +139,7 @@ def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
             })
             perf_monitor.increment_counter("tool_config_errors")
             logger.error(f"✗ Unexpected error loading tool config '{file_path}': {error_msg}")
-    
+
     logger.info(f"Directory '{directory}' discovery complete: {len(successful_configs)} successful, {len(failed_configs)} failed")
     return ToolDiscoveryResult(successful_configs, failed_configs, len(config_files))
 
@@ -148,33 +148,33 @@ def _validate_tool_config_detailed(config: Dict[str, Any]) -> List[str]:
     Enhanced validation with detailed error messages.
     Validates a tool configuration dictionary structure.
     YACBA only checks configuration format, not tool functionality.
-    
+
     Args:
         config: Tool configuration to validate
-        
+
     Returns:
         List of validation error messages (empty if valid)
     """
     errors = []
-    
+
     # Validate required fields
     if 'id' not in config:
         errors.append("missing required field 'id'")
     elif not isinstance(config['id'], str) or not config['id'].strip():
         errors.append("'id' must be a non-empty string")
-    
+
     if 'type' not in config:
         errors.append("missing required field 'type'")
     else:
         config_type = config.get('type')
-        
+
         # Type-specific validation
         if config_type == 'mcp':
             if 'command' not in config and 'url' not in config:
                 errors.append("MCP tools require either 'command' (stdio) or 'url' (http)")
             if 'command' in config and 'url' in config:
                 errors.append("MCP tools cannot have both 'command' and 'url'")
-            
+
             # Validate command structure if present
             if 'command' in config:
                 if not isinstance(config['command'], str) or not config['command'].strip():
@@ -183,7 +183,7 @@ def _validate_tool_config_detailed(config: Dict[str, Any]) -> List[str]:
                     errors.append("'args' must be a list")
                 if 'env' in config and not isinstance(config['env'], dict):
                     errors.append("'env' must be a dictionary")
-            
+
             # Validate URL structure if present
             if 'url' in config:
                 if not isinstance(config['url'], str) or not config['url'].strip():
@@ -192,13 +192,13 @@ def _validate_tool_config_detailed(config: Dict[str, Any]) -> List[str]:
                 url = config['url']
                 if not (url.startswith('http://') or url.startswith('https://')):
                     errors.append("'url' must start with 'http://' or 'https://'")
-                    
+
         elif config_type == 'python':
             if 'module_path' not in config:
                 errors.append("Python tools require 'module_path'")
             elif not isinstance(config['module_path'], str) or not config['module_path'].strip():
                 errors.append("'module_path' must be a non-empty string")
-                
+
             if 'functions' not in config:
                 errors.append("Python tools require 'functions' list")
             elif not isinstance(config.get('functions'), list):
@@ -212,9 +212,9 @@ def _validate_tool_config_detailed(config: Dict[str, Any]) -> List[str]:
                         errors.append(f"function name at index {i} must be a non-empty string")
         else:
             errors.append(f"unknown tool type '{config_type}' (supported: 'mcp', 'python')")
-    
+
     # Validate optional disabled field
     if 'disabled' in config and not isinstance(config['disabled'], bool):
         errors.append("'disabled' must be a boolean")
-    
+
     return errors

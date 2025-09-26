@@ -33,7 +33,7 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
 
         # Let the file utility handle text vs binary detection automatically
         result = load_file_content(file_path, 'auto')
-        
+
         if result['type'] == 'text':
             logger.debug(f"Reading file '{file_path}' as text.")
             return {"type": "text", "text": result['content']}
@@ -65,24 +65,24 @@ def process_path_argument(path_str: str, mimetype: Optional[str], max_files: int
     except Exception as e:
         logger.warning(f"Error resolving glob pattern '{path_str}': {e}")
         return []
-    
+
     # Apply file limit and ensure they are actually files
     found_files_with_mimetype = []
     for file_path in resolved_files:
         if len(found_files_with_mimetype) >= max_files:
             logger.info(f"File limit of {max_files} reached, stopping file resolution")
             break
-        
+
         if os.path.isfile(file_path):
             detected_mimetype = mimetype or guess_mimetype(file_path)
             found_files_with_mimetype.append((file_path, detected_mimetype))
         else:
             logger.debug(f"Skipping non-file path: {file_path}")
-    
+
     return found_files_with_mimetype
 
 def files_to_content_blocks(
-    files: List[tuple[str, str]], 
+    files: List[tuple[str, str]],
     add_headers: bool = True,
     max_files: Optional[int] = None
 ) -> List[Dict[str, Any]]:
@@ -92,29 +92,29 @@ def files_to_content_blocks(
     """
     if not files:
         return []
-    
+
     content_blocks = []
     processed_count = 0
-    
+
     for file_path_str, mimetype in files:
         if max_files and processed_count >= max_files:
             break
-            
+
         file_path = Path(file_path_str)
-        
+
         # Add header if requested
         if add_headers:
             content_blocks.append({
-                "type": "text", 
+                "type": "text",
                 "text": f"\n--- File: {file_path_str} ({mimetype}) ---\n"
             })
-        
+
         # Process the file
         file_block = _process_single_file(file_path, mimetype)
         if file_block:
             content_blocks.append(file_block)
             processed_count += 1
-    
+
     return content_blocks
 
 def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[Dict[str, Any]]]:
@@ -131,17 +131,17 @@ def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[D
         # Process file reference
         path = match.group('path')
         mimetype = match.group('mimetype')
-        
+
         remaining_slots = max_files - sum(1 for item in content if 'source' in item)
         if remaining_slots <= 0:
-            logger.warning(f"File limit reached. Ignoring further file() calls.")
+            logger.warning("File limit reached. Ignoring further file() calls.")
             break
 
         # Use unified file processing
         files_list = process_path_argument(path, mimetype, max_files=remaining_slots)
         file_blocks = files_to_content_blocks(files_list, add_headers=False, max_files=remaining_slots)
         content.extend(file_blocks)
-        
+
         last_index = match.end()
 
     if not content:

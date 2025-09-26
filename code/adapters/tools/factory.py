@@ -7,7 +7,6 @@ from yacba_types.tools import ToolCreationResult
 from .base_adapter import ToolAdapter
 from loguru import logger
 
-
 class ToolFactory:
     """A factory that uses registered adapters to create tools."""
     def __init__(self, exit_stack: ExitStack):

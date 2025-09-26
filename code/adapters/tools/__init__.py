@@ -7,6 +7,6 @@ from .mcp_adapters import MCPStdIOAdapter, MCPHTTPAdapter
 from .python_adapter import PythonToolAdapter
 
 __all__ = [
-    'ToolAdapter', 'ToolFactory', 
+    'ToolAdapter', 'ToolFactory',
     'MCPStdIOAdapter', 'MCPHTTPAdapter', 'PythonToolAdapter'
 ]

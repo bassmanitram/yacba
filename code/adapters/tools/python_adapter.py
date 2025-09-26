@@ -22,7 +22,7 @@ def _import_item(
         package_path: (Optional) The relative path to a directory that should be
                       treated as the root for the import. If None, Python's
                       standard import search paths (sys.path) are used.
-		base_path: (Optional) The base directory to resolve package_path against.
+        base_path: (Optional) The base directory to resolve package_path against.
     Returns:
         A reference to the dynamically loaded attribute.
     """
@@ -55,9 +55,9 @@ def _import_item(
         item = getattr(module, item_name)
 
     else:
-        # 
+        #
         # --- SCENARIO 2: Use import tools - two cases - it's a module or it's an attribute! ---
-        # 
+        #
         try:
             # First, try to import the full path as a module (for cases where the item is a module)
             item = importlib.import_module(full_item_path)
@@ -70,11 +70,12 @@ def _import_item(
 
 class PythonToolAdapter(ToolAdapter):
     """Adapter for creating tools from local or installed Python modules."""
-    def create(self, config: Dict[str, Any], schema_normalizer = None) -> ToolCreationResult:
+
+    def create(self, config: Dict[str, Any], schema_normalizer=None) -> ToolCreationResult:
         """Creates a tool or tools based on the provided configuration."""
         tool_id, module_path, package_path, func_names, src_file = (config.get(k) for k in ["id", "module_path", "package_path", "functions", "source_file"])
         if not all([tool_id, module_path, func_names, src_file]):
-            logger.warning(f"Python tool config is missing required fields. Skipping.")
+            logger.warning("Python tool config is missing required fields. Skipping.")
             return ToolCreationResult(
                 tools=[],
                 requested_functions=func_names or [],
@@ -91,7 +92,7 @@ class PythonToolAdapter(ToolAdapter):
             loaded_tools = []
             found_functions = []
             missing_functions = []
-            
+
             # Look for the specific function names requested in the config
             for func_spec in func_names:
                 if not isinstance(func_spec, str):
@@ -106,13 +107,13 @@ class PythonToolAdapter(ToolAdapter):
                     logger.warning(f"Error loading function '{func_spec}' from module '{module_path}' (package_path '{package_path}')): {e}")
                     missing_functions.append(func_spec)
                     continue
-                    
+
                 # Clean up the tool name to remove path prefixes
                 clean_function_name = func_spec.split('.')[-1]
                 loaded_tools.append(tool)
                 found_functions.append(clean_function_name)
                 logger.debug(f"Successfully loaded callable '{func_spec}' as '{clean_function_name}' from module '{module_path}'")
-            
+
             logger.info(f"Successfully loaded {len(loaded_tools)} tools from Python module: {tool_id}")
             return ToolCreationResult(
                 tools=loaded_tools,
@@ -130,4 +131,3 @@ class PythonToolAdapter(ToolAdapter):
                 missing_functions=func_names,
                 error=str(e)
             )
-

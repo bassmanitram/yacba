@@ -3,7 +3,7 @@ Centralized argument definitions for YACBA.
 
 This module provides a single source of truth for all CLI arguments
 
-It does NOT handle configuration file parsing or merging, since it is 
+It does NOT handle configuration file parsing or merging, since it is
 not responsible for other forms of configuration (profiles, config files, etc).
 
 It provides single value checkers and converters, since it defines how the
@@ -38,7 +38,7 @@ def _validate_files(files_list) -> List[List[str]]:
             if not cat or not subtype:
                 logger.warn(f"{file_group}: Mimetype '{mimetype}' must be in format 'str/str'. Ignoring")
                 continue
-        
+
         globbed_files = resolve_glob(file_glob)
         for file in globbed_files:
             if mimetype:
@@ -54,7 +54,7 @@ def _validate_files(files_list) -> List[List[str]]:
 def _validate_model_string(model_str: str) -> str:
     if not model_str:
         raise ValueError("Model string cannot be empty")
-    
+
     if ":" in model_str:
         framework, model = model_str.split(":", 1)
         if not framework:
@@ -97,17 +97,17 @@ def _validate_file_path(p):
     """Check that string represents a path to a file that exists or can be created"""
     if not isinstance(p, str):
         raise ValueError(f"Expected string path, got {type(p)}")
-    
+
     path = pathlib.Path(p)
-    
+
     # File already exists
     if path.is_file():
         return str(path.resolve())
-    
+
     # File doesn't exist but can be created (parent directory exists)
     if path.parent.exists() and path.parent.is_dir():
         return str(path.resolve())
-    
+
     # Cannot be created
     raise ValueError(f"File path '{p}' does not exist and cannot be created")
 
@@ -147,7 +147,7 @@ class ArgumentDefinition:
     choices: Optional[List[str]] = None
     nargs: Optional[Union[str, int]] = None
     validator: Optional[Callable[[Any], Any]] = None
-    
+
 # Centralized argument definitions - SINGLE SOURCE OF TRUTH
 ARGUMENTS_FROM_ENV_VARS = {
     "model": os.environ.get("YACBA_MODEL_ID"),
@@ -181,25 +181,25 @@ ARGUMENT_DEFINITIONS = [
     # Core model configuration
     ArgumentDefinition(
         names=["-m", "--model"],
-        help=f"The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm:gemini/gemini-2.5-flash",
+        help="The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm:gemini/gemini-2.5-flash",
         validator=_validate_model_string,
         argname="model",
     ),
-    
+
     ArgumentDefinition(
         names=["--model-config"],
         help="Path to a JSON file containing model configuration (e.g., temperature, max_tokens).",
         validator=_validate_existing_file,
         argname="model_config",
     ),
-    
+
     ArgumentDefinition(
         names=["-c", "--config-override"],
         help="Override model configuration property. Format: 'property.path:value'. Can be used multiple times.",
         action="append",
         argname="config_override",
     ),
-    
+
     # System prompt
     ArgumentDefinition(
         names=["-s", "--system-prompt"],
@@ -207,14 +207,14 @@ ARGUMENT_DEFINITIONS = [
         argname="system_prompt",
         validator=_validate_file_or_str
     ),
-    
+
     ArgumentDefinition(
         names=["--emulate-system-prompt"],
         help="Emulate system prompt as user message for models that don't support system prompts.",
         argname="emulate_system_prompt",
         validator=_validate_bool
     ),
-    
+
     # Tool configuration
     ArgumentDefinition(
         names=["-t", "--tool-configs-dir"],
@@ -222,7 +222,7 @@ ARGUMENT_DEFINITIONS = [
         validator=_validate_existing_dir,
         argname="tool_configs_dir",
     ),
-    
+
     # File uploads
     ArgumentDefinition(
         names=["-f", "--files"],
@@ -232,7 +232,7 @@ ARGUMENT_DEFINITIONS = [
         validator=_validate_files,
         argname="files",
     ),
-    
+
     ArgumentDefinition(
         names=["--max-files"],
         help="Maximum number of files to process. Default: 10.",
@@ -240,14 +240,14 @@ ARGUMENT_DEFINITIONS = [
         argname="max_files",
 
     ),
-    
+
     # Session management
     ArgumentDefinition(
         names=["--session"],
         help="Session name for conversation persistence.",
         argname="session",
     ),
-    
+
     # Conversation Management
     ArgumentDefinition(
         names=["--conversation-manager"],
@@ -255,41 +255,41 @@ ARGUMENT_DEFINITIONS = [
         choices=["null", "sliding_window", "summarizing"],
         argname="conversation_manager",
     ),
-    
+
     ArgumentDefinition(
         names=["--window-size"],
         help="Maximum number of messages in sliding window mode. Default: 40.",
         validator=_validate_int,
         argname="window_size",
     ),
-    
+
     ArgumentDefinition(
         names=["--preserve-recent"],
         help="Number of recent messages to always preserve in summarizing mode. Default: 10.",
         validator=_validate_int,
         argname="preserve_recent"
     ),
-    
+
     ArgumentDefinition(
         names=["--summary-ratio"],
         help="Ratio of messages to summarize vs keep (0.1-0.8) in summarizing mode. Default: 0.3.",
         validator=_validate_float,
         argname="summary_ratio",
     ),
-    
+
     ArgumentDefinition(
         names=["--summarization-model"],
         help="Optional separate model for summarization (e.g., 'litellm:gemini/gemini-2.5-flash' for cheaper summaries).",
         validator=_validate_model_string,
         argname="summarization_model",
     ),
-    
+
     ArgumentDefinition(
         names=["--custom-summarization-prompt"],
         help="Custom system prompt for summarization. If not provided, uses built-in prompt.",
         argname="custom_summarization_prompt",
     ),
-    
+
     ArgumentDefinition(
         names=["--no-truncate-results"],
         help="Disable truncation of tool results when context window is exceeded.",
@@ -297,7 +297,7 @@ ARGUMENT_DEFINITIONS = [
         validator=_validate_bool
 
     ),
-    
+
     # Execution modes
     ArgumentDefinition(
         names=["-i", "--initial-message"],
@@ -305,14 +305,14 @@ ARGUMENT_DEFINITIONS = [
         argname="initial_message",
         validator=_validate_file_or_str
     ),
-    
+
     ArgumentDefinition(
         names=["-H", "--headless"],
         help="Run in headless mode (non-interactive). Requires --initial-message.",
         argname="headless",
         validator=_validate_bool
     ),
-    
+
     # Output control
     ArgumentDefinition(
         names=["--show-tool-use"],
@@ -320,13 +320,13 @@ ARGUMENT_DEFINITIONS = [
         validator=_validate_bool,
         argname="show_tool_use"
     ),
-    
+
     ArgumentDefinition(
         names=["--agent-id"],
         help="Custom agent identifier for this session.",
         argname="agent_id"
     ),
-    
+
     # Performance and debugging
     ArgumentDefinition(
         names=["--clear-cache"],
@@ -334,35 +334,35 @@ ARGUMENT_DEFINITIONS = [
         validator=_validate_bool,
         argname="clear_cache"
     ),
-    
+
     # Configuration system arguments (added by integration layer)
     ArgumentDefinition(
         names=["--profile"],
         help="Use named profile from configuration file",
         argname="profile"
     ),
-    
+
     ArgumentDefinition(
         names=["--config"],
         help="Path to configuration file",
         validator=_validate_existing_file,
         argname="config"
     ),
-    
+
     ArgumentDefinition(
         names=["--list-profiles"],
         help="List available profiles and exit",
         validator=_validate_bool,
         argname="list_profiles"
     ),
-    
+
     ArgumentDefinition(
         names=["--show-config"],
         help="Show resolved configuration and exit",
         validator=_validate_bool,
         argname="show_config"
     ),
-    
+
     ArgumentDefinition(
         names=["--init-config"],
         help="Create a sample configuration file at specified path",
@@ -384,21 +384,21 @@ def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
 def parse_args() -> argparse.ArgumentParser:
     """
     Create argument parser with configuration file integration.
-    
+
     This is similar to unified_parser but includes config file arguments.
     """
     parser = argparse.ArgumentParser(
         description="YACBA - Yet Another ChatBot Agent",
         add_help=False  # We'll add help manually to control order
     )
-    
+
     # Add configuration file arguments first
     parser.add_argument('-h', '--help', action='help', help="Show this help message and exit")
-    
+
     # Add all regular arguments from definitions
     for arg_def in ARGUMENT_DEFINITIONS:
         kwargs = {'help': arg_def.help}
-        
+
         if arg_def.argtype:
             kwargs['type'] = arg_def.argtype
         if arg_def.argname:
@@ -409,7 +409,7 @@ def parse_args() -> argparse.ArgumentParser:
             kwargs['choices'] = arg_def.choices
         if arg_def.nargs:
             kwargs['nargs'] = arg_def.nargs
-            
+
         parser.add_argument(*arg_def.names, **kwargs)
-    
+
     return parser.parse_args()

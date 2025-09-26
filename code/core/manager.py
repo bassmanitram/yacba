@@ -8,16 +8,15 @@ from loguru import logger
 from .config import YacbaConfig
 from .engine import YacbaEngine
 
-
 class ChatbotManager:
     """
     A context manager to manage the lifecycle of the core YacbaEngine.
     """
-    
+
     def __init__(self, config: YacbaConfig):
         self.config = config
         self.engine: Optional[YacbaEngine] = None
-        
+
     def __enter__(self) -> 'ChatbotManager':
         """
         Initializes the engine with the provided configuration.
@@ -28,14 +27,14 @@ class ChatbotManager:
             self.engine = YacbaEngine(
                 config=self.config
             )
-            
+
             if not self.engine.startup():
                 logger.error("Failed to start YACBA engine")
                 raise RuntimeError("Engine startup failed")
-            
+
             logger.info("ChatbotManager context entered successfully")
             return self
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize ChatbotManager: {e}")
             if self.engine:

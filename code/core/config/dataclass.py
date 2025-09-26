@@ -33,7 +33,7 @@ class YacbaConfig:
     prompt_source: str                          # Source tracking for debugging
     tool_configs: List[ToolConfig]              # Tool configuration (not execution)
     startup_files_content: Optional[List[Message]]  # Processed startup files
-    
+
     # Optional configuration with defaults
     headless: bool = False                      # CLI mode selection
     model_config: dict = field(default_factory=dict) # Model parameters
@@ -41,14 +41,14 @@ class YacbaConfig:
     agent_id: Optional[str] = None              # Session namespace
     emulate_system_prompt: bool = False         # Framework compatibility
     show_tool_use: bool = False
-    
+
     initial_message: Optional[str] = None       # Initial user input
     max_files: int = 20                         # File processing limits
     files_to_upload: List[FileUpload] = field(default_factory=list)  # File queue
-    
+
     # Tool discovery results for startup reporting
     tool_discovery_result: Optional['ToolDiscoveryResult'] = None
-    
+
     # Conversation Manager Configuration
     conversation_manager_type: ConversationManagerType = "sliding_window"  # Default to sliding window
     sliding_window_size: int = 40               # Maximum messages in sliding window
@@ -57,7 +57,7 @@ class YacbaConfig:
     summarization_model: Optional[str] = None   # Optional separate model for summarization
     custom_summarization_prompt: Optional[str] = None  # Custom prompt for summarization
     should_truncate_results: bool = True        # Whether to truncate tool results on overflow
-    
+
     def __post_init__(self) -> None:
         """Inter-value validation of configuration after initialization."""
         self._validate_max_files()
@@ -68,7 +68,7 @@ class YacbaConfig:
         """Validate model and headless mode compatibility."""
         if self.headless and not self.initial_message:
             raise ValueError("Headless mode requires an initial message via --initial-message")
-        
+
     def _validate_max_files(self) -> None:
         """Validate max_files is reasonable for file processing."""
         if self.max_files < 1:
@@ -77,7 +77,7 @@ class YacbaConfig:
             raise ValueError("max_files cannot exceed 1000 (performance limit)")
         if self.files_to_upload and len(self.files_to_upload) > self.max_files:
             self.files_to_upload = self.files_to_upload[:self.max_files]
-    
+
     def _validate_conversation_manager_config(self) -> None:
         """Validate conversation manager configuration parameters."""
         # Validate sliding window size
@@ -85,67 +85,67 @@ class YacbaConfig:
             raise ValueError("sliding_window_size must be at least 1")
         if self.sliding_window_size > 1000:
             raise ValueError("sliding_window_size cannot exceed 1000 (performance limit)")
-        
+
         # Validate preserve_recent_messages
         if self.preserve_recent_messages < 1:
             raise ValueError("preserve_recent_messages must be at least 1")
-        
+
         # Only validate preserve_recent against sliding_window for summarizing mode
         if self.conversation_manager_type == "summarizing":
             # For summarizing mode, preserve_recent should be reasonable but not tied to sliding_window
             if self.preserve_recent_messages > 100:
                 raise ValueError("preserve_recent_messages cannot exceed 100 (performance limit)")
-        
+
         # Validate summary_ratio
         if not (0.1 <= self.summary_ratio <= 0.8):
             raise ValueError("summary_ratio must be between 0.1 and 0.8")
-        
+
         # Validate summarization model format if provided
         if self.summarization_model:
             if ":" in self.summarization_model:
                 framework, model = self.summarization_model.split(":", 1)
                 if not framework or not model:
                     raise ValueError(f"Invalid summarization_model format: {self.summarization_model}")
-    
+
     @property
     def has_startup_files(self) -> bool:
         """Check if there are startup files configured."""
         return bool(self.files_to_upload)
-    
+
     @property
     def framework_name(self) -> str:
         """Extract framework name from model string for loader selection."""
         if ":" in self.model_string:
             return self.model_string.split(":", 1)[0]
         return "litellm"  # Default framework
-    
+
     @property
     def model_name(self) -> str:
         """Extract model name from model string for framework configuration."""
         if ":" in self.model_string:
             return self.model_string.split(":", 1)[1]
         return self.model_string
-    
+
     @property
     def is_interactive(self) -> bool:
         """Check if running in interactive mode."""
         return not self.headless
-    
+
     @property
     def has_session(self) -> bool:
         """Check if session persistence is enabled."""
         return self.session_name is not None
-    
+
     @property
     def uses_conversation_manager(self) -> bool:
         """Check if conversation management is enabled."""
         return self.conversation_manager_type != "null"
-    
+
     @property
     def uses_sliding_window(self) -> bool:
         """Check if using sliding window conversation management."""
         return self.conversation_manager_type == "sliding_window"
-    
+
     @property
     def uses_summarizing(self) -> bool:
         """Check if using summarizing conversation management."""

@@ -53,7 +53,7 @@ class StrandsModelLoader:
         Returns the model instance and the appropriate framework adapter.
         """
         adhoc_config = adhoc_config or {}
-        
+
         if ":" in model_string:
             framework, model_name = model_string.split(":", 1)
         else:
@@ -76,7 +76,7 @@ class StrandsModelLoader:
 
             module = importlib.import_module(handler["module"])
             ModelClass = getattr(module, handler["class"])
-            
+
             model_args = {handler["model_id_param"]: model_name}
             model_args.update(adhoc_config)
 

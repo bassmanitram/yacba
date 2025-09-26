@@ -29,26 +29,26 @@ class FrameworkAdapter(Protocol):
     Protocol for framework adapters that YACBA manages.
     These handle framework-specific configuration and content transformation.
     """
-    
+
     @property
     def expected_exceptions(self) -> tuple[type[Exception], ...]:
         """Expected exception types for this framework."""
         ...
-    
+
     def prepare_agent_args(
-        self, 
-        system_prompt: str, 
-        messages: List[Message], 
-        startup_files_content: Optional[List[Message]], 
+        self,
+        system_prompt: str,
+        messages: List[Message],
+        startup_files_content: Optional[List[Message]],
         emulate_system_prompt: bool = False
     ) -> Dict[str, Any]:
         """Prepare arguments for agent initialization."""
         ...
-    
+
     def transform_content(self, content: Any) -> Any:
         """Transform content for framework compatibility."""
         ...
-    
+
     def adapt_tools(self, tools: List[Any], model_string: str) -> List[Any]:
         """Adapt tools for framework compatibility."""
         ...
@@ -68,7 +68,7 @@ class Agent(Protocol):
     YACBA only needs to know about message history and streaming.
     """
     messages: List[Message]
-    
+
     def stream_async(self, message: Any) -> Any:
         """Stream agent response - YACBA doesn't need to know details."""
         ...

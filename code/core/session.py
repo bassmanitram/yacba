@@ -24,7 +24,7 @@ class DelegatingSession(SessionManager):
     def __init__(self, session_name: Optional[str], sessions_home: Optional[str | Path] = None):
         """Initializes the proxy, optionally setting the first active session."""
         super().__init__(session_id=session_name or "inactive")
-        
+
         self._sessions_home = Path(sessions_home or Path(sessions_home or Path.home() / ".yacba/strands/sessions"))  # Default to ~/.yacba
         self._active_session = None
         self._agent = None
@@ -42,9 +42,9 @@ class DelegatingSession(SessionManager):
 
         logger.info(f"Switching active session to '{session_name}'...")
         self.session_id = session_name
-        
+
         new_session = FileSessionManager(session_id=session_name, storage_dir=str(self._sessions_home))
-        
+
         # Try to initialize the session, but handle conversation manager state conflicts
         try:
             new_session.initialize(self._agent)
@@ -53,7 +53,7 @@ class DelegatingSession(SessionManager):
                 logger.warning(f"Session '{session_name}' has incompatible conversation manager state.")
                 logger.info("This can happen when switching between conversation manager types (e.g., sliding_window <-> summarizing).")
                 logger.info("Creating a new session to avoid conflicts...")
-                
+
                 # Clear any existing session data and start fresh
                 session_path = Path(self._sessions_home) / f"session_{session_name}"
                 if session_path.exists():
@@ -63,7 +63,7 @@ class DelegatingSession(SessionManager):
                         import shutil
                         shutil.rmtree(backup_path)
                     session_path.rename(backup_path)
-                
+
                 # Create a fresh session
                 new_session = FileSessionManager(session_id=session_name, storage_dir=str(self._sessions_home))
                 new_session.initialize(self._agent)
@@ -75,7 +75,7 @@ class DelegatingSession(SessionManager):
             logger.error(f"Failed to initialize session '{session_name}': {e}")
             logger.info("Continuing without persistent session...")
             return
-        
+
         self._active_session = new_session
         logger.info(f"DelegatingSession is now active for session_id: '{self.session_id}'. Agent history has been updated.")
 
@@ -83,7 +83,7 @@ class DelegatingSession(SessionManager):
         """Scans the sessions directory and returns a list of available session names."""
         if not self._sessions_home.exists():
             return []
-        
+
         # FileSessionManager saves files as in folders named "session_<name>"
         session_dirs = [p for p in self._sessions_home.iterdir() if p.is_dir() and p.name.startswith("session_")]
         session_names = [p.name[len("session_"):] for p in session_dirs]
@@ -111,7 +111,7 @@ class DelegatingSession(SessionManager):
         """Redacts the latest message from the active session."""
         if self._active_session:
             self._active_session.redact_latest_message(redact_message, agent, **kwargs)
-            
+
     def sync_agent(self, agent: Agent) -> None:
         """Syncs the agent's state with the active session."""
         if self._active_session:

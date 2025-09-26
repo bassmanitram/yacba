@@ -39,7 +39,7 @@ class ToolDiscoveryResult(NamedTuple):
     successful_configs: List[ToolConfig]
     failed_configs: List[Dict[str, Any]]  # Include file path and error details
     total_files_scanned: int
-    
+
     @property
     def has_failures(self) -> bool:
         """Check if any configuration files failed to load."""

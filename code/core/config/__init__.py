@@ -25,7 +25,7 @@ from .dataclass import YacbaConfig as Config
 # Export public API
 __all__ = [
     'parse_config',
-    'YacbaConfig', 
+    'YacbaConfig',
     'ConfigManager',
     # Backward compatibility
     'orchestrate_config_parsing',

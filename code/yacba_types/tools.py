@@ -58,17 +58,17 @@ class ToolProcessingResult(NamedTuple):
     found_functions: List[str]      # Functions that were actually found
     missing_functions: List[str]    # Functions that were requested but not found
     error_message: Optional[str]    # Human-readable error description
-    
+
     @property
     def has_tools(self) -> bool:
         """Check if any tools were successfully loaded."""
         return len(self.tools) > 0
-    
+
     @property
     def has_missing_functions(self) -> bool:
         """Check if any requested functions were missing."""
         return len(self.missing_functions) > 0
-    
+
     @property
     def has_error(self) -> bool:
         """Check if there was an error during processing."""
@@ -88,17 +88,17 @@ class ToolSystemStatus(NamedTuple):
     discovery_result: ToolDiscoveryResult
     processing_results: List[ToolProcessingResult]
     total_tools_loaded: int
-    
+
     @property
     def successful_results(self) -> List[ToolProcessingResult]:
         """Get all successful tool processing results."""
         return [r for r in self.processing_results if r.success and r.has_tools]
-    
+
     @property
     def failed_results(self) -> List[ToolProcessingResult]:
         """Get all failed tool processing results."""
         return [r for r in self.processing_results if not r.success or r.has_error]
-    
+
     @property
     def results_with_missing_functions(self) -> List[ToolProcessingResult]:
         """Get results that have missing requested functions."""

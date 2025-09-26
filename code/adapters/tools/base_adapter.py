@@ -4,7 +4,6 @@ from typing import Any, Dict
 
 from yacba_types.tools import ToolCreationResult
 
-
 class ToolAdapter(ABC):
     """Abstract base class for a tool adapter."""
     def __init__(self, exit_stack: ExitStack):

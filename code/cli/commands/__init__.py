@@ -8,8 +8,7 @@ focused modules for maintainability.
 """
 
 from .registry import CommandRegistry
-__all__ = [    
+__all__ = [
     # Command registry
     'CommandRegistry',
 ]
-
