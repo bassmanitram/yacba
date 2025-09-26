@@ -59,8 +59,7 @@ class ConversationManagerFactory:
                     logger.debug(f"Creating summarization agent with model: {config.summarization_model}")
                     try:
                         summarization_agent = ConversationManagerFactory._create_summarization_agent(
-                            config.summarization_model, 
-                            config.model_config
+                            config.summarization_model
                         )
                         if summarization_agent:
                             logger.info(f"Successfully created summarization agent")
@@ -90,13 +89,12 @@ class ConversationManagerFactory:
             return NullConversationManager()
     
     @staticmethod
-    def _create_summarization_agent(model_string: str, base_model_config: dict) -> Optional[Agent]:
+    def _create_summarization_agent(model_string: str) -> Optional[Agent]:
         """
         Create a separate agent for summarization using a different model.
         
         Args:
             model_string: Model string for the summarization agent
-            base_model_config: Base model configuration to use as template
             
         Returns:
             Configured agent for summarization, or None if creation fails
@@ -105,7 +103,10 @@ class ConversationManagerFactory:
             logger.debug(f"Loading summarization model: {model_string}")
             
             loader = StrandsModelLoader()
-            model, adapter = loader.create_model(model_string, base_model_config)
+            
+            # FIXED: Don't pass base_model_config - let the model use its own defaults
+            # This avoids configuration conflicts between different model types
+            model, adapter = loader.create_model(model_string, adhoc_config={})
             
             if not model:
                 logger.warning(f"Failed to create summarization model: {model_string}")

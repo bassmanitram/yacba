@@ -3,3 +3,4 @@ strands-mcp
 litellm
 loguru
 prompt-toolkit
+pyyaml

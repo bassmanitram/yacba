@@ -103,8 +103,12 @@ class YacbaConfig:
         # Validate preserve_recent_messages
         if self.preserve_recent_messages < 1:
             raise ValueError("preserve_recent_messages must be at least 1")
-        if self.preserve_recent_messages >= self.sliding_window_size:
-            raise ValueError("preserve_recent_messages must be less than sliding_window_size")
+        
+        # Only validate preserve_recent against sliding_window for summarizing mode
+        if self.conversation_manager_type == "summarizing":
+            # For summarizing mode, preserve_recent should be reasonable but not tied to sliding_window
+            if self.preserve_recent_messages > 100:
+                raise ValueError("preserve_recent_messages cannot exceed 100 (performance limit)")
         
         # Validate summary_ratio
         if not (0.1 <= self.summary_ratio <= 0.8):

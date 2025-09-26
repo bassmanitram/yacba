@@ -100,6 +100,21 @@ Headless mode is designed for scripting. It takes an initial message, streams th
 cat report.txt | ./yacba --headless
 ```
 
+## Configuration
+YACBA supports configuration files with profiles for different use cases. This eliminates the need for long command-line arguments and makes switching between different setups easy.
+
+For detailed configuration documentation, see [README.CONFIG.md](README.CONFIG.md).
+
+Quick example:
+```bash
+# Create initial config
+./yacba --init-config ~/.yacba/config.yaml
+
+# Use profiles  
+./yacba --profile development
+./yacba --profile production --headless -i "Status report"
+```
+
 ## **Command-Line Options**
 
 | Flag | Description |
