@@ -31,7 +31,7 @@ from yacba_types.base import PathLike
 from .config import YacbaConfig
 
 # Define constants for clarity and maintainability.
-DEFAULT_MODEL = "litellm:gemini/gemini-1.5-flash"
+DEFAULT_MODEL = "litellm:gemini/gemini-2.5-flash"
 DEFAULT_SYSTEM_PROMPT = "You are a general assistant with access to various tools to enhance your capabilities. You are NOT a specialized assistant dedicated to any specific tool provider."
 DEFAULT_MAX_FILES = 10
 DEFAULT_SESSION_NAME = "default"

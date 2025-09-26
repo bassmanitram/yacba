@@ -1,6 +1,7 @@
 # engine.py
 # Contains the core, reusable logic for the YACBA agent.
 
+import asyncio
 import os
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import ExitStack
@@ -59,9 +60,9 @@ class YacbaEngine(ChatBackend):
                     processing_results.append(result)
                     if result.has_tools:
                         all_tools.extend(result.tools)
-                        logger.info(f"✓ Loaded {len(result.tools)} tools from '{result.config_id}' ({result.source_file})")
+                        logger.info(f"Loaded {len(result.tools)} tools from '{result.config_id}' ({result.source_file})")
                     else:
-                        logger.warning(f"✗ No tools loaded from '{result.config_id}' ({result.source_file}): {result.error_message}")
+                        logger.warning(f"No tools loaded from '{result.config_id}' ({result.source_file}): {result.error_message}")
                 except Exception as e:
                     config_id = config.get("id", "unknown")
                     source_file = config.get("source_file", "unknown")
@@ -154,12 +155,42 @@ class YacbaEngine(ChatBackend):
         self.agent = self._setup_agent()
         return self.agent is not None
     
-    async def handle_input(self, user_input: str) -> Any:
-        """Handles user input and returns the agent's response."""
+    def _cleanup_on_error(self):
+        """Perform any necessary cleanup when an operation is cancelled."""
+        # We need to restore the agent history to the state before the cancelled input
+        pass
+    
+    async def handle_input(self, user_input: str) -> bool:
+        """
+        Handles user input and returns the agent's response.
+        
+        Args:
+            user_input: The user's input string
+            
+        Returns:
+            True on success, False on failure/cancellation
+        """
         if not self.agent:
             raise RuntimeError("Agent is not initialized.")
+        
         agent_input = parse_input_with_files(user_input, self.config.max_files)
-        await self.agent.handle_agent_stream(agent_input)
+        transformed_message = self.agent.adapter.transform_content(agent_input)
+        
+        try:
+            # Simple streaming - cancellation handled by asyncio task cancellation
+            async for _ in self.agent.stream_async(transformed_message):
+                pass  # Streaming happens in callback handler
+            
+            return True
+            
+        except asyncio.CancelledError:
+            logger.debug("Engine operation was cancelled")
+            self._cleanup_on_error()
+            return False
+        except Exception as e:
+            logger.error(f"Error during agent streaming: {e}")
+            self._cleanup_on_error()
+            return False
 
     def shutdown(self):
         """Shuts down resources."""

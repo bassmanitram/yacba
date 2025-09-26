@@ -1,4 +1,4 @@
-from typing import AsyncIterator, Protocol, Optional, List, Any
+from typing import Protocol
 
 class ChatBackend(Protocol):
     def startup(self):
@@ -11,9 +11,10 @@ class ChatBackend(Protocol):
         Clean up any resources held by the backend.
         """
         ...
-    async def handle_input(self, user_input: str):
+    async def handle_input(self, user_input: str, cancellation: bool = False):
         """
         Process user input and yield response chunks asynchronously.
+        Allows for cancellation of the operation.
 
         Args:
             user_input: The input string from the user.

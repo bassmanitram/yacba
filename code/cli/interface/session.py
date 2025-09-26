@@ -4,17 +4,16 @@ Prompt session management for YACBA CLI.
 Handles the setup and configuration of interactive prompt sessions.
 """
 
+from loguru import logger
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
-
-from .completer import YacbaCompleter
-
+from prompt_toolkit.completion import Completer
 
 def create_prompt_session(
     history_file: str = ".yacba_history",
-    completer: YacbaCompleter = None
+    completer: Completer = None
 ) -> PromptSession:
     """
     Create a configured prompt session for interactive input.
@@ -27,7 +26,6 @@ def create_prompt_session(
         Configured PromptSession instance
     """
     history = FileHistory(history_file)
-    completer = completer or YacbaCompleter()
     key_bindings = _create_key_bindings()
     
     return PromptSession(
