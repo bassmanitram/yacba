@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional
 from loguru import logger
+from utils.file_utils import load_structured_file
 
 
 class ModelConfigError(Exception):
@@ -23,7 +24,7 @@ class ModelConfigParser:
     
     Supports:
     - YAML file loading
-    - Property path parsing (dot notation and array indexing)
+    - Property path parsing (dot notation and array indexing)  
     - Automatic type inference
     - Configuration merging
     """
@@ -50,11 +51,7 @@ class ModelConfigParser:
             if not path.is_file():
                 raise ModelConfigError(f"Model config path is not a file: {file_path}")
             
-            with open(path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-            
-            if config is None:
-                config = {}
+            config = load_structured_file(path, 'yaml')
             
             if not isinstance(config, dict):
                 raise ModelConfigError(f"Model config file must contain a YAML object, got {type(config).__name__}")

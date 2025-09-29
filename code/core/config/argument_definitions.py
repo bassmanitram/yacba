@@ -20,7 +20,7 @@ import os
 import pathlib
 from typing import Any, Dict, List, Optional, Union, Callable
 
-from utils.file_utils import resolve_glob
+from utils.file_utils import resolve_glob, load_file_content
 from loguru import logger
 from utils.framework_detection import guess_framework_from_model_string
 
@@ -130,8 +130,8 @@ def _validate_file_or_str(file_or_str: str) -> str:
         if not p.is_file():
             raise ValueError(f"File {path_str} does not exist")
         try:
-            with open(p, 'r', encoding='utf-8') as f:
-                return f.read()
+            result = load_file_content(p, 'text')
+            return result['content']
         except Exception as e:
             raise ValueError(f"Error reading file {path_str}: {e}")
     return file_or_str

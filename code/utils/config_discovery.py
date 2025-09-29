@@ -9,6 +9,7 @@ from yacba_types.tools import ToolConfig
 from yacba_types.config import ToolDiscoveryResult
 from yacba_types.base import PathLike
 from .performance_utils import perf_monitor
+from utils.file_utils import load_structured_file
 
 # Removed @cached_operation decorator to avoid serialization issues with NamedTuple
 def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple[List[ToolConfig], ToolDiscoveryResult]:
@@ -86,8 +87,7 @@ def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
     
     for file_path in config_files:
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
+            config_data = load_structured_file(file_path, 'auto')
                 
             # Add source file reference for debugging
             config_data['source_file'] = file_path

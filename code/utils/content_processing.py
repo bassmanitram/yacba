@@ -9,7 +9,7 @@ from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any, Union, Optional, Generator
 
-from utils.file_utils import guess_mimetype, is_likely_text_file, scan_directory
+from utils.file_utils import guess_mimetype, scan_directory, load_file_content
 
 # Define a reasonable file size limit to avoid memory issues (e.g., 10MB)
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -26,24 +26,21 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
             logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
             return {"type": "text", "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
 
-        # Use the more robust utility function to correctly identify text-like files.
-        if is_likely_text_file(file_path):
-            logger.debug(f"Reading file '{file_path}' as text.")
-            with open(file_path, "r", errors='replace') as f:
-                return {"type": "text", "text": f.read()}
+        # Let the file utility handle text vs binary detection automatically
+        result = load_file_content(file_path, 'auto')
         
-        # For all other file types, encode them as base64.
+        if result['type'] == 'text':
+            logger.debug(f"Reading file '{file_path}' as text.")
+            return {"type": "text", "text": result['content']}
         else:
             logger.debug(f"Reading file '{file_path}' as base64-encoded binary.")
-            with open(file_path, "rb") as f:
-                encoded_data = base64.b64encode(f.read()).decode('utf-8')
             # The 'source' dictionary is the standard way to send binary data.
             return {
                 "type": "image", # This is a generic type for binary data in strands
                 "source": {
                     "type": "base64",
-                    "media_type": mimetype,
-                    "data": encoded_data
+                    "media_type": result.get('mimetype', mimetype),  # Use detected or provided
+                    "data": result['content']
                 }
             }
     except Exception as e:
