@@ -17,7 +17,7 @@ from cli import (
 )
 from adapters.cli.commands.registry import BackendCommandRegistry
 from utils.startup_messages import print_startup_info, print_welcome_message
-from utils.content_processing import generate_file_content_blocks
+from utils.content_processing import files_to_content_blocks
 from core import ChatbotManager, parse_config, YacbaConfig
 from yacba_types import ExitCode, Message
 
@@ -44,7 +44,7 @@ def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[
         return None
 
     # Lazily process all files using a generator and collect the content blocks
-    content_blocks = list(generate_file_content_blocks(files_to_upload))
+    content_blocks = files_to_content_blocks(files_to_upload, add_headers=True)
 
     # If any blocks were generated, construct the final message
     if content_blocks:

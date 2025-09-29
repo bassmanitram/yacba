@@ -14,6 +14,7 @@ from string import Template
 from loguru import logger
 
 from yacba_types.base import PathLike
+from utils.file_utils import load_structured_file
 
 
 @dataclass
@@ -130,11 +131,7 @@ class ConfigFileLoader:
         if not path.exists():
             raise FileNotFoundError(f"Configuration file not found: {path}")
         
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                raw_data = yaml.safe_load(f) or {}
-        except yaml.YAMLError as e:
-            raise yaml.YAMLError(f"Invalid YAML in config file {path}: {e}")
+        raw_data = load_structured_file(path, 'auto')
         
         return cls._parse_config_data(raw_data, path)
     
