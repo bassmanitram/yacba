@@ -12,18 +12,19 @@ This maintains backward compatibility while providing much better performance.
 """
 
 import sys
-import argparse
 from typing import Any, Dict, Optional, List
 from pathlib import Path
 from loguru import logger
 
 from .file_loader import ConfigManager
-from .argument_definitions import ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS, parse_args, validate_args
+from .argument_definitions import (ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS,
+                                   parse_args, validate_args)
 from .dataclass import YacbaConfig
 from utils.config_discovery import discover_tool_configs
 from utils.file_utils import validate_file_path, get_file_size
 from utils.model_config_parser import parse_model_config, ModelConfigError
 from yacba_types.config import ToolDiscoveryResult, FileUpload
+
 
 def _process_file_uploads(file_paths: List[str]) -> List[FileUpload]:
     """
@@ -46,7 +47,8 @@ def _process_file_uploads(file_paths: List[str]) -> List[FileUpload]:
             # Validate the path
             path = Path(path_str).resolve()
             if not validate_file_path(path):
-                raise FileNotFoundError(f"File not found or not accessible: {path_str}")
+                raise FileNotFoundError(
+                    f"File not found or not accessible: {path_str}")
 
             # Get file information
             size = get_file_size(path)
@@ -65,8 +67,10 @@ def _process_file_uploads(file_paths: List[str]) -> List[FileUpload]:
 
     return uploads
 
-def _create_model_config(model_config_file: Optional[str] = None,
-                        model_config_overrides: Optional[List[str]] = None) -> Dict[str, Any]:
+
+def _create_model_config(
+        model_config_file: Optional[str] = None,
+        model_config_overrides: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     # Parse model configuration from file and overrides
     Args:
@@ -79,8 +83,10 @@ def _create_model_config(model_config_file: Optional[str] = None,
     """
 
     try:
-        model_config_dict = parse_model_config(model_config_file, model_config_overrides)
-        logger.debug(f"Parsed model config: {len(model_config_dict)} properties")
+        model_config_dict = parse_model_config(model_config_file,
+                                                model_config_overrides)
+        logger.debug(f"Parsed model config: {len(model_config_dict)} "
+                     "properties")
     except ModelConfigError as e:
         logger.error(f"Model configuration error: {e}")
         raise ValueError(f"Model configuration error: {e}")
@@ -88,6 +94,7 @@ def _create_model_config(model_config_file: Optional[str] = None,
     # Create ModelConfig with all the configuration
 
     return model_config_dict
+
 
 def parse_config() -> YacbaConfig:
     """
@@ -127,7 +134,8 @@ def parse_config() -> YacbaConfig:
 
         if config_from_args.init_config:
             config_manager.create_sample_config(config_from_args.init_config)
-            print(f"Configuration file created at: {config_from_args.init_config}")
+            print("Configuration file created at: "
+                  f"{config_from_args.init_config}")
             sys.exit(0)
 
         config_from_files = config_manager.load_config(
@@ -138,14 +146,19 @@ def parse_config() -> YacbaConfig:
         # Merge configurations: defaults < env vars < config files < CLI args
         # Later sources override earlier ones
         # Start with defaults
-        yacba_config = ARGUMENT_DEFAULTS | ARGUMENTS_FROM_ENV_VARS | config_from_files | vars(config_from_args)
+        yacba_config = (ARGUMENT_DEFAULTS | ARGUMENTS_FROM_ENV_VARS |
+                        config_from_files | vars(config_from_args))
         # We need to tweak a couple though
-        yacba_config['files'] = ((ARGUMENT_DEFAULTS.get('files') or []) +
+        yacba_config['files'] = (
+            (ARGUMENT_DEFAULTS.get('files') or []) +
             (ARGUMENTS_FROM_ENV_VARS.get('files') or []) +
-            (config_from_files.get('files') or []) + (config_from_args.files or []))
-        yacba_config['config_override'] = ((ARGUMENT_DEFAULTS.get('config_override') or []) +
+            (config_from_files.get('files') or []) +
+            (config_from_args.files or []))
+        yacba_config['config_override'] = (
+            (ARGUMENT_DEFAULTS.get('config_override') or []) +
             (ARGUMENTS_FROM_ENV_VARS.get('config_override') or []) +
-            (config_from_files.get('config_override') or []) + (config_from_args.config_override or []))
+            (config_from_files.get('config_override') or []) +
+            (config_from_args.config_override or []))
 
         if yacba_config.get("show_config"):
             # Show merged configuration and exit
@@ -163,7 +176,8 @@ def parse_config() -> YacbaConfig:
         # 1. Process file uploads
         files_to_upload = []
         files_list = yacba_config.get('files')
-        if files_list and isinstance(files_list, list) and len(files_list) > 0:
+        if (files_list and isinstance(files_list, list) and
+                len(files_list) > 0):
             files_to_upload = _process_file_uploads(files_list)
             logger.info(f"Processed {len(files_to_upload)} file uploads")
 
@@ -172,9 +186,12 @@ def parse_config() -> YacbaConfig:
         tool_discovery_result = ToolDiscoveryResult([], [], 0)
         tool_configs_dir = yacba_config.get('tool_configs_dir')
         # Now handle single directory path (string) instead of list
-        if tool_configs_dir and isinstance(tool_configs_dir, str) and tool_configs_dir.strip():
-            tool_configs, tool_discovery_result = discover_tool_configs(tool_configs_dir)
-            logger.info(f"Discovered {len(tool_configs)} tool configurations from directory: {tool_configs_dir}")
+        if (tool_configs_dir and isinstance(tool_configs_dir, str) and
+                tool_configs_dir.strip()):
+            tool_configs, tool_discovery_result = discover_tool_configs(
+                tool_configs_dir)
+            logger.info(f"Discovered {len(tool_configs)} tool "
+                        f"configurations from directory: {tool_configs_dir}")
 
         # 3. Create model configuration
         model_config = _create_model_config(
@@ -214,13 +231,16 @@ def parse_config() -> YacbaConfig:
             agent_id=yacba_config.get('agent_id'),
 
             # Conversation management
-            conversation_manager_type=yacba_config.get('conversation_manager', 'sliding_window'),
+            conversation_manager_type=yacba_config.get('conversation_manager',
+                                                       'sliding_window'),
             sliding_window_size=yacba_config.get('window_size', 40),
             preserve_recent_messages=yacba_config.get('preserve_recent', 10),
             summary_ratio=yacba_config.get('summary_ratio', 0.3),
             summarization_model=yacba_config.get('summarization_model'),
-            custom_summarization_prompt=yacba_config.get('custom_summarization_prompt'),
-            should_truncate_results=not yacba_config.get('no_truncate_results', False),
+            custom_summarization_prompt=yacba_config.get(
+                'custom_summarization_prompt'),
+            should_truncate_results=not yacba_config.get(
+                    'no_truncate_results', False),
 
             # Execution mode
             headless=yacba_config.get('headless', False),
@@ -245,7 +265,10 @@ def parse_config() -> YacbaConfig:
         logger.error(f"Configuration parsing failed: {e}")
         sys.exit(1)
 
+
 # Backward compatibility
+
+
 def orchestrate_config_parsing() -> YacbaConfig:
     """Backward compatibility wrapper."""
     return parse_config()

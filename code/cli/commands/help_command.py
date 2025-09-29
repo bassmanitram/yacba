@@ -11,6 +11,7 @@ from typing import List, Dict, Any
 from .registry import COMMAND_REGISTRY
 from .base_command import BaseCommand
 
+
 class HelpCommand(BaseCommand):
     """Handler for the /help command."""
 

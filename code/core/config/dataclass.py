@@ -12,7 +12,6 @@ Tool execution and protocol details are handled by strands-agents.
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Literal
-from pathlib import Path
 
 # Import our focused types
 from yacba_types.config import ToolConfig, FileUpload, ToolDiscoveryResult
@@ -76,7 +75,7 @@ class YacbaConfig:
         if self.max_files > 1000:
             raise ValueError("max_files cannot exceed 1000 (performance limit)")
         if self.files_to_upload and len(self.files_to_upload) > self.max_files:
-            self.files_to_upload = self.files_to_upload[:self.max_files]
+            self.files_to_upload = self.files_to_upload[: self.max_files]
 
     def _validate_conversation_manager_config(self) -> None:
         """Validate conversation manager configuration parameters."""

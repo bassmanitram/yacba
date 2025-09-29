@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """
 Test script for model configuration functionality in YACBA.
 
@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from utils.model_config_parser import ModelConfigParser, parse_model_config, ModelConfigError
 from core.config_parser import _create_model_config
 
+
 def test_basic_parsing():
     """Test basic property override parsing."""
     print("🧪 Testing basic property override parsing...")
@@ -28,13 +29,13 @@ def test_basic_parsing():
     parser = ModelConfigParser()
 
     test_cases = [
-        ("temperature:0.8", "temperature", 0.8),
-        ("max_tokens:2048", "max_tokens", 2048),
-        ("stream:true", "stream", True),
-        ("enabled:false", "enabled", False),
-        ("model:null", "model", None),
-        ("response_format.type:json_object", "response_format.type", "json_object"),
-        ("safety_settings[0].threshold:BLOCK_LOW", "safety_settings[0].threshold", "BLOCK_LOW"),
+        ("temperature: 0.8", "temperature", 0.8),
+        ("max_tokens: 2048", "max_tokens", 2048),
+        ("stream: true", "stream", True),
+        ("enabled: false", "enabled", False),
+        ("model: null", "model", None),
+        ("response_format.type: json_object", "response_format.type", "json_object"),
+        ("safety_settings[0].threshold: BLOCK_LOW", "safety_settings[0].threshold", "BLOCK_LOW"),
     ]
 
     for override_str, expected_path, expected_value in test_cases:
@@ -48,6 +49,7 @@ def test_basic_parsing():
             return False
 
     return True
+
 
 def test_config_file_loading():
     """Test loading configuration from JSON files."""
@@ -81,7 +83,7 @@ def test_config_file_loading():
 
         loaded_config = parse_model_config(temp_file)
         assert loaded_config == temp_config, "Loaded config doesn't match original"
-        print(f"  ✅ Loaded temporary config file successfully")
+        print("  ✅ Loaded temporary config file successfully")
 
         # Clean up
         Path(temp_file).unlink()
@@ -92,16 +94,17 @@ def test_config_file_loading():
 
     return True
 
+
 def test_config_merging():
     """Test merging configuration files with overrides."""
     print("🧪 Testing configuration merging...")
 
     try:
         overrides = [
-            "temperature:0.95",
-            "max_tokens:8192",
-            "response_format.type:json_object",
-            "new_property:test_value"
+            "temperature: 0.95",
+            "max_tokens: 8192",
+            "response_format.type: json_object",
+            "new_property: test_value"
         ]
 
         merged_config = parse_model_config("../sample-model-configs/openai-gpt4.json", overrides)
@@ -123,6 +126,7 @@ def test_config_merging():
 
     return True
 
+
 def test_error_handling():
     """Test error handling for invalid configurations."""
     print("🧪 Testing error handling...")
@@ -135,10 +139,10 @@ def test_error_handling():
         (None, ["invalid_format"], "invalid format"),
 
         # Invalid array index
-        (None, ["array[invalid]:value"], "invalid array index"),
+        (None, ["array[invalid]: value"], "invalid array index"),
 
         # Empty property path
-        (None, [":value"], "empty property path"),
+        (None, [": value"], "empty property path"),
     ]
 
     for config_file, overrides, expected_error_type in error_cases:
@@ -147,11 +151,12 @@ def test_error_handling():
             print(f"  ❌ Expected error for {config_file}, {overrides} but got success")
             return False
         except ModelConfigError as e:
-            print(f"  ✅ Correctly caught error for {expected_error_type}: {str(e)[:50]}...")
+            print(f"  ✅ Correctly caught error for {expected_error_type}: {str(e)[: 50]}...")
         except Exception as e:
             print(f"  ⚠️  Unexpected error type for {expected_error_type}: {type(e).__name__}")
 
     return True
+
 
 def test_integration_with_config_parser():
     """Test integration with the main config parser."""
@@ -160,9 +165,9 @@ def test_integration_with_config_parser():
     try:
         # Test creating model config with file and overrides
         model_config = _create_model_config(
-            "openai:gpt-4",
+            "openai: gpt-4",
             "../sample-model-configs/openai-gpt4.json",
-            ["temperature:0.85", "max_tokens:3000"]
+            ["temperature: 0.85", "max_tokens: 3000"]
         )
 
         # Verify model config structure (ModelConfig is a TypedDict, so it's a dict)
@@ -180,6 +185,7 @@ def test_integration_with_config_parser():
         return False
 
     return True
+
 
 def main():
     """Run all tests."""

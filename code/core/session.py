@@ -12,6 +12,7 @@ from strands.session.session_manager import SessionManager
 from strands.session.file_session_manager import FileSessionManager
 from strands.types.content import Message
 
+
 class DelegatingSession(SessionManager):
     """
     A session proxy that holds a real, switchable FileSessionManager object internally.
@@ -132,7 +133,7 @@ class DelegatingSession(SessionManager):
         #
         # TBD: Decide if we want to delete the session file entirely instead of just clearing it.
         #
-        #if self._active_session:
+        # if self._active_session:
         #    # pylint: disable=protected-access
         #    self._active_session._save([])
         #    logger.info(f"Cleared session file for '{self.session_id}'. Session remains active.")

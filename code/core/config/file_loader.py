@@ -66,6 +66,7 @@ class ConfigFile:
         merged.update(profile_settings)
         return merged
 
+
 class ConfigFileLoader:
     """Loads and parses YACBA configuration files."""
 
@@ -196,6 +197,7 @@ class ConfigFileLoader:
         else:
             return obj
 
+
 class ConfigManager:
     """Manages configuration loading and merging for YACBA."""
 
@@ -265,13 +267,13 @@ class ConfigManager:
             },
             'profiles': {
                 'development': {
-                    'model': 'litellm:gemini/gemini-1.5-flash',
+                    'model': 'litellm: gemini/gemini-1.5-flash',
                     'system_prompt': 'You are a helpful development assistant with access to tools.',
                     'tool_configs': ['~/.yacba/tools/', './tools/'],
                     'show_tool_use': True
                 },
                 'production': {
-                    'model': 'openai:gpt-4',
+                    'model': 'openai: gpt-4',
                     'system_prompt': 'file://~/.yacba/prompts/production.txt',
                     'tool_configs': ['~/.yacba/tools/production/'],
                     'show_tool_use': False,
@@ -280,7 +282,7 @@ class ConfigManager:
                 },
                 'coding': {
                     'inherits': 'development',
-                    'model': 'anthropic:claude-3-sonnet',
+                    'model': 'anthropic: claude-3-sonnet',
                     'system_prompt': 'You are an expert programmer with access to development tools.',
                     'tool_configs': ['~/.yacba/tools/dev/', './project-tools/'],
                     'files': ['README.md', 'src/**/*.py'],

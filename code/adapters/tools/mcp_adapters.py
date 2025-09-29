@@ -10,8 +10,10 @@ from strands.tools.mcp import MCPClient
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
+
 class MCPStdIOAdapter(ToolAdapter):
     """Adapter for creating MCP tools from a stdio command."""
+
     def create(self, config: Dict[str, Any]) -> ToolCreationResult:
         server_id = config.get("id", "unknown-stdio-server")
         logger.debug(f"Starting MCP server '{server_id}' with command: {config.get('command')}")
@@ -74,8 +76,10 @@ class MCPStdIOAdapter(ToolAdapter):
                 error=str(e)
             )
 
+
 class MCPHTTPAdapter(ToolAdapter):
     """Adapter for creating MCP tools from an HTTP endpoint."""
+
     def create(self, config: Dict[str, Any]) -> ToolCreationResult:
         server_id = config.get("id", "unknown-http-server")
         url = config.get("url")

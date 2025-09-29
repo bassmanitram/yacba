@@ -2,7 +2,6 @@
 # Handles the transformation of user-provided files and text into the
 # specific content block format required by the strands-agents library.
 
-import base64
 import re
 import os
 from pathlib import Path
@@ -19,6 +18,7 @@ FILE_PATTERN = re.compile(
     r"file\((?P<quote>['\"])(?P<path>.*?)(?P=quote)\s*(?P<mimetype>\S+)?\)"
 )
 
+
 def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, Any]]:
     """
     Reads a single file and prepares it as a content block for the agent.
@@ -29,8 +29,9 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
         # Check file size before attempting to read
         if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
             logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
+            return {"type": "text", 
+                "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
             return {"type": "text", "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
-
         # Let the file utility handle text vs binary detection automatically
         result = load_file_content(file_path, 'auto')
 
@@ -51,6 +52,7 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
     except Exception as e:
         logger.error(f"Could not read or encode file {file_path}: {e}")
         return None
+
 
 def process_path_argument(path_str: str, mimetype: Optional[str], max_files: int) -> List[tuple[str, str]]:
     """
@@ -80,6 +82,7 @@ def process_path_argument(path_str: str, mimetype: Optional[str], max_files: int
             logger.debug(f"Skipping non-file path: {file_path}")
 
     return found_files_with_mimetype
+
 
 def files_to_content_blocks(
     files: List[tuple[str, str]],
@@ -117,6 +120,7 @@ def files_to_content_blocks(
 
     return content_blocks
 
+
 def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[Dict[str, Any]]]:
     """Parses user input for file(...) syntax."""
     content: List[Dict[str, Any]] = []
@@ -124,7 +128,7 @@ def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[D
 
     for match in FILE_PATTERN.finditer(user_input):
         # Add text before file reference
-        text_before = user_input[last_index:match.start()].strip()
+        text_before = user_input[last_index: match.start()].strip()
         if text_before:
             content.append({"type": "text", "text": text_before})
 

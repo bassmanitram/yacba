@@ -21,11 +21,13 @@ from .config import YacbaConfig
 from .conversation_manager_factory import ConversationManagerFactory
 from yacba_types.tools import ToolProcessingResult, ToolSystemStatus
 
+
 class YacbaEngine(ChatBackend):
     """
     The core, UI-agnostic engine for YACBA. It manages the agent, tools,
     model, and conversation management, but has no knowledge of the command line or session files.
     """
+
     def __init__(self, config: YacbaConfig, initial_messages: Optional[List[Dict[str, Any]]] = None):
         self.config = config
         self.initial_messages = initial_messages or []

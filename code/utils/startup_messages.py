@@ -10,12 +10,14 @@ from pathlib import Path
 
 from yacba_types.tools import ToolSystemStatus
 
+
 def print_welcome_message():
     """Prints the initial welcome message and instructions to stdout."""
     print("Welcome to Yet Another ChatBot Agent!")
     print("Type 'exit' or 'quit' to end. Type /help for a list of commands.")
     print("Use Enter to add new lines. Use Alt+Enter or Ctrl+J to send messages.")
     print("To upload a file in-chat, use the format: file('path/to/file.ext')")
+
 
 def print_startup_info(
     model_id: str,
@@ -59,6 +61,7 @@ def print_startup_info(
 
     write("-" * 50)
 
+
 def _print_basic_config(write_func, model_id: str, system_prompt: str, prompt_source: str):
     """Print basic configuration information."""
     first_line = system_prompt.split("\n")[0]
@@ -66,9 +69,11 @@ def _print_basic_config(write_func, model_id: str, system_prompt: str, prompt_so
     write_func(f'System Prompt (from {prompt_source}): "{first_line}{ellipsis}"')
     write_func(f"Model: {model_id}")
 
+
 def _print_conversation_manager_info(write_func, conversation_manager_info: str):
     """Print conversation manager configuration information."""
     write_func(f"{conversation_manager_info}")
+
 
 def _print_tool_status(write_func, tool_system_status: ToolSystemStatus):
     """Print detailed tool loading status."""
@@ -115,6 +120,7 @@ def _print_tool_status(write_func, tool_system_status: ToolSystemStatus):
                     write_func(f"    • {result.config_id} ({source_name}): {missing_list}")
     else:
         write_func("Available Tools: None")
+
 
 def _print_startup_files(write_func, startup_files: List[tuple[str, str]]):
     """Print information about uploaded startup files."""

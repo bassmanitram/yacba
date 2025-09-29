@@ -25,6 +25,8 @@ from loguru import logger
 from utils.framework_detection import guess_framework_from_model_string
 
 # Utility functions for common default factories
+
+
 def _validate_files(files_list) -> List[List[str]]:
     files = []
     for file_group in files_list:
@@ -51,6 +53,7 @@ def _validate_files(files_list) -> List[List[str]]:
                     files.append((file, "text/plain"))
     return files
 
+
 def _validate_model_string(model_str: str) -> str:
     if not model_str:
         raise ValueError("Model string cannot be empty")
@@ -69,6 +72,7 @@ def _validate_model_string(model_str: str) -> str:
             framework = "litellm"  # Default framework
         return f"{framework}:{model_str}"
 
+
 def _validate_bool(value: Any) -> bool:
     if value is None:
         return False  # Default for unspecified CLI flags
@@ -81,17 +85,20 @@ def _validate_bool(value: Any) -> bool:
             return False
     raise ValueError(f"Cannot convert {value} to bool")
 
+
 def _validate_int(value: Any) -> int:
     try:
         return int(value)
     except Exception as e:
         raise ValueError(f"Cannot convert {value} to int: {e}")
 
+
 def _validate_float(value: Any) -> float:
     try:
         return float(value)
     except Exception as e:
         raise ValueError(f"Cannot convert {value} to float: {e}")
+
 
 def _validate_file_path(p):
     """Check that string represents a path to a file that exists or can be created"""
@@ -111,17 +118,20 @@ def _validate_file_path(p):
     # Cannot be created
     raise ValueError(f"File path '{p}' does not exist and cannot be created")
 
+
 def _validate_existing_file(path_str: str) -> str:
     p = pathlib.Path(path_str)
     if not p.is_file():
         raise ValueError(f"File {path_str} does not exist")
     return str(p.resolve())
 
+
 def _validate_existing_dir(path_str: str) -> str:
     p = pathlib.Path(path_str)
     if not p.is_dir():
         raise ValueError(f"Directory {path_str} does not exist")
     return str(p.resolve())
+
 
 def _validate_file_or_str(file_or_str: str) -> str:
     if file_or_str.startswith("@"):
@@ -161,7 +171,7 @@ ARGUMENT_DEFAULTS = {
         MUST be expressed in strings because they may come from env vars
         which are always strings
     """
-    "model": "litellm:gemini/gemini-2.5-flash",
+    "model": "litellm: gemini/gemini-2.5-flash",
     "system_prompt":("You are a general assistant with access to various tools to enhance your capabilities. "
         "You are NOT a specialized assistant dedicated to any specific tool provider."),
     "config_override": [],
@@ -181,7 +191,7 @@ ARGUMENT_DEFINITIONS = [
     # Core model configuration
     ArgumentDefinition(
         names=["-m", "--model"],
-        help="The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm:gemini/gemini-2.5-flash",
+        help="The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm: gemini/gemini-2.5-flash",
         validator=_validate_model_string,
         argname="model",
     ),
@@ -195,7 +205,7 @@ ARGUMENT_DEFINITIONS = [
 
     ArgumentDefinition(
         names=["-c", "--config-override"],
-        help="Override model configuration property. Format: 'property.path:value'. Can be used multiple times.",
+        help="Override model configuration property. Format: 'property.path: value'. Can be used multiple times.",
         action="append",
         argname="config_override",
     ),
@@ -225,7 +235,7 @@ ARGUMENT_DEFINITIONS = [
 
     # File uploads
     ArgumentDefinition(
-        names=["-f", "--files"],
+        names=["-", "--files"],
         help="Files to upload and analyze. Can be specified multiple times.",
         nargs="+",
         action="append",
@@ -279,7 +289,7 @@ ARGUMENT_DEFINITIONS = [
 
     ArgumentDefinition(
         names=["--summarization-model"],
-        help="Optional separate model for summarization (e.g., 'litellm:gemini/gemini-2.5-flash' for cheaper summaries).",
+        help="Optional separate model for summarization (e.g., 'litellm: gemini/gemini-2.5-flash' for cheaper summaries).",
         validator=_validate_model_string,
         argname="summarization_model",
     ),
@@ -372,6 +382,8 @@ ARGUMENT_DEFINITIONS = [
 ]
 
 # Validate and convert config values based on argument definitions
+
+
 def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
     for arg_def in ARGUMENT_DEFINITIONS:
         if arg_def.validator and arg_def.argname in config:
@@ -380,6 +392,7 @@ def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
             except Exception as e:
                 raise ValueError(f"Invalid value for '{arg_def.argname}': {e}")
     return config
+
 
 def parse_args() -> argparse.ArgumentParser:
     """

@@ -1,4 +1,4 @@
-# Command registry for validation and help generation
+#  Command registry for validation and help generation
 from typing import Any
 from cli.commands.registry import CommandRegistry
 from cli.commands.base_command import BaseCommand
@@ -6,7 +6,7 @@ from .adapted_commands import AdaptedCommands
 from core.engine import YacbaEngine
 
 COMMAND_REGISTRY = {
-    # Session management
+    # : Session management
     '/session': {
         'handler': 'adapters.cli.commands.session_commands.SessionCommands',
         'category': 'Session Management',
@@ -24,7 +24,7 @@ COMMAND_REGISTRY = {
         'usage': ['/clear - Clear conversation history']
     },
 
-    # Information commands
+    #  : Information commands
     '/history': {
         'handler': 'adapters.cli.commands.info_commands.InfoCommands',
         'category': 'Information',
@@ -53,6 +53,7 @@ COMMAND_REGISTRY = {
     }
 }
 
+
 class BackendCommandRegistry(CommandRegistry):
     """Utility class for command registry operations."""
 
@@ -76,5 +77,5 @@ class BackendCommandRegistry(CommandRegistry):
         if not issubclass(handler_class, AdaptedCommands):
             return super()._instantiate_handler(command, handler_class)
 
-        # For adapted commands, pass the engine instance
+        #  : For adapted commands, pass the engine instance
         return handler_class(self, self.engine)

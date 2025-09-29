@@ -12,6 +12,7 @@ from adapters.framework.bedrock_adapter import BedrockAdapter
 from yacba_types.models import FrameworkAdapter
 from utils.framework_detection import guess_framework_from_model_string
 
+
 class StrandsModelLoader:
     """A factory class for creating Strands Model instances."""
 
@@ -46,7 +47,9 @@ class StrandsModelLoader:
         }
     }
 
-    def create_model(self, model_string: str, adhoc_config: Optional[Dict[str, Any]] = None) -> Optional[Tuple[Model, FrameworkAdapter]]:
+    def create_model(self, model_string: str,
+                     adhoc_config: Optional[Dict[str, Any]] = None) -> Optional[
+                         Tuple[Model, FrameworkAdapter]]:
         """
         Parses a model string, loads the appropriate Strands model class,
         and instantiates it with the provided configuration.
@@ -59,14 +62,16 @@ class StrandsModelLoader:
         else:
             model_name = model_string
             framework = guess_framework_from_model_string(model_name)
-            logger.info(f"Framework not specified, guessing '{framework}' for model '{model_name}'.")
+            logger.info(f"Framework not specified, guessing '{framework}' "
+                        f"for model '{model_name}'.")
 
         handler = self.FRAMEWORK_HANDLERS.get(framework)
         if not handler:
             logger.error(f"Unsupported model framework: '{framework}'")
             return None, None
 
-        logger.info(f"Attempting to load model '{model_name}' using framework '{framework}'.")
+        logger.info(f"Attempting to load model '{model_name}' using "
+                    f"framework '{framework}'.")
         AdapterClass = handler["adapter"]
 
         try:
@@ -80,13 +85,16 @@ class StrandsModelLoader:
             model_args = {handler["model_id_param"]: model_name}
             model_args.update(adhoc_config)
 
-            logger.info(f"Initializing {handler['class']} with ad-hoc config: {adhoc_config}")
+            logger.info(f"Initializing {handler['class']} with ad-hoc "
+                        f"config: {adhoc_config}")
             model_instance = ModelClass(**model_args)
             return model_instance, AdapterClass()
 
         except ImportError:
-            logger.error(f"Could not import {handler['class']} from {handler['module']}. Is the library installed?")
+            logger.error(f"Could not import {handler['class']} from "
+                         f"{handler['module']}. Is the library installed?")
             return None, None
         except Exception as e:
-            logger.error(f"Failed to create model instance for framework '{framework}': {e}")
+            logger.error("Failed to create model instance for framework "
+                         f"'{framework}': {e}")
             return None, None

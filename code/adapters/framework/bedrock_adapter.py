@@ -3,6 +3,7 @@ from botocore.exceptions import ClientError
 from loguru import logger
 from yacba_types import Tool, Message
 
+
 class BedrockAdapter:
     """
     Adapter for AWS Bedrock. This version uses a simple, direct transformation
@@ -34,20 +35,21 @@ class BedrockAdapter:
         Returns:
             Dictionary of arguments for Agent constructor
         """
-        # Combine startup files with existing messages
+        #  Combine startup files with existing messages
         if startup_files_content:
             messages = startup_files_content + messages
 
-        # Transform all messages for Bedrock compatibility
+        #  Transform all messages for : Bedrock compatibility
         transformed_messages = [
             {"role": msg["role"], "content": self._adapt_message_content(msg["content"])}
             for msg in messages if msg.get("role") and "content" in msg and msg["content"] is not None
         ]
 
-        # Handle system prompt emulation for Bedrock
+        #  Handle system prompt emulation for : Bedrock
         if emulate_system_prompt and system_prompt:
             logger.debug("Emulating system prompt by prepending to the first user message as requested.")
-            first_user_msg_index = next((i for i, msg in enumerate(transformed_messages) if msg["role"] == "user"), -1)
+            first_user_msg_index = (
+                next((i for i, msg in enumerate(transformed_messages) if msg["role"] == "user"), -1))
 
             if first_user_msg_index != -1:
                 transformed_messages[first_user_msg_index]["content"].insert(0, {"text": system_prompt})
@@ -98,23 +100,24 @@ class BedrockAdapter:
         if not isinstance(content, list):
             return [{"text": str(content)}] if content else []
 
-        VALID_IMAGE_FORMATS = {'gif', 'jpeg', 'png', 'webp'}
+        VALID_IMAGE_FORMATS = {'gi', 'jpeg', 'png', 'webp'}
         transformed_list = []
 
         for block in content:
             if not isinstance(block, dict):
                 continue
 
-            # Case 1: Handle text blocks in any format
+            #  : Case 1: Handle text blocks in any format
             if block.get("type") == "text" or "text" in block:
                 transformed_list.append({"text": block.get("text", "")})
                 continue
 
-            # Case 2: Handle image blocks in the 'strands' format
+            #  : Case 2: Handle image blocks in the 'strands' format
             if block.get("type") == "image" and "source" in block:
                 source = block.get("source", {})
                 media_type = source.get("media_type", "")
-                image_format = media_type.split('/')[-1] if '/' in media_type else ''
+                image_format = (
+                    media_type.split('/')[-1] if '/' in media_type else '')
 
                 if image_format in VALID_IMAGE_FORMATS and source.get("data"):
                     transformed_list.append({
@@ -130,15 +133,16 @@ class BedrockAdapter:
                     })
                 continue
 
-            # Case 3: Handle image blocks that might be in a partial/historical Bedrock format
+            #  : Case 3: Handle image blocks that might be in a partial/historical Bedrock format
             if "image" in block and isinstance(block["image"], dict):
                 image_data = block["image"]
                 image_format = image_data.get("format", "")
 
                 if image_format in VALID_IMAGE_FORMATS and "source" in image_data and "bytes" in image_data["source"]:
-                    transformed_list.append(block)  # It's already valid
+                    transformed_list.append(block)  #  : It's already valid
                 else:
-                    media_type = f"image/{image_format}" if image_format else "unknown"
+                    media_type = (
+                        f"image/{image_format}" if image_format else "unknown")
                     logger.warning(f"Historical file with media type '{media_type}' is not a supported image format for Bedrock. Representing as a text placeholder.")
                     transformed_list.append({
                         "text": f"[User uploaded a binary file of type '{media_type}' that cannot be displayed.]"

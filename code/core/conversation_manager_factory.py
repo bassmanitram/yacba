@@ -19,6 +19,7 @@ from strands import Agent
 from .config import YacbaConfig
 from .model_loader import StrandsModelLoader
 
+
 class ConversationManagerFactory:
     """Factory for creating conversation managers based on YACBA configuration."""
 
@@ -43,27 +44,34 @@ class ConversationManagerFactory:
                 return NullConversationManager()
 
             elif config.conversation_manager_type == "sliding_window":
-                logger.debug(f"Creating SlidingWindowConversationManager with window_size={config.sliding_window_size}")
+                logger.debug("Creating SlidingWindowConversationManager "
+                             f"with window_size={config.sliding_window_size}")
                 return SlidingWindowConversationManager(
                     window_size=config.sliding_window_size,
                     should_truncate_results=config.should_truncate_results
                 )
 
             elif config.conversation_manager_type == "summarizing":
-                logger.debug(f"Creating SummarizingConversationManager with summary_ratio={config.summary_ratio}")
+                logger.debug("Creating SummarizingConversationManager "
+                             f"with summary_ratio={config.summary_ratio}")
 
-                # Create optional summarization agent if a different model is specified
+                # Create optional summarization agent if a different model is
+                # specified
                 summarization_agent = None
                 if config.summarization_model:
-                    logger.debug(f"Creating summarization agent with model: {config.summarization_model}")
+                    logger.debug("Creating summarization agent with model: "
+                                 f"{config.summarization_model}")
                     try:
-                        summarization_agent = ConversationManagerFactory._create_summarization_agent(
-                            config.summarization_model
+                        summarization_agent = (
+                            ConversationManagerFactory
+                            ._create_summarization_agent(
+                                config.summarization_model)
                         )
                         if summarization_agent:
-                            logger.info(f"Successfully created summarization agent")
+                            logger.info("Successfully created summarization agent")
                         else:
-                            logger.warning(f"Failed to create summarization agent, proceeding without one")
+                            logger.warning("Failed to create summarization agent, "
+                                           "proceeding without one")
                     except Exception as e:
                         logger.error(f"Error creating summarization agent: {e}")
                         logger.info("Proceeding without summarization agent")
@@ -79,7 +87,8 @@ class ConversationManagerFactory:
                 )
 
             else:
-                raise ValueError(f"Unknown conversation manager type: {config.conversation_manager_type}")
+                raise ValueError("Unknown conversation manager type: "
+                                 f"{config.conversation_manager_type}")
 
         except Exception as e:
             logger.error(f"Failed to create conversation manager: {e}")
@@ -103,12 +112,14 @@ class ConversationManagerFactory:
 
             loader = StrandsModelLoader()
 
-            # FIXED: Don't pass base_model_config - let the model use its own defaults
-            # This avoids configuration conflicts between different model types
+            # FIXED: Don't pass base_model_config - let the model use its own
+            # defaults. This avoids configuration conflicts between different
+            # model types
             model, adapter = loader.create_model(model_string, adhoc_config={})
 
             if not model:
-                logger.warning(f"Failed to create summarization model: {model_string}")
+                logger.warning("Failed to create summarization model: "
+                               f"{model_string}")
                 return None
 
             logger.debug("Summarization model loaded successfully")
@@ -121,31 +132,37 @@ class ConversationManagerFactory:
                 emulate_system_prompt=False
             )
 
-            logger.debug("Creating summarization agent with lightweight configuration")
+            logger.debug("Creating summarization agent with lightweight "
+                         "configuration")
 
             # Import here to avoid circular dependency
             from .callback_handler import YacbaCallbackHandler
 
-            # Create a lightweight agent for summarization (no tools, simple callback)
+            # Create a lightweight agent for summarization (no tools, simple
+            # callback)
             summarization_agent = Agent(
                 model=model,
                 tools=[],  # No tools for summarization
-                callback_handler=YacbaCallbackHandler(headless=True, show_tool_use=False),
+                callback_handler=YacbaCallbackHandler(headless=True,
+                                                      show_tool_use=False),
                 conversation_manager=None,  # No conversation management for summarization agent
                 agent_id="yacba_summarization_agent",
                 **agent_args
             )
 
-            logger.info(f"Successfully created summarization agent with model: {model_string}")
+            logger.info("Successfully created summarization agent with model: "
+                        f"{model_string}")
             return summarization_agent
 
         except Exception as e:
             logger.error(f"Failed to create summarization agent: {e}")
-            logger.debug("Summarization agent creation exception:", exc_info=True)
+            logger.debug("Summarization agent creation exception:",
+                         exc_info=True)
             return None
 
     @staticmethod
-    def get_manager_info(manager: ConversationManager, config: YacbaConfig) -> str:
+    def get_manager_info(manager: ConversationManager,
+                         config: YacbaConfig) -> str:
         """
         Get human-readable information about the conversation manager.
 
@@ -160,13 +177,16 @@ class ConversationManagerFactory:
             return "Conversation Management: Disabled (full history preserved)"
 
         elif isinstance(manager, SlidingWindowConversationManager):
-            truncate_info = "with result truncation" if config.should_truncate_results else "without result truncation"
-            return f"Conversation Management: Sliding Window (size: {config.sliding_window_size}, {truncate_info})"
+            truncate_info = ("with result truncation"
+                             if config.should_truncate_results
+                             else "without result truncation")
+            return ("Conversation Management: Sliding Window "
+                    f"(size: {config.sliding_window_size}, {truncate_info})")
 
         elif isinstance(manager, SummarizingConversationManager):
-            summary_info = f"ratio: {config.summary_ratio}, preserve: {config.preserve_recent_messages}"
-            model_info = f", model: {config.summarization_model}" if config.summarization_model else ""
-            return f"Conversation Management: Summarizing ({summary_info}{model_info})"
+            summary_info = (f"ratio: {config.summary_ratio}, "
+                            f"preserve: {config.preserve_recent_messages}")
+            return f"Conversation Management: Summarizing ({summary_info})"
 
         else:
             return f"Conversation Management: {type(manager).__name__}"

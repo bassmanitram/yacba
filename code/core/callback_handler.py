@@ -11,6 +11,7 @@ from strands.handlers.callback_handler import PrintingCallbackHandler
 # A sensible maximum length for tool input values
 MAX_VALUE_LENGTH = 90
 
+
 class YacbaCallbackHandler(PrintingCallbackHandler):
     """
     A callback handler that can optionally suppress tool use details for cleaner output.
@@ -48,7 +49,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
             # Handle non-dict input (e.g., strings, lists)
             value_str = str(tool_input)
             if not self.disable_truncation and len(value_str) > MAX_VALUE_LENGTH:
-                value_str = value_str[:MAX_VALUE_LENGTH] + '...'
+                value_str = value_str[: MAX_VALUE_LENGTH] + '...'
             print(f"  - input: {value_str}")
             return
 
@@ -57,7 +58,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
             value_str = str(value)
             # Apply truncation only if it's enabled and the string is too long
             if not self.disable_truncation and len(value_str) > MAX_VALUE_LENGTH:
-                value_str = value_str[:MAX_VALUE_LENGTH] + '...'
+                value_str = value_str[: MAX_VALUE_LENGTH] + '...'
             print(f"  - {key}: {value_str}")
 
     def __call__(self, **kwargs: Any) -> None:

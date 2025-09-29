@@ -12,6 +12,8 @@ from .performance_utils import perf_monitor
 from utils.file_utils import load_structured_file
 
 # Removed @cached_operation decorator to avoid serialization issues with NamedTuple
+
+
 def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple[List[ToolConfig], ToolDiscoveryResult]:
     """
     Enhanced discovery with detailed error reporting.
@@ -58,6 +60,7 @@ def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple
 
     logger.info(f"Total tool discovery complete: {len(all_successful_configs)} successful, {len(all_failed_configs)} failed from {len(path_list)} directories")
     return all_successful_configs, discovery_result
+
 
 def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
     """
@@ -142,6 +145,7 @@ def _discover_single_directory(directory: PathLike) -> ToolDiscoveryResult:
 
     logger.info(f"Directory '{directory}' discovery complete: {len(successful_configs)} successful, {len(failed_configs)} failed")
     return ToolDiscoveryResult(successful_configs, failed_configs, len(config_files))
+
 
 def _validate_tool_config_detailed(config: Dict[str, Any]) -> List[str]:
     """

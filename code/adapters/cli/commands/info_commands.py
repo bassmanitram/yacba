@@ -16,6 +16,7 @@ from typing import List
 from cli.commands.base_command import CommandError
 from .adapted_commands import AdaptedCommands
 
+
 class InfoCommands(AdaptedCommands):
     """Handler for information display commands (excluding /help)."""
 
@@ -64,10 +65,10 @@ class InfoCommands(AdaptedCommands):
                 self.print_info("No conversation history available.")
                 return
 
-            # Format the history nicely
+            #  Format the history nicely
             history_json = json.dumps(self.agent.messages, indent=2,
                                       ensure_ascii=False)
-            self.print_info("Current conversation history:")
+            self.print_info(": Current conversation history:")
             self.print_info(history_json)
 
         except json.JSONEncodeError as e:
@@ -126,7 +127,7 @@ class InfoCommands(AdaptedCommands):
             self.print_info(f"  Type: {config.conversation_manager_type}")
 
             if config.conversation_manager_type == "sliding_window":
-                self.print_info(f"  Window Size: "
+                self.print_info("  Window Size: "
                                 f"{config.sliding_window_size} messages")
                 truncate_text = ('Yes' if config.should_truncate_results
                                  else 'No')
@@ -136,13 +137,13 @@ class InfoCommands(AdaptedCommands):
                 ratio_percent = int(config.summary_ratio * 100)
                 self.print_info(f"  Summary Ratio: {config.summary_ratio} "
                                 f"({ratio_percent}%)")
-                self.print_info(f"  Preserve Recent: "
+                self.print_info("  Preserve Recent: "
                                 f"{config.preserve_recent_messages} messages")
                 if config.summarization_model:
-                    self.print_info(f"  Summarization Model: "
+                    self.print_info("  Summarization Model: "
                                     f"{config.summarization_model}")
                 else:
-                    self.print_info(f"  Summarization Model: Same as main "
+                    self.print_info("  Summarization Model: Same as main "
                                     f"model ({config.model_string})")
                 if config.custom_summarization_prompt:
                     self.print_info("  Custom Prompt: Yes")
@@ -153,9 +154,9 @@ class InfoCommands(AdaptedCommands):
                 self.print_info("  No conversation management "
                                 "(all history preserved)")
 
-            # Show current state if manager exists
+            #  : Show current state if manager exists
             if (manager and hasattr(manager, 'removed_message_count')):
-                self.print_info(f"  Messages Removed: "
+                self.print_info("  Messages Removed: "
                                 f"{manager.removed_message_count}")
 
         except Exception as e:
@@ -194,7 +195,7 @@ class InfoCommands(AdaptedCommands):
                 retention_rate = (current_messages / total_processed) * 100
                 self.print_info(f"  Retention Rate: {retention_rate:.1f}%")
 
-            # Show message breakdown if we have messages
+            #  : Show message breakdown if we have messages
             if agent.messages:
                 user_messages = sum(1 for msg in agent.messages
                                     if msg.get('role') == 'user')
@@ -209,7 +210,7 @@ class InfoCommands(AdaptedCommands):
                 if other_messages > 0:
                     self.print_info(f"    Other: {other_messages}")
 
-                # Check for tool use messages
+                #  Check for tool use messages
                 tool_use_messages = sum(
                     1 for msg in agent.messages
                     if any('toolUse' in str(content)
@@ -217,7 +218,7 @@ class InfoCommands(AdaptedCommands):
                 )
                 tool_result_messages = sum(
                     1 for msg in agent.messages
-                    if any('toolResult' in str(content)
+                    if any('tool: Result' in str(content)
                            for content in msg.get('content', []))
                 )
 
@@ -240,41 +241,41 @@ class InfoCommands(AdaptedCommands):
         Returns:
             Formatted tool information string
         """
-        # Try multiple ways to get a meaningful tool name
+        #  Try multiple ways to get a meaningful tool name
         tool_name = "unnamed-tool"
         tool_description = None
         tool_source = "unknown"
 
-        # Method 1: Check for tool_spec (most reliable for MCP tools)
+        # : Method 1: Check for tool_spec (most reliable for MCP tools)
         if hasattr(tool, 'tool_spec') and isinstance(tool.tool_spec, dict):
             spec = tool.tool_spec
             tool_name = spec.get('name', tool_name)
             tool_description = spec.get('description')
 
-            # Try to determine source from tool spec
+            #  : Try to determine source from tool spec
             if 'mcp' in str(type(tool)).lower():
                 tool_source = "MCP"
             elif hasattr(tool, '__module__'):
                 tool_source = f"Python ({tool.__module__})"
 
-        # Method 2: Check function attributes
+        #  : Method 2: Check function attributes
         elif hasattr(tool, '__name__'):
             tool_name = tool.__name__
             if hasattr(tool, '__module__'):
                 tool_source = f"Python ({tool.__module__})"
 
-        # Method 3: Use class name as fallback
+        #  : Method 3: Use class name as fallback
         elif hasattr(tool, '__class__'):
             tool_name = tool.__class__.__name__
             tool_source = f"Class ({tool.__class__.__module__})"
 
-        # Format the output
+        #  : Format the output
         info_parts = [f"  {index}. {tool_name}"]
 
         if tool_description:
-            # Truncate long descriptions
+            #  : Truncate long descriptions
             if len(tool_description) > 80:
-                tool_description = tool_description[:77] + "..."
+                tool_description = tool_description[: 77] + "..."
             info_parts.append(f" - {tool_description}")
 
         info_parts.append(f" [{tool_source}]")

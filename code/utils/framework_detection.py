@@ -11,6 +11,7 @@ FRAMEWORK_GUESSING_RULES: List[Tuple[str, FrameworkName]] = [
     ("/", "litellm"),  # Convention for litellm models like 'ollama/llama2'
 ]
 
+
 def guess_framework_from_model_string(model_name: str) -> FrameworkName:
     """
     Makes a best guess for the model framework based on a list of rules.

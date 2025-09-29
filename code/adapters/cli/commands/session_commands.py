@@ -13,6 +13,7 @@ import re
 from cli.commands.base_command import CommandError
 from .adapted_commands import AdaptedCommands
 
+
 class SessionCommands(AdaptedCommands):
     """Handler for information display commands (excluding /help)."""
 
@@ -43,7 +44,7 @@ class SessionCommands(AdaptedCommands):
         """Handles the /session command and its subcommands."""
         session_manager = self.engine.session_manager
 
-        # Case 1: /session (no arguments)
+        #  : Case 1: /session (no arguments)
         if not args:
             current_session = session_manager.session_id
             if session_manager.is_active:
@@ -56,7 +57,7 @@ class SessionCommands(AdaptedCommands):
 
         session_name = args[0]
 
-        # Case 2: /session _LIST
+        #  : Case 2: /session _LIST
         if session_name == "_LIST":
             sessions = session_manager.list_sessions()
             if sessions:
@@ -69,22 +70,22 @@ class SessionCommands(AdaptedCommands):
                 print("No saved sessions found.")
             return
 
-        # Case 3: /session _DELETE (REMOVED) - This functionality is now
-        # in /clear
+        #  : Case 3: /session _DELETE (REMOVED) - This functionality is now
+        #  in /clear
 
-        # Case 4: Validate the session name format
+        # : Case 4: Validate the session name format
         if not re.match(r"^[a-z][a-z0-9_-]*$", session_name):
             print(f"Invalid session name: '{session_name}'.")
             print("Name must be lowercase, start with a letter, and contain "
                   "only letters, numbers, '-', or '_'.")
             return
 
-        # Case 5: Already in the requested session
+        #  : Case 5: Already in the requested session
         if session_manager.session_id == session_name:
             print(f"Already in session '{session_name}'.")
             return
 
-        # Case 6: Switch to the new session
+        #  : Case 6: Switch to the new session
         session_manager.set_active_session(session_name)
         print(f"Switched to session '{session_name}'.")
 

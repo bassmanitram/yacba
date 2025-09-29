@@ -12,11 +12,14 @@ from .config import ToolDiscoveryResult
 from .base import JSONDict
 
 # Tool configuration types (what YACBA manages)
+
+
 class BaseToolConfig(TypedDict):
     """Base tool configuration that YACBA manages."""
     id: str
     type: str  # "mcp" or "python"
     disabled: bool
+
 
 class MCPToolConfig(BaseToolConfig):
     """MCP tool configuration - YACBA only manages connection details."""
@@ -26,6 +29,7 @@ class MCPToolConfig(BaseToolConfig):
     env: Optional[Dict[str, str]]
     # For HTTP transport
     url: Optional[str]
+
 
 class PythonToolConfig(BaseToolConfig):
     """Python tool configuration - YACBA only manages module loading."""
@@ -45,6 +49,8 @@ class Tool(Protocol):
     pass  # Removed tool_spec requirement as it's unreliable
 
 # Unified tool processing result
+
+
 class ToolProcessingResult(NamedTuple):
     """
     Unified result for all tool processing operations.
@@ -74,6 +80,7 @@ class ToolProcessingResult(NamedTuple):
         """Check if there was an error during processing."""
         return self.error_message is not None
 
+
 class ToolCreationResult(NamedTuple):
     """Detailed result of tool creation with missing function tracking."""
     tools: List[Any]
@@ -83,6 +90,8 @@ class ToolCreationResult(NamedTuple):
     error: Optional[str]
 
 # Overall tool system status
+
+
 class ToolSystemStatus(NamedTuple):
     """Overall status of the tool system after full initialization."""
     discovery_result: ToolDiscoveryResult

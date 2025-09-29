@@ -8,6 +8,7 @@ from loguru import logger
 from .config import YacbaConfig
 from .engine import YacbaEngine
 
+
 class ChatbotManager:
     """
     A context manager to manage the lifecycle of the core YacbaEngine.

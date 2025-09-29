@@ -12,9 +12,11 @@ from typing import Dict, Any, List, Union, Optional
 from loguru import logger
 from utils.file_utils import load_structured_file
 
+
 class ModelConfigError(Exception):
     """Custom exception for model configuration errors."""
     pass
+
 
 class ModelConfigParser:
     """
@@ -65,10 +67,10 @@ class ModelConfigParser:
     @staticmethod
     def parse_property_override(property_override: str) -> tuple[str, Any]:
         """
-        Parse a property override string in the format "path:value".
+        Parse a property override string in the format "path: value".
 
         Args:
-            property_override: String in format "property.path:value"
+            property_override: String in format "property.path: value"
 
         Returns:
             Tuple of (property_path, parsed_value)
@@ -79,7 +81,7 @@ class ModelConfigParser:
         if ':' not in property_override:
             raise ModelConfigError(
                 f"Invalid property override format: '{property_override}'. "
-                f"Expected format: 'property.path:value'"
+                "Expected format: 'property.path: value'"
             )
 
         # Split on first colon to handle values that contain colons
@@ -297,6 +299,7 @@ class ModelConfigParser:
             raise ModelConfigError(f"Model configuration contains non-serializable values: {e}")
 
         logger.debug(f"Validated model config with {len(config)} properties")
+
 
 def parse_model_config(config_file: Optional[str] = None,
                       overrides: Optional[List[str]] = None) -> Dict[str, Any]:

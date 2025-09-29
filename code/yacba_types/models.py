@@ -54,6 +54,8 @@ class FrameworkAdapter(Protocol):
         ...
 
 # Model loading result (what YACBA cares about)
+
+
 class ModelLoadResult(TypedDict):
     """Result of model loading operation."""
     model: Optional[Model]

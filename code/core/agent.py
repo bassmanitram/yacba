@@ -14,6 +14,7 @@ from strands import Agent
 from cli.interface.error_handling import format_error
 from yacba_types.models import FrameworkAdapter
 
+
 class YacbaAgent(Agent):
     """
     A subclass of Agent that could include additional YACBA-specific functionality.

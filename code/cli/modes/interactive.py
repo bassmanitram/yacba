@@ -20,6 +20,7 @@ from cli.commands.registry import CommandRegistry
 from yacba_types.backend import ChatBackend
 from ..interface import create_prompt_session
 
+
 class ChatInterface:
     """
     Manages the interactive chat session, including user input, command handling,

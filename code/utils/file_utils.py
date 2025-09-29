@@ -13,6 +13,7 @@ from loguru import logger
 from .performance_utils import timed_operation, perf_monitor, cached_operation
 from yacba_types.base import PathLike
 
+
 def guess_mimetype(file_path: PathLike) -> str:
     """
     Guess the MIME type of a file based on its extension.
@@ -25,6 +26,7 @@ def guess_mimetype(file_path: PathLike) -> str:
     """
     mimetype, _ = mimetypes.guess_type(str(file_path))
     return mimetype or 'application/octet-stream'
+
 
 def is_likely_text_file(file_path: PathLike) -> bool:
     """
@@ -46,7 +48,7 @@ def is_likely_text_file(file_path: PathLike) -> bool:
     # Common text file extensions
     text_extensions = {
         '.txt', '.md', '.py', '.js', '.html', '.css', '.json', '.xml', '.yaml', '.yml',
-        '.ini', '.cfg', '.conf', '.log', '.csv', '.tsv', '.sql', '.sh', '.bat', '.ps1',
+        '.ini', '.cfg', '.con', '.log', '.csv', '.tsv', '.sql', '.sh', '.bat', '.ps1',
         '.c', '.cpp', '.h', '.hpp', '.java', '.cs', '.php', '.rb', '.go', '.rs', '.swift',
         '.kt', '.scala', '.clj', '.hs', '.ml', '.fs', '.vb', '.pl', '.r', '.m', '.tex',
         '.rst', '.adoc', '.org', '.wiki', '.dockerfile', '.gitignore', '.gitattributes',
@@ -236,7 +238,7 @@ def scan_directory(
                         break
 
     logger.debug(f"Scanned directory '{directory}', found {len(found_files)} files")
-    return found_files[:limit]
+    return found_files[: limit]
 
 @timed_operation("file_validation")
 def validate_file_path(file_path: PathLike) -> bool:
@@ -272,6 +274,7 @@ def validate_directory_path(dir_path: PathLike) -> bool:
     except (OSError, ValueError):
         return False
 
+
 def get_file_size(file_path: PathLike) -> int:
     """
     Get the size of a file in bytes.
@@ -286,6 +289,7 @@ def get_file_size(file_path: PathLike) -> int:
         return Path(file_path).stat().st_size
     except (OSError, ValueError):
         return 0
+
 
 def ensure_directory_exists(dir_path: PathLike) -> bool:
     """
@@ -302,6 +306,7 @@ def ensure_directory_exists(dir_path: PathLike) -> bool:
         return True
     except (OSError, ValueError):
         return False
+
 
 def validate_file_size(file_path: PathLike, max_size_mb: int = 100) -> bool:
     """
@@ -324,15 +329,17 @@ def validate_file_size(file_path: PathLike, max_size_mb: int = 100) -> bool:
     except OSError:
         return False
 
+
 def _extract_glob_list(pattern: str) -> list:
-    """Extract comma-separated patterns from [pattern1,pattern2,...] format"""
+    """Extract comma-separated patterns from [pattern1, pattern2,...] format"""
     match = re.search(r'\[([^\]]+)\]', pattern)
     if match:
         return [p.strip() for p in match.group(1).split(',')]
     return [pattern]  # Return original if no brackets found
 
+
 def resolve_glob(pattern: str) -> list:
-    """Resolve custom glob pattern like './dir1/dir2/[*.py,Readme.md]'"""
+    """Resolve custom glob pattern like './dir1/dir2/[*.py, Readme.md]'"""
     # Extract the bracket part
     bracket_match = re.search(r'^(.*?)\[([^\]]+)\](.*)$', pattern)
 

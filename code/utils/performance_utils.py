@@ -15,6 +15,7 @@ from loguru import logger
 
 T = TypeVar('T')
 
+
 class LazyImporter:
     """Thread-safe lazy import manager to reduce startup time."""
 
@@ -30,6 +31,7 @@ class LazyImporter:
                     logger.debug(f"Lazy loading module: {module_name}")
                     self._modules[module_name] = import_func()
         return self._modules[module_name]
+
 
 class FileSystemCache:
     """
@@ -144,6 +146,7 @@ class FileSystemCache:
             cache_file.unlink(missing_ok=True)
         logger.info("Performance cache cleared (memory and disk)")
 
+
 class PerformanceMonitor:
     """Built-in performance monitoring with statistics."""
 
@@ -197,7 +200,9 @@ class PerformanceMonitor:
             for counter, value in stats['counters'].items():
                 logger.info(f"  {counter}: {value}")
 
+
     class _TimingContext:
+
         def __init__(self, monitor: 'PerformanceMonitor', operation_name: str):
             self.monitor = monitor
             self.operation_name = operation_name
@@ -220,8 +225,10 @@ lazy_importer = LazyImporter()
 fs_cache = FileSystemCache()
 perf_monitor = PerformanceMonitor()
 
+
 def cached_operation(operation_name: str):
     """Decorator to cache expensive operations."""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -241,8 +248,10 @@ def cached_operation(operation_name: str):
         return wrapper
     return decorator
 
+
 def timed_operation(operation_name: str):
     """Decorator to time operations without caching."""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -252,15 +261,20 @@ def timed_operation(operation_name: str):
     return decorator
 
 # Lazy import helpers for heavy dependencies
+
+
 def lazy_import_strands():
     """Lazy import of strands library."""
+
     def _import():
         from strands import Agent
         return Agent
     return lazy_importer.get_module('strands_agent', _import)
 
+
 def lazy_import_mcp():
     """Lazy import of MCP libraries."""
+
     def _import():
         from strands.tools.mcp import MCPClient
         from mcp import StdioServerParameters
@@ -274,8 +288,10 @@ def lazy_import_mcp():
         }
     return lazy_importer.get_module('mcp_libs', _import)
 
+
 def lazy_import_framework_adapters():
     """Lazy import of framework adapters."""
+
     def _import():
         from adapters import get_framework_adapter
         return get_framework_adapter

@@ -5,12 +5,12 @@ Handles the setup and configuration of interactive prompt sessions.
 """
 
 from pathlib import Path
-from loguru import logger
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.completion import Completer
+
 
 def create_prompt_session(
     history_file: str = str(Path.home() / ".yacba" / "yacba_history"),
@@ -39,6 +39,7 @@ def create_prompt_session(
         key_bindings=key_bindings,
         multiline=True
     )
+
 
 def _create_key_bindings() -> KeyBindings:
     """

@@ -21,6 +21,7 @@ from utils.content_processing import files_to_content_blocks
 from core import ChatbotManager, parse_config, YacbaConfig
 from yacba_types import ExitCode, Message
 
+
 def _check_and_clear_cache_early():
     """Check for --clear-cache flag early and clear cache before config parsing."""
     # Quick check for --clear-cache flag without full argument parsing
@@ -28,6 +29,7 @@ def _check_and_clear_cache_early():
         from utils.performance_utils import fs_cache
         fs_cache.clear()
         logger.info("Performance cache cleared")
+
 
 def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[List[Message]]:
     """
@@ -129,6 +131,7 @@ async def main_async() -> None:
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")
         sys.exit(ExitCode.FATAL_ERROR)
+
 
 def main() -> NoReturn:
     """

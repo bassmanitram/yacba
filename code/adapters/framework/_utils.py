@@ -1,5 +1,6 @@
 from typing import Any
 
+
 def recursively_remove(obj: Any, prop: str) -> None:
     """
     Recursively traverses a dictionary or list and removes all keys

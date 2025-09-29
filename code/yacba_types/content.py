@@ -7,10 +7,13 @@ from typing_extensions import TypedDict
 from .base import JSONDict
 
 # Content block types
+
+
 class TextBlock(TypedDict):
     """Text content block."""
     type: Literal["text"]
     text: str
+
 
 class ImageSource(TypedDict):
     """Image source data."""
@@ -18,15 +21,19 @@ class ImageSource(TypedDict):
     media_type: str
     data: str
 
+
 class ImageBlock(TypedDict):
     """Image content block."""
     type: Literal["image"]
     source: ImageSource
 
 # Bedrock-specific image format
+
+
 class BedrockImageSource(TypedDict):
     """Bedrock image source format."""
     bytes: str
+
 
 class BedrockImageBlock(TypedDict):
     """Bedrock image block format."""
@@ -39,12 +46,16 @@ ContentBlock = Union[TextBlock, ImageBlock, BedrockImageBlock]
 MessageContent = Union[str, List[ContentBlock]]
 
 # Complete message structure
+
+
 class Message(TypedDict):
     """Complete message structure."""
     role: Literal["user", "assistant", "system"]
     content: MessageContent
 
 # File processing types
+
+
 class ProcessedFile(TypedDict):
     """Result of file processing."""
     path: str
@@ -53,6 +64,8 @@ class ProcessedFile(TypedDict):
     error: Optional[str]
 
 # Input parsing types
+
+
 class FileReference(TypedDict):
     """File reference from user input."""
     path: str

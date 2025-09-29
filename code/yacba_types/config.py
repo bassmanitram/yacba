@@ -6,16 +6,18 @@ YACBA manages configuration, not tool execution or protocol details.
 
 from typing import Dict, List, Any, Optional, Literal, Union
 from typing_extensions import TypedDict, NamedTuple
-from .base import JSONDict, PathLike
+from .base import PathLike
 
 # Tool configuration types (what YACBA manages for tool loading)
 ToolType = Literal["mcp", "python"]
+
 
 class BaseToolConfig(TypedDict):
     """Base tool configuration."""
     id: str
     type: ToolType
     disabled: bool
+
 
 class MCPToolConfig(BaseToolConfig):
     """MCP tool configuration - connection details only."""
@@ -26,14 +28,19 @@ class MCPToolConfig(BaseToolConfig):
     # For HTTP transport
     url: Optional[str]
 
+
 class PythonToolConfig(BaseToolConfig):
     """Python tool configuration - module loading details only."""
     module_path: str
     functions: List[str]
 
+
 ToolConfig = Union[MCPToolConfig, PythonToolConfig]
 
+
 # Discovery phase result (configuration file scanning)
+
+
 class ToolDiscoveryResult(NamedTuple):
     """Result of scanning for tool configuration files."""
     successful_configs: List[ToolConfig]
@@ -45,7 +52,19 @@ class ToolDiscoveryResult(NamedTuple):
         """Check if any configuration files failed to load."""
         return len(self.failed_configs) > 0
 
+
+# Session data type (what YACBA persists)
+
+
+class SessionData(TypedDict):
+    """Session data that YACBA persists to disk."""
+    messages: List[Dict[str, Any]]
+    metadata: Dict[str, Any]
+
+
 # File upload types (what YACBA processes at startup)
+
+
 class FileUpload(TypedDict):
     """Type definition for file upload information."""
     path: PathLike

@@ -10,6 +10,7 @@ from typing import List, Optional, Union
 from prompt_toolkit.completion import Completer, PathCompleter, Completion
 from prompt_toolkit.document import Document
 
+
 class YacbaCompleter(Completer):
     """
     A context-aware completer that switches between meta-command and path completion.
@@ -44,12 +45,12 @@ class YacbaCompleter(Completer):
         """
         text = document.text_before_cursor
 
-        # Check for in-chat file upload syntax
+        #  : Check for in-chat file upload syntax
         if self._is_file_completion_context(text):
             yield from self._get_file_completions(text, document, complete_event)
             return
 
-        # Check for meta-command syntax
+        #  : Check for meta-command syntax
         if self._is_command_completion_context(text):
             yield from self._get_command_completions(text)
 
@@ -68,7 +69,7 @@ class YacbaCompleter(Completer):
             return
 
         path_prefix = file_match.group(2)
-        # Avoid completing if quote is already in the path
+        #  : Avoid completing if quote is already in the path
         if file_match.group(1) in path_prefix:
             return
 

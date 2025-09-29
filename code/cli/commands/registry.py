@@ -33,8 +33,10 @@ COMMAND_REGISTRY = {
     }
 }
 
+
 class CommandRegistry(CliCommandRegistry):
     """Utility class for command registry operations."""
+
     def __init__(self):
         self.commands = COMMAND_REGISTRY
         self.command_cache = {}

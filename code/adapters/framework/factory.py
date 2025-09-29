@@ -4,6 +4,7 @@ from yacba_types.models import FrameworkAdapter
 from .bedrock_adapter import BedrockAdapter
 from .base_adapter import DefaultAdapter
 
+
 def get_framework_adapter(model: Any) -> FrameworkAdapter:
     """
     Selects the appropriate framework adapter based on the model object's type.

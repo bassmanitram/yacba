@@ -8,6 +8,7 @@ from loguru import logger
 
 from yacba_types.cli import CliCommandRegistry
 
+
 class BaseCommand(ABC):
     """
     Abstract base class for CLI meta-commands.
@@ -105,6 +106,7 @@ class BaseCommand(ABC):
         # or pull from the command registry
         return f"Usage: {command} [args...]"
 
+
 class CommandError(Exception):
     """Exception raised when a command encounters an error."""
 
@@ -119,9 +121,11 @@ class CommandError(Exception):
         super().__init__(message)
         self.command = command
 
+
 class CommandValidationError(CommandError):
     """Exception raised when command arguments are invalid."""
     pass
+
 
 class CommandExecutionError(CommandError):
     """Exception raised when command execution fails."""
