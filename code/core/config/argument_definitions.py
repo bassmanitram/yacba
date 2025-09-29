@@ -1,205 +1,251 @@
 """
 Centralized argument definitions for YACBA.
 
-This module provides a single source of truth for all CLI arguments,
-dataclass fields, and configuration mappings. It eliminates the need to 
-maintain argument definitions in multiple places by auto-generating
-both argparse configurations and dataclass field definitions.
+This module provides a single source of truth for all CLI arguments
+
+It does NOT handle configuration file parsing or merging, since it is 
+not responsible for other forms of configuration (profiles, config files, etc).
+
+It provides single value checkers and converters, since it defines how the
+user can express configuration values.
+
+It does not provide CROSS-value validation, since that is the responsibility
+of whatever handles the whole configuration (e.g., config orchestrator).
 """
 
-from dataclasses import dataclass, field
+import argparse
+from dataclasses import dataclass
+import mimetypes
+import os
+import pathlib
 from typing import Any, Dict, List, Optional, Union, Callable
-from pathlib import Path
 
+from utils.file_utils import resolve_glob
+from loguru import logger
+from utils.framework_detection import guess_framework_from_model_string
+
+# Utility functions for common default factories
+def _validate_files(files_list) -> List[List[str]]:
+    files = []
+    for file_group in files_list:
+        file_glob = file_group[0]
+        if len(file_group) == 2:
+            mimetype = file_group[1]
+            if '/' not in mimetype or mimetype.count('/') != 1:
+                logger.warn(f"{file_group}: Mimetype '{mimetype}' must be in format 'str/str'. Ignoring")
+                continue
+            cat, subtype = mimetype.split('/')
+            if not cat or not subtype:
+                logger.warn(f"{file_group}: Mimetype '{mimetype}' must be in format 'str/str'. Ignoring")
+                continue
+        
+        globbed_files = resolve_glob(file_glob)
+        for file in globbed_files:
+            if mimetype:
+                files.append((file, mimetype))
+            else:
+                guessed_type, _ = mimetypes.guess_type(file)
+                if guessed_type:
+                    files.append((file, guessed_type))
+                else:
+                    files.append((file, "text/plain"))
+    return files
+
+def _validate_model_string(model_str: str) -> str:
+    if not model_str:
+        raise ValueError("Model string cannot be empty")
+    
+    if ":" in model_str:
+        framework, model = model_str.split(":", 1)
+        if not framework:
+            framework = guess_framework_from_model_string(model)
+        if not framework or not model:
+            raise ValueError(f"Invalid model string format: {model_str}")
+        return f"{framework}:{model}"
+    else:
+        # No colon - need to guess framework
+        framework = guess_framework_from_model_string(model_str)
+        if not framework:
+            framework = "litellm"  # Default framework
+        return f"{framework}:{model_str}"
+
+def _validate_bool(value: Any) -> bool:
+    if value is None:
+        return False  # Default for unspecified CLI flags
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.lower() in ['true', '1', 'yes']:
+            return True
+        elif value.lower() in ['false', '0', 'no']:
+            return False
+    raise ValueError(f"Cannot convert {value} to bool")
+
+def _validate_int(value: Any) -> int:
+    try:
+        return int(value)
+    except Exception as e:
+        raise ValueError(f"Cannot convert {value} to int: {e}")
+
+def _validate_float(value: Any) -> float:
+    try:
+        return float(value)
+    except Exception as e:
+        raise ValueError(f"Cannot convert {value} to float: {e}")
+
+def _validate_file_path(p):
+    """Check that string represents a path to a file that exists or can be created"""
+    if not isinstance(p, str):
+        raise ValueError(f"Expected string path, got {type(p)}")
+    
+    path = pathlib.Path(p)
+    
+    # File already exists
+    if path.is_file():
+        return str(path.resolve())
+    
+    # File doesn't exist but can be created (parent directory exists)
+    if path.parent.exists() and path.parent.is_dir():
+        return str(path.resolve())
+    
+    # Cannot be created
+    raise ValueError(f"File path '{p}' does not exist and cannot be created")
+
+def _validate_existing_file(path_str: str) -> str:
+    p = pathlib.Path(path_str)
+    if not p.is_file():
+        raise ValueError(f"File {path_str} does not exist")
+    return str(p.resolve())
+
+def _validate_existing_dir(path_str: str) -> str:
+    p = pathlib.Path(path_str)
+    if not p.is_dir():
+        raise ValueError(f"Directory {path_str} does not exist")
+    return str(p.resolve())
+
+def _validate_file_or_str(file_or_str: str) -> str:
+    if file_or_str.startswith("@"):
+        path_str = file_or_str[1:]
+        p = pathlib.Path(path_str)
+        if not p.is_file():
+            raise ValueError(f"File {path_str} does not exist")
+        try:
+            with open(p, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            raise ValueError(f"Error reading file {path_str}: {e}")
+    return file_or_str
 
 @dataclass
 class ArgumentDefinition:
-    """Definition of a single CLI argument that can generate both argparse config and dataclass fields."""
-    
-    # Argument names (first is primary, rest are aliases)
+    """Definition of a single CLI argument that can generate argparse config."""
     names: List[str]
-    
-    # Argparse configuration
+    argname: str
     help: str
     argtype: Optional[type] = None
     action: Optional[str] = None
-    default: Any = None
     choices: Optional[List[str]] = None
     nargs: Optional[Union[str, int]] = None
-    required: bool = False
-    
-    # Configuration file integration
-    config_key: Optional[str] = None  # Key in config file (defaults to primary name with underscores)
-    
-    # Default value resolution (for detecting CLI overrides)
-    default_factory: Optional[Callable[[], Any]] = None
-    
-    # Validation
     validator: Optional[Callable[[Any], Any]] = None
     
-    # Dataclass field configuration
-    dataclass_type: Optional[type] = None  # Type for dataclass field (defaults to argtype)
-    is_optional: bool = False  # Whether this should be Optional[T] in dataclass
-    dataclass_default_factory: Optional[Callable] = None  # For complex defaults like lists
-    
-    def __post_init__(self):
-        """Set derived values after initialization."""
-        if self.config_key is None:
-            # Convert primary name to config key format
-            primary_name = self.names[0].lstrip('-').replace('-', '_')
-            self.config_key = primary_name
-            
-        # Set dataclass_type if not explicitly provided
-        if self.dataclass_type is None:
-            if self.argtype:
-                self.dataclass_type = self.argtype
-            elif self.action == "store_true":
-                self.dataclass_type = bool
-            else:
-                self.dataclass_type = str
-    
-    @property
-    def primary_name(self) -> str:
-        """Get the primary argument name."""
-        return self.names[0]
-    
-    @property
-    def attr_name(self) -> str:
-        """Get the attribute name in the Namespace object."""
-        return self.primary_name.lstrip('-').replace('-', '_')
-    
-    def get_default_value(self) -> Any:
-        """Get the default value, using factory if available."""
-        if self.default_factory:
-            return self.default_factory()
-        return self.default
-    
-    def get_dataclass_field_config(self) -> Dict[str, Any]:
-        """Generate dataclass field configuration."""
-        field_config = {}
-        
-        # Handle default values
-        if self.dataclass_default_factory:
-            field_config['default_factory'] = self.dataclass_default_factory
-        elif self.default_factory:
-            field_config['default'] = self.default_factory()
-        elif self.default is not None:
-            field_config['default'] = self.default
-        elif self.action == "store_true":
-            field_config['default'] = False
-        elif self.is_optional:
-            field_config['default'] = None
-        
-        return field_config
-    
-    def get_dataclass_type_annotation(self) -> str:
-        """Generate type annotation string for dataclass field."""
-        base_type = self.dataclass_type.__name__ if self.dataclass_type else 'str'
-        
-        # Handle special cases
-        if self.nargs == "*":
-            base_type = f"List[{base_type}]"
-        elif self.action == "append":
-            base_type = f"List[{base_type}]"
-        
-        # Handle optional types
-        if self.is_optional or self.default is None:
-            base_type = f"Optional[{base_type}]"
-        
-        return base_type
-
-
-# Utility functions for common default factories
-def _get_default_model() -> str:
-    import os
-    return os.environ.get("YACBA_MODEL_ID", "litellm:gemini/gemini-2.5-flash")
-
-def _get_default_system_prompt() -> str:
-    import os
-    return os.environ.get("YACBA_SYSTEM_PROMPT", 
-        "You are a general assistant with access to various tools to enhance your capabilities. "
-        "You are NOT a specialized assistant dedicated to any specific tool provider.")
-
-def _get_default_session_name() -> str:
-    import os
-    return os.environ.get("YACBA_SESSION_NAME", "default")
-
-
 # Centralized argument definitions - SINGLE SOURCE OF TRUTH
+ARGUMENTS_FROM_ENV_VARS = {
+    "model": os.environ.get("YACBA_MODEL_ID"),
+    "system_prompt": os.environ.get("YACBA_SYSTEM_PROMPT"),
+    "session": os.environ.get("YACBA_SESSION_NAME"),
+}
+
+ARGUMENT_DEFAULTS = {
+    """
+        Core defaults - can be overridden by env vars, config files, or CLI args
+        MUST be expressed in strings because they may come from env vars
+        which are always strings
+    """
+    "model": "litellm:gemini/gemini-2.5-flash",
+    "system_prompt":("You are a general assistant with access to various tools to enhance your capabilities. "
+        "You are NOT a specialized assistant dedicated to any specific tool provider."),
+    "config_override": [],
+    "files": [],
+    "max_files": "10",
+    "conversation_manager": "sliding_window",
+    "window_size": "40",
+    "preserve_recent": "10",
+    "summary_ratio": "0.3",
+    "no_truncate_results": "False",
+    "headless": "False",
+    "show_tool_use": "False",
+    "clear_cache": "False",
+}
+
 ARGUMENT_DEFINITIONS = [
     # Core model configuration
     ArgumentDefinition(
         names=["-m", "--model"],
-        help=f"The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm:gemini/gemini-1.5-flash",
-        default_factory=_get_default_model,
-        dataclass_type=str
+        help=f"The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm:gemini/gemini-2.5-flash",
+        validator=_validate_model_string,
+        argname="model",
     ),
     
     ArgumentDefinition(
         names=["--model-config"],
         help="Path to a JSON file containing model configuration (e.g., temperature, max_tokens).",
-        dataclass_type=str,
-        is_optional=True
+        validator=_validate_existing_file,
+        argname="model_config",
     ),
     
     ArgumentDefinition(
         names=["-c", "--config-override"],
         help="Override model configuration property. Format: 'property.path:value'. Can be used multiple times.",
         action="append",
-        config_key="config_overrides",
-        dataclass_type=str,
-        dataclass_default_factory=list
-        # Fixed: Removed is_optional=True since it has dataclass_default_factory
+        argname="config_override",
     ),
     
     # System prompt
     ArgumentDefinition(
         names=["-s", "--system-prompt"],
         help="System prompt for the agent. Can also be set via YACBA_SYSTEM_PROMPT.",
-        default_factory=_get_default_system_prompt,
-        dataclass_type=str
+        argname="system_prompt",
+        validator=_validate_file_or_str
     ),
     
     ArgumentDefinition(
         names=["--emulate-system-prompt"],
         help="Emulate system prompt as user message for models that don't support system prompts.",
-        action="store_true",
-        dataclass_type=bool
+        argname="emulate_system_prompt",
+        validator=_validate_bool
     ),
     
     # Tool configuration
     ArgumentDefinition(
         names=["-t", "--tool-configs-dir"],
         help="Path to directory containing tool configuration files.",
-        dataclass_type=str,
-        is_optional=True
+        validator=_validate_existing_dir,
+        argname="tool_configs_dir",
     ),
     
     # File uploads
     ArgumentDefinition(
         names=["-f", "--files"],
         help="Files to upload and analyze. Can be specified multiple times.",
-        nargs="*",
-        default=[],
-        dataclass_type=str,
-        dataclass_default_factory=list
+        nargs="+",
+        action="append",
+        validator=_validate_files,
+        argname="files",
     ),
     
     ArgumentDefinition(
         names=["--max-files"],
         help="Maximum number of files to process. Default: 10.",
-        argtype=int,
-        default=10,
-        dataclass_type=int
+        validator=_validate_int,
+        argname="max_files",
+
     ),
     
     # Session management
     ArgumentDefinition(
         names=["--session"],
         help="Session name for conversation persistence.",
-        default_factory=_get_default_session_name,
-        dataclass_type=str
-        # Fixed: Removed is_optional=True since it has a default_factory
+        argname="session",
     ),
     
     # Conversation Management
@@ -207,184 +253,163 @@ ARGUMENT_DEFINITIONS = [
         names=["--conversation-manager"],
         help="Conversation management strategy. 'null' disables management, 'sliding_window' keeps recent messages, 'summarizing' creates summaries of older context. Default: sliding_window.",
         choices=["null", "sliding_window", "summarizing"],
-        default="sliding_window",
-        dataclass_type=str
+        argname="conversation_manager",
     ),
     
     ArgumentDefinition(
         names=["--window-size"],
         help="Maximum number of messages in sliding window mode. Default: 40.",
-        argtype=int,
-        default=40,
-        dataclass_type=int
+        validator=_validate_int,
+        argname="window_size",
     ),
     
     ArgumentDefinition(
         names=["--preserve-recent"],
         help="Number of recent messages to always preserve in summarizing mode. Default: 10.",
-        argtype=int,
-        default=10,
-        dataclass_type=int
+        validator=_validate_int,
+        argname="preserve_recent"
     ),
     
     ArgumentDefinition(
         names=["--summary-ratio"],
         help="Ratio of messages to summarize vs keep (0.1-0.8) in summarizing mode. Default: 0.3.",
-        argtype=float,
-        default=0.3,
-        dataclass_type=float
+        validator=_validate_float,
+        argname="summary_ratio",
     ),
     
     ArgumentDefinition(
         names=["--summarization-model"],
         help="Optional separate model for summarization (e.g., 'litellm:gemini/gemini-2.5-flash' for cheaper summaries).",
-        dataclass_type=str,
-        is_optional=True
+        validator=_validate_model_string,
+        argname="summarization_model",
     ),
     
     ArgumentDefinition(
         names=["--custom-summarization-prompt"],
         help="Custom system prompt for summarization. If not provided, uses built-in prompt.",
-        dataclass_type=str,
-        is_optional=True
+        argname="custom_summarization_prompt",
     ),
     
     ArgumentDefinition(
         names=["--no-truncate-results"],
         help="Disable truncation of tool results when context window is exceeded.",
-        action="store_true",
-        dataclass_type=bool
+        argname="no_truncate_results",
+        validator=_validate_bool
+
     ),
     
     # Execution modes
     ArgumentDefinition(
         names=["-i", "--initial-message"],
         help="Initial message to send to the agent.",
-        dataclass_type=str,
-        is_optional=True
+        argname="initial_message",
+        validator=_validate_file_or_str
     ),
     
     ArgumentDefinition(
         names=["-H", "--headless"],
         help="Run in headless mode (non-interactive). Requires --initial-message.",
-        action="store_true",
-        dataclass_type=bool
+        argname="headless",
+        validator=_validate_bool
     ),
     
     # Output control
     ArgumentDefinition(
         names=["--show-tool-use"],
         help="Show detailed tool usage information during execution.",
-        action="store_true",
-        dataclass_type=bool
+        validator=_validate_bool,
+        argname="show_tool_use"
     ),
     
     ArgumentDefinition(
         names=["--agent-id"],
         help="Custom agent identifier for this session.",
-        dataclass_type=str,
-        is_optional=True
+        argname="agent_id"
     ),
     
     # Performance and debugging
     ArgumentDefinition(
         names=["--clear-cache"],
         help="Clear the performance cache before starting.",
-        action="store_true",
-        dataclass_type=bool
+        validator=_validate_bool,
+        argname="clear_cache"
     ),
     
     # Configuration system arguments (added by integration layer)
     ArgumentDefinition(
         names=["--profile"],
         help="Use named profile from configuration file",
-        dataclass_type=str,
-        is_optional=True
+        argname="profile"
     ),
     
     ArgumentDefinition(
         names=["--config"],
         help="Path to configuration file",
-        dataclass_type=str,
-        is_optional=True
+        validator=_validate_existing_file,
+        argname="config"
     ),
     
     ArgumentDefinition(
         names=["--list-profiles"],
         help="List available profiles and exit",
-        action="store_true",
-        dataclass_type=bool
+        validator=_validate_bool,
+        argname="list_profiles"
     ),
     
     ArgumentDefinition(
         names=["--show-config"],
         help="Show resolved configuration and exit",
-        action="store_true",
-        dataclass_type=bool
+        validator=_validate_bool,
+        argname="show_config"
     ),
     
     ArgumentDefinition(
         names=["--init-config"],
-        help="Create sample configuration file at specified path",
-        dataclass_type=str,
-        is_optional=True
+        help="Create a sample configuration file at specified path",
+        validator=_validate_file_path,
+        argname="init_config"
     ),
 ]
 
-def get_argument_by_name(name: str) -> Optional[ArgumentDefinition]:
-    """Get argument definition by any of its names."""
+# Validate and convert config values based on argument definitions
+def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
     for arg_def in ARGUMENT_DEFINITIONS:
-        if name in arg_def.names:
-            return arg_def
-    return None
+        if arg_def.validator and arg_def.argname in config:
+            try:
+                config[arg_def.argname] = arg_def.validator(config[arg_def.argname])
+            except Exception as e:
+                raise ValueError(f"Invalid value for '{arg_def.argname}': {e}")
+    return config
 
-
-def get_argument_by_attr(attr_name: str) -> Optional[ArgumentDefinition]:
-    """Get argument definition by its attribute name."""
-    for arg_def in ARGUMENT_DEFINITIONS:
-        if arg_def.attr_name == attr_name:
-            return arg_def
-    return None
-
-
-def get_all_config_mappings() -> Dict[str, str]:
-    """Get mapping of config keys to argument attribute names."""
-    return {arg_def.config_key: arg_def.attr_name for arg_def in ARGUMENT_DEFINITIONS if arg_def.config_key}
-
-
-def get_all_default_values() -> Dict[str, Any]:
-    """Get all default values for arguments."""
-    return {arg_def.attr_name: arg_def.get_default_value() for arg_def in ARGUMENT_DEFINITIONS}
-
-
-def generate_dataclass_code() -> str:
-    """Generate dataclass code from argument definitions."""
-    lines = [
-        '"""Auto-generated YacbaConfig dataclass from argument definitions."""',
-        '',
-        'from dataclasses import dataclass, field',
-        'from typing import List, Optional',
-        '',
-        '@dataclass',
-        'class YacbaConfig:',
-        '    """Configuration class generated from argument definitions."""'
-    ]
+def parse_args() -> argparse.ArgumentParser:
+    """
+    Create argument parser with configuration file integration.
     
-    for arg_def in ARGUMENT_DEFINITIONS:
-        type_annotation = arg_def.get_dataclass_type_annotation()
-        field_config = arg_def.get_dataclass_field_config()
-        
-        if field_config:
-            if 'default_factory' in field_config:
-                field_part = f"field(default_factory={field_config['default_factory'].__name__})"
-            else:
-                field_part = f"field(default={repr(field_config['default'])})"
-        else:
-            field_part = ""
-        
-        if field_part:
-            lines.append(f"    {arg_def.attr_name}: {type_annotation} = {field_part}")
-        else:
-            lines.append(f"    {arg_def.attr_name}: {type_annotation}")
+    This is similar to unified_parser but includes config file arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description="YACBA - Yet Another ChatBot Agent",
+        add_help=False  # We'll add help manually to control order
+    )
     
-    return '\n'.join(lines)
+    # Add configuration file arguments first
+    parser.add_argument('-h', '--help', action='help', help="Show this help message and exit")
+    
+    # Add all regular arguments from definitions
+    for arg_def in ARGUMENT_DEFINITIONS:
+        kwargs = {'help': arg_def.help}
+        
+        if arg_def.argtype:
+            kwargs['type'] = arg_def.argtype
+        if arg_def.argname:
+            kwargs['dest'] = arg_def.argname
+        if arg_def.action:
+            kwargs['action'] = arg_def.action
+        if arg_def.choices:
+            kwargs['choices'] = arg_def.choices
+        if arg_def.nargs:
+            kwargs['nargs'] = arg_def.nargs
+            
+        parser.add_argument(*arg_def.names, **kwargs)
+    
+    return parser.parse_args()

@@ -5,7 +5,7 @@ Handles parsing of model configuration files and command-line overrides,
 including support for nested property paths and automatic type inference.
 """
 
-import json
+import yaml
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional
@@ -22,7 +22,7 @@ class ModelConfigParser:
     Parser for model configuration files and command-line overrides.
     
     Supports:
-    - JSON file loading
+    - YAML file loading
     - Property path parsing (dot notation and array indexing)
     - Automatic type inference
     - Configuration merging
@@ -31,10 +31,10 @@ class ModelConfigParser:
     @staticmethod
     def load_config_file(file_path: Union[str, Path]) -> Dict[str, Any]:
         """
-        Load model configuration from a JSON file.
+        Load model configuration from a YAML file.
         
         Args:
-            file_path: Path to the JSON configuration file
+            file_path: Path to the YAML configuration file
             
         Returns:
             Dictionary containing the configuration
@@ -51,16 +51,19 @@ class ModelConfigParser:
                 raise ModelConfigError(f"Model config path is not a file: {file_path}")
             
             with open(path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                config = yaml.safe_load(f)
+            
+            if config is None:
+                config = {}
             
             if not isinstance(config, dict):
-                raise ModelConfigError(f"Model config file must contain a JSON object, got {type(config).__name__}")
+                raise ModelConfigError(f"Model config file must contain a YAML object, got {type(config).__name__}")
             
             logger.debug(f"Loaded model config from {file_path}: {len(config)} properties")
             return config
             
-        except json.JSONDecodeError as e:
-            raise ModelConfigError(f"Invalid JSON in model config file {file_path}: {e}")
+        except yaml.YAMLError as e:
+            raise ModelConfigError(f"Invalid YAML in model config file {file_path}: {e}")
         except Exception as e:
             raise ModelConfigError(f"Error loading model config file {file_path}: {e}")
     
@@ -132,12 +135,12 @@ class ModelConfigParser:
         if value_str.lower() in ('null', 'none'):
             return None
         
-        # Handle JSON arrays and objects
+        # Handle YAML arrays and objects
         if value_str.startswith('[') or value_str.startswith('{'):
             try:
-                return json.loads(value_str)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, treat as string
+                return yaml.safe_load(value_str)
+            except yaml.YAMLError:
+                # If YAML parsing fails, treat as string
                 return value_str
         
         # Handle numbers
@@ -267,8 +270,8 @@ class ModelConfigParser:
         Raises:
             ModelConfigError: If any override is invalid
         """
-        # Create a deep copy of the base config
-        merged_config = json.loads(json.dumps(base_config))  # Simple deep copy via JSON
+        # Create a deep copy of the base config using YAML serialization
+        merged_config = yaml.safe_load(yaml.dump(base_config))
         
         # Apply each override
         for override in overrides:
@@ -279,7 +282,7 @@ class ModelConfigParser:
         return merged_config
     
     @staticmethod
-    def validate_config(config: Dict[str, Any]) -> None:
+    def validate_model_config(config: Dict[str, Any]) -> None:
         """
         Validate a model configuration dictionary.
         
@@ -292,10 +295,10 @@ class ModelConfigParser:
         if not isinstance(config, dict):
             raise ModelConfigError(f"Model configuration must be a dictionary, got {type(config).__name__}")
         
-        # Basic validation - ensure all values are JSON-serializable
+        # Basic validation - ensure all values are YAML-serializable
         try:
-            json.dumps(config)
-        except (TypeError, ValueError) as e:
+            yaml.dump(config)
+        except yaml.YAMLError as e:
             raise ModelConfigError(f"Model configuration contains non-serializable values: {e}")
         
         logger.debug(f"Validated model config with {len(config)} properties")
@@ -307,7 +310,7 @@ def parse_model_config(config_file: Optional[str] = None,
     Parse model configuration from file and/or command-line overrides.
     
     Args:
-        config_file: Optional path to JSON configuration file
+        config_file: Optional path to YAML configuration file
         overrides: Optional list of property override strings
         
     Returns:
@@ -331,6 +334,6 @@ def parse_model_config(config_file: Optional[str] = None,
         merged_config = base_config
     
     # Validate the final configuration
-    parser.validate_config(merged_config)
+    parser.validate_model_config(merged_config)
     
     return merged_config

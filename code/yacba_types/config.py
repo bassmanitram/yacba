@@ -8,20 +8,6 @@ from typing import Dict, List, Any, Optional, Literal, Union
 from typing_extensions import TypedDict, NamedTuple
 from .base import JSONDict, PathLike
 
-# Model configuration types (what YACBA passes to model frameworks)
-class ModelConfig(TypedDict, total=False):
-    """Type definition for model configuration parameters."""
-    temperature: float
-    max_tokens: int
-    top_p: float
-    top_k: int
-    stop: List[str]
-    presence_penalty: float
-    frequency_penalty: float
-    # Framework-specific fields (YACBA just passes these through)
-    safety_settings: List[Dict[str, Any]]
-    response_format: Dict[str, Any]
-
 # Tool configuration types (what YACBA manages for tool loading)
 ToolType = Literal["mcp", "python"]
 

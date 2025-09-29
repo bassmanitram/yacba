@@ -2,6 +2,7 @@ import glob
 import mimetypes
 import os
 from pathlib import Path
+import re
 from typing import List, Optional
 
 from loguru import logger
@@ -242,3 +243,34 @@ def validate_file_size(file_path: PathLike, max_size_mb: int = 100) -> bool:
         return size_mb <= max_size_mb
     except OSError:
         return False
+    
+def _extract_glob_list(pattern: str) -> list:
+    """Extract comma-separated patterns from [pattern1,pattern2,...] format"""
+    match = re.search(r'\[([^\]]+)\]', pattern)
+    if match:
+        return [p.strip() for p in match.group(1).split(',')]
+    return [pattern]  # Return original if no brackets found
+
+def resolve_glob(pattern: str) -> list:
+    """Resolve custom glob pattern like './dir1/dir2/[*.py,Readme.md]'"""
+    # Extract the bracket part
+    bracket_match = re.search(r'^(.*?)\[([^\]]+)\](.*)$', pattern)
+    
+    if not bracket_match:
+        # No brackets, treat as regular glob
+        return glob.glob(pattern)
+    
+    prefix = bracket_match.group(1)  # './dir1/dir2/'
+    suffix = bracket_match.group(3)  # usually empty
+    
+    # Get the list of patterns from brackets
+    globs = _extract_glob_list(pattern)
+    
+    # Resolve each pattern
+    all_files = []
+    for glob_pattern in globs:
+        full_pattern = f"{prefix}{glob_pattern}{suffix}"
+        matches = glob.glob(full_pattern)
+        all_files.extend(matches)
+    
+    return sorted(list(set(all_files)))  # Remove duplicates and sort

@@ -15,7 +15,7 @@ from typing import List, Optional, Literal
 from pathlib import Path
 
 # Import our focused types
-from yacba_types.config import ModelConfig, ToolConfig, FileUpload, ToolDiscoveryResult
+from yacba_types.config import ToolConfig, FileUpload, ToolDiscoveryResult
 from yacba_types.content import Message
 
 # Type for conversation manager strategies
@@ -36,7 +36,7 @@ class YacbaConfig:
     
     # Optional configuration with defaults
     headless: bool = False                      # CLI mode selection
-    model_config: ModelConfig = field(default_factory=dict)  # Model parameters
+    model_config: dict = field(default_factory=dict) # Model parameters
     session_name: Optional[str] = None          # Session persistence
     agent_id: Optional[str] = None              # Session namespace
     emulate_system_prompt: bool = False         # Framework compatibility
@@ -59,38 +59,24 @@ class YacbaConfig:
     should_truncate_results: bool = True        # Whether to truncate tool results on overflow
     
     def __post_init__(self) -> None:
-        """Validate configuration after initialization."""
-        self._validate_model_string()
+        """Inter-value validation of configuration after initialization."""
         self._validate_max_files()
-        self._validate_files_to_upload()
         self._validate_conversation_manager_config()
-    
-    def _validate_model_string(self) -> None:
-        """Validate the model string format for framework detection."""
-        if not self.model_string:
-            raise ValueError("model_string cannot be empty")
+        self._validate_model_headless()
+
+    def _validate_model_headless(self) -> None:
+        """Validate model and headless mode compatibility."""
+        if self.headless and not self.initial_message:
+            raise ValueError("Headless mode requires an initial message via --initial-message")
         
-        # Basic format validation for framework:model pattern
-        if ":" in self.model_string:
-            framework, model = self.model_string.split(":", 1)
-            if not framework or not model:
-                raise ValueError(f"Invalid model string format: {self.model_string}")
-    
     def _validate_max_files(self) -> None:
         """Validate max_files is reasonable for file processing."""
         if self.max_files < 1:
             raise ValueError("max_files must be at least 1")
         if self.max_files > 1000:
             raise ValueError("max_files cannot exceed 1000 (performance limit)")
-    
-    def _validate_files_to_upload(self) -> None:
-        """Validate files to upload exist and are accessible."""
-        for file_info in self.files_to_upload:
-            path = Path(file_info["path"])
-            if not path.exists():
-                raise FileNotFoundError(f"File not found: {path}")
-            if not path.is_file():
-                raise ValueError(f"Path is not a file: {path}")
+        if self.files_to_upload and len(self.files_to_upload) > self.max_files:
+            self.files_to_upload = self.files_to_upload[:self.max_files]
     
     def _validate_conversation_manager_config(self) -> None:
         """Validate conversation manager configuration parameters."""
