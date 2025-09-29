@@ -41,6 +41,7 @@ class ChatInterface:
         self.backend = backend
         self.command_handler = command_handler or CommandRegistry()
         self.session = create_prompt_session()
+        self.main_app = self.session.app
 
     async def run(self, initial_message: Optional[str] = None):
         """Starts and manages the main interactive chat loop."""
@@ -79,7 +80,7 @@ class ChatInterface:
         Handles a chat request with support for cancellation that is robust against
         backend task exceptions.
         """
-        main_app = self.session.app
+
         cancel_future = asyncio.Future()
 
         kb = KeyBindings()
@@ -126,8 +127,8 @@ class ChatInterface:
             await listener_task
 
             # 3. Restore the main application's control over the terminal.
-            main_app.renderer.reset()
-            main_app.invalidate()
+            self.main_app.renderer.reset()
+            self.main_app.invalidate()
             await asyncio.sleep(0)
 
 # Wrapper function to start the interface
