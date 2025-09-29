@@ -40,9 +40,9 @@ class FileSystemCache:
     NamedTuple instances may not serialize/deserialize correctly through JSON.
     """
     
-    def __init__(self, cache_dir: str = ".yacba_cache", memory_limit: int = 256):
+    def __init__(self, cache_dir: str = str(Path.home() / ".yacba" / "cache"), memory_limit: int = 256):
         self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._memory_cache: "OrderedDict[str, Any]" = OrderedDict()
         self._memory_cache_max_size = memory_limit
         self._lock = threading.Lock()
