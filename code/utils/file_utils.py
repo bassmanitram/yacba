@@ -1,13 +1,16 @@
+import base64
 import glob
+import json
 import mimetypes
 import os
 from pathlib import Path
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional, Any
+import yaml
 
 from loguru import logger
 
-from .performance_utils import timed_operation, perf_monitor
+from .performance_utils import timed_operation, perf_monitor, cached_operation
 from yacba_types.base import PathLike
 
 
@@ -93,6 +96,84 @@ def is_likely_text_file(file_path: PathLike) -> bool:
                 
     except (OSError, IOError):
         return False
+
+@cached_operation("structured_file_load")
+def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict[str, Any]:
+    """
+    Load and parse structured configuration files (JSON/YAML) with caching.
+    
+    Args:
+        file_path: Path to the configuration file
+        file_format: 'json', 'yaml', or 'auto' (detect from extension)
+    
+    Returns:
+        Parsed configuration as dictionary
+        
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+        json.JSONDecodeError: If JSON parsing fails
+        ValueError: If unsupported file format
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {file_path}")
+    
+    if file_format == 'auto':
+        file_format = 'yaml' if path.suffix.lower() in ('.yaml', '.yml') else 'json'
+    
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            if file_format == 'yaml':
+                result = yaml.safe_load(f)
+                return result if result is not None else {}
+            elif file_format == 'json':
+                return json.load(f)
+            else:
+                raise ValueError(f"Unsupported file format: {file_format}")
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Invalid YAML in {file_path}: {e}")
+    except json.JSONDecodeError as e:
+        raise json.JSONDecodeError(f"Invalid JSON in {file_path}: {e}", doc="", pos=0)
+
+@cached_operation("file_content_load")
+def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Dict[str, Any]:
+    """
+    Load file contents with format detection and caching.
+    
+    Args:
+        file_path: Path to the file
+        content_type: 'text', 'binary', or 'auto' (detect from file analysis)
+        
+    Returns:
+        Dictionary with 'type' and 'content' keys, plus optional metadata
+        
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        OSError: If file cannot be read
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    if content_type == 'auto':
+        content_type = 'text' if is_likely_text_file(path) else 'binary'
+    
+    try:
+        if content_type == 'text':
+            with open(path, 'r', errors='replace') as f:
+                return {"type": "text", "content": f.read()}
+        else:
+            with open(path, 'rb') as f:
+                encoded = base64.b64encode(f.read()).decode('utf-8')
+                return {
+                    "type": "binary", 
+                    "content": encoded, 
+                    "encoding": "base64",
+                    "mimetype": guess_mimetype(path)
+                }
+    except OSError as e:
+        raise OSError(f"Error reading file {file_path}: {e}")
 
 @timed_operation("directory_scan")
 def scan_directory(
