@@ -5,6 +5,7 @@ Handles the setup and configuration of interactive prompt sessions.
 """
 
 from typing import Optional, Union, List, Dict
+from pathlib import Path
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
@@ -14,7 +15,7 @@ from .completer import YacbaCompleter
 
 
 def create_prompt_session(
-    history_file: str = ".yacba_history",
+    history_file: str = str(Path.home() / ".yacba" / "yacba_history"),
     completer: Optional[YacbaCompleter] = None,
     command_registry: Optional[Union[Dict, List[str]]] = None
 ) -> PromptSession:
@@ -22,13 +23,17 @@ def create_prompt_session(
     Create a configured prompt session for interactive input.
     
     Args:
-        history_file: Path to history file
+        history_file: Path to history file (defaults to ~/.yacba/yacba_history)
         completer: Tab completer instance (creates default if None)
         command_registry: Command registry dict or list of commands for completion
         
     Returns:
         Configured PromptSession instance
     """
+    # Ensure the .yacba directory exists
+    history_path = Path(history_file)
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    
     history = FileHistory(history_file)
     
     # Create completer with dynamic command registry if available
