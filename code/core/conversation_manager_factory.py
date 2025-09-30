@@ -184,7 +184,9 @@ class ConversationManagerFactory:
                     f"(size: {config.sliding_window_size}, {truncate_info})")
 
         elif isinstance(manager, SummarizingConversationManager):
-            summary_info = (f"ratio: {config.summary_ratio}, "
+            summarization_model = config.summarization_model or "<same as main model>"
+            summary_info = (f"model: {summarization_model}, "
+                            f"ratio: {config.summary_ratio}, "
                             f"preserve: {config.preserve_recent_messages}")
             return f"Conversation Management: Summarizing ({summary_info})"
 
