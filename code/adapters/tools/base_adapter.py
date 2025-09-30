@@ -7,6 +7,7 @@ from yacba_types.tools import ToolCreationResult
 
 class ToolAdapter(ABC):
     """Abstract base class for a tool adapter."""
+
     def __init__(self, exit_stack: ExitStack):
         self.exit_stack = exit_stack
 

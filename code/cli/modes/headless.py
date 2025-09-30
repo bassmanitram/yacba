@@ -9,11 +9,11 @@ from yacba_types.backend import ChatBackend
 async def run_headless_mode(backend: ChatBackend, message: str) -> bool:
     """
     Runs the chatbot non-interactively for scripting.
-    
+
     Args:
         manager: ChatbotManager instance
         message: Message to process
-        
+
     Returns:
         Success status
     """

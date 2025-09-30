@@ -12,6 +12,7 @@ from strands.session.session_manager import SessionManager
 from strands.session.file_session_manager import FileSessionManager
 from strands.types.content import Message
 
+
 class DelegatingSession(SessionManager):
     """
     A session proxy that holds a real, switchable FileSessionManager object internally.
@@ -24,8 +25,8 @@ class DelegatingSession(SessionManager):
     def __init__(self, session_name: Optional[str], sessions_home: Optional[str | Path] = None):
         """Initializes the proxy, optionally setting the first active session."""
         super().__init__(session_id=session_name or "inactive")
-        
-        self._sessions_home = Path(sessions_home or Path.home() / ".yacba/strands/sessions")  # Default to ~/.yacba
+
+        self._sessions_home = Path(sessions_home or Path(sessions_home or Path.home() / ".yacba/strands/sessions"))  # Default to ~/.yacba
         self._active_session = None
         self._agent = None
         self.session_id = session_name or "inactive"
@@ -34,6 +35,7 @@ class DelegatingSession(SessionManager):
         """
         Creates and activates a new FileSessionManager. It then calls the new
         session's initialize() method to sync its history with the agent.
+        Handles conversation manager type changes gracefully.
         """
         if not self._agent:
             logger.error("Cannot set active session: DelegatingSession has not been initialized with an agent yet.")
@@ -41,18 +43,48 @@ class DelegatingSession(SessionManager):
 
         logger.info(f"Switching active session to '{session_name}'...")
         self.session_id = session_name
-        
+
         new_session = FileSessionManager(session_id=session_name, storage_dir=str(self._sessions_home))
-        new_session.initialize(self._agent)
+
+        # Try to initialize the session, but handle conversation manager state conflicts
+        try:
+            new_session.initialize(self._agent)
+        except ValueError as e:
+            if "Invalid conversation manager state" in str(e):
+                logger.warning(f"Session '{session_name}' has incompatible conversation manager state.")
+                logger.info("This can happen when switching between conversation manager types (e.g., sliding_window <-> summarizing).")
+                logger.info("Creating a new session to avoid conflicts...")
+
+                # Clear any existing session data and start fresh
+                session_path = Path(self._sessions_home) / f"session_{session_name}"
+                if session_path.exists():
+                    logger.debug(f"Backing up incompatible session data to {session_path}.backup")
+                    backup_path = Path(str(session_path) + ".backup")
+                    if backup_path.exists():
+                        import shutil
+                        shutil.rmtree(backup_path)
+                    session_path.rename(backup_path)
+
+                # Create a fresh session
+                new_session = FileSessionManager(session_id=session_name, storage_dir=str(self._sessions_home))
+                new_session.initialize(self._agent)
+                logger.info(f"Created fresh session '{session_name}' with current conversation manager type.")
+            else:
+                # Re-raise other ValueError types
+                raise
+        except Exception as e:
+            logger.error(f"Failed to initialize session '{session_name}': {e}")
+            logger.info("Continuing without persistent session...")
+            return
+
         self._active_session = new_session
-        
         logger.info(f"DelegatingSession is now active for session_id: '{self.session_id}'. Agent history has been updated.")
 
     def list_sessions(self) -> List[str]:
         """Scans the sessions directory and returns a list of available session names."""
         if not self._sessions_home.exists():
             return []
-        
+
         # FileSessionManager saves files as in folders named "session_<name>"
         session_dirs = [p for p in self._sessions_home.iterdir() if p.is_dir() and p.name.startswith("session_")]
         session_names = [p.name[len("session_"):] for p in session_dirs]
@@ -80,7 +112,7 @@ class DelegatingSession(SessionManager):
         """Redacts the latest message from the active session."""
         if self._active_session:
             self._active_session.redact_latest_message(redact_message, agent, **kwargs)
-            
+
     def sync_agent(self, agent: Agent) -> None:
         """Syncs the agent's state with the active session."""
         if self._active_session:
@@ -101,8 +133,7 @@ class DelegatingSession(SessionManager):
         #
         # TBD: Decide if we want to delete the session file entirely instead of just clearing it.
         #
-        #if self._active_session:
+        # if self._active_session:
         #    # pylint: disable=protected-access
         #    self._active_session._save([])
         #    logger.info(f"Cleared session file for '{self.session_id}'. Session remains active.")
-

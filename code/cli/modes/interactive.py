@@ -13,6 +13,7 @@ from prompt_toolkit.application import Application
 from prompt_toolkit.input import create_input
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.output import DummyOutput
+from prompt_toolkit.completion import Completer
 
 from cli.commands.registry import CommandRegistry
 # Note: Removed ChatState import as requested
@@ -30,6 +31,7 @@ class ChatInterface:
         self,
         backend: ChatBackend,
         command_handler: Optional[CommandRegistry] = None,
+        completer: Optional[Completer] = None
     ):
         """
         Initializes the chat interface.
@@ -40,7 +42,7 @@ class ChatInterface:
         """
         self.backend = backend
         self.command_handler = command_handler or CommandRegistry()
-        self.session = create_prompt_session()
+        self.session = create_prompt_session(completer=completer)
         self.main_app = self.session.app
 
     async def run(self, initial_message: Optional[str] = None):
@@ -135,10 +137,11 @@ class ChatInterface:
 async def chat_loop_async(
     backend: ChatBackend,
     command_handler: Optional[CommandRegistry] = None,
+    completer: Optional[Completer] = None,
     initial_message: Optional[str] = None
 ):
     """
     Initializes and runs the interactive chat interface.
     """
-    interface = ChatInterface(backend, command_handler)
+    interface = ChatInterface(backend, command_handler, completer)
     await interface.run(initial_message)

@@ -1,11 +1,15 @@
 from typing import Protocol
+from typing import Protocol
+
 
 class ChatBackend(Protocol):
+
     def startup(self):
         """
         Startup any necessary resources for the backend.
         """
         ...
+
     def shutdown(self):
         """
         Clean up any resources held by the backend.

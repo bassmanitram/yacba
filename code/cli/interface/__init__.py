@@ -11,19 +11,17 @@ This package contains reusable UI components:
 """
 
 from utils.startup_messages import print_welcome_message, print_startup_info
-from .completer import YacbaCompleter
 from .session import create_prompt_session
 from .error_handling import format_error
 
 __all__ = [
     # Message display
     'print_welcome_message',
-    'print_startup_info', 
-    
+    'print_startup_info',
+
     # Input handling
-    'YacbaCompleter',
     'create_prompt_session',
-    
+
     # Error handling
     'format_error',
 ]

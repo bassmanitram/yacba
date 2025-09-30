@@ -15,13 +15,14 @@ from loguru import logger
 
 T = TypeVar('T')
 
+
 class LazyImporter:
     """Thread-safe lazy import manager to reduce startup time."""
-    
+
     def __init__(self):
         self._modules: Dict[str, Any] = {}
         self._lock = threading.Lock()
-    
+
     def get_module(self, module_name: str, import_func: Callable[[], T]) -> T:
         """Get a module, importing it only when first accessed."""
         if module_name not in self._modules:
@@ -31,22 +32,23 @@ class LazyImporter:
                     self._modules[module_name] = import_func()
         return self._modules[module_name]
 
+
 class FileSystemCache:
     """
     A two-tier file system cache for expensive operations.
     Uses an in-memory LRU cache for speed and a disk-based cache for persistence.
-    
+
     Note: This cache is designed for simple data structures. Complex objects like
     NamedTuple instances may not serialize/deserialize correctly through JSON.
     """
-    
-    def __init__(self, cache_dir: str = ".yacba_cache", memory_limit: int = 256):
+
+    def __init__(self, cache_dir: str = str(Path.home() / ".yacba" / "cache"), memory_limit: int = 256):
         self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._memory_cache: "OrderedDict[str, Any]" = OrderedDict()
         self._memory_cache_max_size = memory_limit
         self._lock = threading.Lock()
-    
+
     def _get_cache_key(self, operation: str, *args, **kwargs) -> str:
         """Generate a cache key for the operation and arguments."""
         # Convert Path objects to strings for consistent hashing
@@ -56,10 +58,10 @@ class FileSystemCache:
                 processed_args.append(str(arg))
             else:
                 processed_args.append(arg)
-        
+
         key_data = f"{operation}:{processed_args}:{sorted(kwargs.items())}"
         return hashlib.md5(key_data.encode()).hexdigest()
-    
+
     def _is_serializable(self, obj: Any) -> bool:
         """Check if an object can be safely serialized to JSON."""
         try:
@@ -67,29 +69,29 @@ class FileSystemCache:
             return True
         except (TypeError, ValueError):
             return False
-    
+
     def _has_namedtuple_attributes(self, obj: Any) -> bool:
         """Check if an object looks like a NamedTuple (has _fields attribute)."""
         return hasattr(obj, '_fields') and hasattr(obj, '_asdict')
-    
+
     def get(self, operation: str, *args, **kwargs) -> Optional[Any]:
         """Get cached result if available, checking memory first, then disk."""
         cache_key = self._get_cache_key(operation, *args, **kwargs)
-        
+
         with self._lock:
             # Tier 1: Check memory LRU cache
             if cache_key in self._memory_cache:
                 logger.debug(f"Cache hit (memory): {operation}")
                 self._memory_cache.move_to_end(cache_key)  # Mark as recently used
                 return self._memory_cache[cache_key]
-        
+
         # Tier 2: Check disk cache (but skip for complex objects)
         cache_file = self.cache_dir / f"{cache_key}.json"
         if cache_file.exists():
             try:
                 with open(cache_file, 'r') as f:
                     result = json.load(f)
-                
+
                 # Promote from disk to memory cache
                 with self._lock:
                     self._memory_cache[cache_key] = result
@@ -102,30 +104,30 @@ class FileSystemCache:
             except (json.JSONDecodeError, IOError) as e:
                 logger.warning(f"Cache file corrupted, removing: {e}")
                 cache_file.unlink(missing_ok=True)
-        
+
         return None
-    
+
     def set(self, operation: str, result: Any, *args, **kwargs):
         """Cache a result to both memory and disk."""
         cache_key = self._get_cache_key(operation, *args, **kwargs)
-        
+
         with self._lock:
             # Store in memory LRU cache (always works)
             self._memory_cache[cache_key] = result
             self._memory_cache.move_to_end(cache_key)
             if len(self._memory_cache) > self._memory_cache_max_size:
                 self._memory_cache.popitem(last=False)
-        
+
         # Only store on disk if the object is safely serializable
         # Skip disk caching for NamedTuple and other complex objects
         if self._has_namedtuple_attributes(result):
             logger.debug(f"Skipping disk cache for NamedTuple result: {operation}")
             return
-        
+
         if not self._is_serializable(result):
             logger.debug(f"Skipping disk cache for non-serializable result: {operation}")
             return
-        
+
         # Store on disk
         cache_file = self.cache_dir / f"{cache_key}.json"
         try:
@@ -134,33 +136,34 @@ class FileSystemCache:
             logger.debug(f"Cached result to memory and disk: {operation}")
         except (TypeError, IOError) as e:
             logger.debug(f"Could not write to disk cache for {operation}: {e}")
-    
+
     def clear(self):
         """Clear all caches (memory and disk)."""
         with self._lock:
             self._memory_cache.clear()
-        
+
         for cache_file in self.cache_dir.glob("*.json"):
             cache_file.unlink(missing_ok=True)
         logger.info("Performance cache cleared (memory and disk)")
 
+
 class PerformanceMonitor:
     """Built-in performance monitoring with statistics."""
-    
+
     def __init__(self):
         self.timings: Dict[str, List[float]] = {}
         self.counters: Dict[str, int] = {}
         self._lock = threading.Lock()
-    
+
     def time_operation(self, operation_name: str):
         """Context manager to time operations."""
         return self._TimingContext(self, operation_name)
-    
+
     def increment_counter(self, counter_name: str, value: int = 1):
         """Increment a performance counter."""
         with self._lock:
             self.counters[counter_name] = self.counters.get(counter_name, 0) + value
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get performance statistics."""
         with self._lock:
@@ -168,7 +171,7 @@ class PerformanceMonitor:
                 'timings': {},
                 'counters': dict(self.counters)
             }
-            
+
             for operation, timings in self.timings.items():
                 if timings:
                     stats['timings'][operation] = {
@@ -178,35 +181,37 @@ class PerformanceMonitor:
                         'min': min(timings),
                         'max': max(timings)
                     }
-            
+
             return stats
-    
+
     def log_stats(self):
         """Log performance statistics."""
         stats = self.get_stats()
-        
+
         if stats['timings']:
             logger.info("Performance Statistics:")
             for operation, timing_stats in stats['timings'].items():
                 logger.info(f"  {operation}: {timing_stats['average']:.3f}s avg "
                           f"({timing_stats['count']} calls, "
                           f"{timing_stats['total']:.3f}s total)")
-        
+
         if stats['counters']:
             logger.info("Performance Counters:")
             for counter, value in stats['counters'].items():
                 logger.info(f"  {counter}: {value}")
-    
+
+
     class _TimingContext:
+
         def __init__(self, monitor: 'PerformanceMonitor', operation_name: str):
             self.monitor = monitor
             self.operation_name = operation_name
             self.start_time: Optional[float] = None
-        
+
         def __enter__(self):
             self.start_time = time.time()
             return self
-        
+
         def __exit__(self, exc_type, exc_val, exc_tb):
             if self.start_time is not None:
                 duration = time.time() - self.start_time
@@ -220,8 +225,10 @@ lazy_importer = LazyImporter()
 fs_cache = FileSystemCache()
 perf_monitor = PerformanceMonitor()
 
+
 def cached_operation(operation_name: str):
     """Decorator to cache expensive operations."""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -230,19 +237,21 @@ def cached_operation(operation_name: str):
             if cached_result is not None:
                 perf_monitor.increment_counter(f"{operation_name}_cache_hits")
                 return cached_result
-            
+
             # Execute and cache result
             with perf_monitor.time_operation(operation_name):
                 result = func(*args, **kwargs)
-            
+
             fs_cache.set(operation_name, result, *args, **kwargs)
             perf_monitor.increment_counter(f"{operation_name}_cache_misses")
             return result
         return wrapper
     return decorator
 
+
 def timed_operation(operation_name: str):
     """Decorator to time operations without caching."""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -252,15 +261,20 @@ def timed_operation(operation_name: str):
     return decorator
 
 # Lazy import helpers for heavy dependencies
+
+
 def lazy_import_strands():
     """Lazy import of strands library."""
+
     def _import():
         from strands import Agent
         return Agent
     return lazy_importer.get_module('strands_agent', _import)
 
+
 def lazy_import_mcp():
     """Lazy import of MCP libraries."""
+
     def _import():
         from strands.tools.mcp import MCPClient
         from mcp import StdioServerParameters
@@ -274,8 +288,10 @@ def lazy_import_mcp():
         }
     return lazy_importer.get_module('mcp_libs', _import)
 
+
 def lazy_import_framework_adapters():
     """Lazy import of framework adapters."""
+
     def _import():
         from adapters import get_framework_adapter
         return get_framework_adapter

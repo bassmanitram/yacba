@@ -8,15 +8,14 @@ This package contains all command-line interface related functionality:
 """
 
 # Import main CLI functions for easy access
-from .interface import print_welcome_message, print_startup_info, YacbaCompleter
+from .interface import print_welcome_message, print_startup_info
 from .modes import chat_loop_async, run_headless_mode
 
 __all__ = [
     # Interface components
     'print_welcome_message',
-    'print_startup_info', 
-    'YacbaCompleter',
-    
+    'print_startup_info',
+
     # Execution modes
     'chat_loop_async',
     'run_headless_mode',

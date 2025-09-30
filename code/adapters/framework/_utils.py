@@ -6,7 +6,7 @@ def recursively_remove(obj: Any, prop: str) -> None:
     Recursively traverses a dictionary or list and removes all keys
     named 'additionalProperties'. This is a workaround for APIs
     like Google's that don't support this standard JSON Schema key.
-    
+
     Args:
         obj: Object to clean (modified in place)
     """
