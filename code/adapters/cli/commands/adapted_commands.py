@@ -5,7 +5,9 @@ This module provides commands that have been adapted to work with the CLI
 interface while maintaining compatibility with the underlying system.
 """
 
-from .base_command import BaseCommand
+
+
+from cli.commands.base_command import BaseCommand
 
 
 class AdaptedCommands(BaseCommand):
