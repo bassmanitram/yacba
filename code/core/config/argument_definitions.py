@@ -371,7 +371,7 @@ ARGUMENT_DEFINITIONS = [
 
     ArgumentDefinition(
         names=["-H", "--headless"],
-        help="Run in headless mode (non-interactive). Requires --initial-message.",
+        help="Run in headless mode (non-interactive)",
         argname="headless",
         action="store_true",
         validator=_validate_bool

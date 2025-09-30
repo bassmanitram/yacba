@@ -61,12 +61,6 @@ class YacbaConfig:
         """Inter-value validation of configuration after initialization."""
         self._validate_max_files()
         self._validate_conversation_manager_config()
-        self._validate_model_headless()
-
-    def _validate_model_headless(self) -> None:
-        """Validate model and headless mode compatibility."""
-        if self.headless and not self.initial_message:
-            raise ValueError("Headless mode requires an initial message via --initial-message")
 
     def _validate_max_files(self) -> None:
         """Validate max_files is reasonable for file processing."""
