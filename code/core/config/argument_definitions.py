@@ -20,6 +20,7 @@ import os
 import pathlib
 from typing import Any, Dict, List, Optional, Union, Callable
 
+from utils.general_utils import clean_dict
 from utils.file_utils import resolve_glob, load_file_content
 from loguru import logger
 from utils.framework_detection import guess_framework_from_model_string
@@ -60,20 +61,18 @@ def _validate_model_string(model_str: str) -> str:
 
     if ":" in model_str:
         framework, model = model_str.split(":", 1)
-        if not framework:
-            framework = guess_framework_from_model_string(model)
-        if not framework or not model:
-            raise ValueError(f"Invalid model string format: {model_str}")
-        return f"{framework}:{model}"
     else:
-        # No colon - need to guess framework
         framework = guess_framework_from_model_string(model_str)
-        if not framework:
-            framework = "litellm"  # Default framework
-        return f"{framework}:{model_str}"
+        model = model_str
+    if not framework or not model:
+        raise ValueError(f"Invalid model string format: {model_str}")
+    return f"{framework}:{model}"
 
 
 def _validate_bool(value: Any) -> bool:
+    """
+    Validate that argument is either actually a bool or a string that represents a bool
+    """
     if value is None:
         return False  # Default for unspecified CLI flags
     if isinstance(value, bool):
@@ -159,23 +158,19 @@ class ArgumentDefinition:
     validator: Optional[Callable[[Any], Any]] = None
 
 # Centralized argument definitions - SINGLE SOURCE OF TRUTH
-ARGUMENTS_FROM_ENV_VARS = {
+ARGUMENTS_FROM_ENV_VARS = clean_dict({
     "model": os.environ.get("YACBA_MODEL_ID"),
     "system_prompt": os.environ.get("YACBA_SYSTEM_PROMPT"),
     "session": os.environ.get("YACBA_SESSION_NAME"),
-}
+})
 
+# Core defaults - can be overridden by env vars, config files, or CLI args
+# MUST be expressed in strings because they may come from env vars
+# which are always strings
 ARGUMENT_DEFAULTS = {
-    """
-        Core defaults - can be overridden by env vars, config files, or CLI args
-        MUST be expressed in strings because they may come from env vars
-        which are always strings
-    """
-    "model": "litellm: gemini/gemini-2.5-flash",
+    "model": "litellm:gemini/gemini-2.5-flash",
     "system_prompt":("You are a general assistant with access to various tools to enhance your capabilities. "
         "You are NOT a specialized assistant dedicated to any specific tool provider."),
-    "config_override": [],
-    "files": [],
     "max_files": "10",
     "conversation_manager": "sliding_window",
     "window_size": "40",
@@ -222,6 +217,7 @@ ARGUMENT_DEFINITIONS = [
         names=["--emulate-system-prompt"],
         help="Emulate system prompt as user message for models that don't support system prompts.",
         argname="emulate_system_prompt",
+        action="store_true",
         validator=_validate_bool
     ),
 
@@ -256,6 +252,12 @@ ARGUMENT_DEFINITIONS = [
         names=["--session"],
         help="Session name for conversation persistence.",
         argname="session",
+    ),
+
+    ArgumentDefinition(
+        names=["--agent-id"],
+        help="Custom agent identifier for this session.",
+        argname="agent_id"
     ),
 
     # Conversation Management
@@ -304,6 +306,7 @@ ARGUMENT_DEFINITIONS = [
         names=["--no-truncate-results"],
         help="Disable truncation of tool results when context window is exceeded.",
         argname="no_truncate_results",
+        action="store_true",
         validator=_validate_bool
 
     ),
@@ -320,6 +323,7 @@ ARGUMENT_DEFINITIONS = [
         names=["-H", "--headless"],
         help="Run in headless mode (non-interactive). Requires --initial-message.",
         argname="headless",
+        action="store_true",
         validator=_validate_bool
     ),
 
@@ -327,20 +331,16 @@ ARGUMENT_DEFINITIONS = [
     ArgumentDefinition(
         names=["--show-tool-use"],
         help="Show detailed tool usage information during execution.",
+        action="store_true",
         validator=_validate_bool,
         argname="show_tool_use"
-    ),
-
-    ArgumentDefinition(
-        names=["--agent-id"],
-        help="Custom agent identifier for this session.",
-        argname="agent_id"
     ),
 
     # Performance and debugging
     ArgumentDefinition(
         names=["--clear-cache"],
         help="Clear the performance cache before starting.",
+        action="store_true",
         validator=_validate_bool,
         argname="clear_cache"
     ),
@@ -362,6 +362,7 @@ ARGUMENT_DEFINITIONS = [
     ArgumentDefinition(
         names=["--list-profiles"],
         help="List available profiles and exit",
+        action="store_true",
         validator=_validate_bool,
         argname="list_profiles"
     ),
@@ -369,6 +370,7 @@ ARGUMENT_DEFINITIONS = [
     ArgumentDefinition(
         names=["--show-config"],
         help="Show resolved configuration and exit",
+        action="store_true",
         validator=_validate_bool,
         argname="show_config"
     ),

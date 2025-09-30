@@ -16,6 +16,8 @@ from typing import Any, Dict, Optional, List
 from pathlib import Path
 from loguru import logger
 
+from utils.general_utils import clean_dict
+
 from .file_loader import ConfigManager
 from .argument_definitions import (ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS,
                                    parse_args, validate_args)
@@ -138,16 +140,16 @@ def parse_config() -> YacbaConfig:
                   f"{config_from_args.init_config}")
             sys.exit(0)
 
-        config_from_files = config_manager.load_config(
+        config_from_files = clean_dict(config_manager.load_config(
             config_path=config_from_args.config,
             profile=config_from_args.profile
-        )
+        ))
 
         # Merge configurations: defaults < env vars < config files < CLI args
         # Later sources override earlier ones
         # Start with defaults
         yacba_config = (ARGUMENT_DEFAULTS | ARGUMENTS_FROM_ENV_VARS |
-                        config_from_files | vars(config_from_args))
+                        config_from_files | clean_dict(vars(config_from_args)))
         # We need to tweak a couple though
         yacba_config['files'] = (
             (ARGUMENT_DEFAULTS.get('files') or []) +
@@ -168,10 +170,10 @@ def parse_config() -> YacbaConfig:
             print(yaml.dump(merged, default_flow_style=False))
             sys.exit(0)
 
-        logger.debug(f"Merged configuration: {yacba_config}")
-
         # Validate merged configuration
         yacba_config = validate_args(yacba_config)
+
+        logger.debug(f"Validated configuration: {yacba_config}")
 
         # 1. Process file uploads
         files_to_upload = []
