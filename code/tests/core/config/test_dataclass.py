@@ -202,7 +202,7 @@ class TestYacbaConfigValidation:
 
     def test_summarization_model_validation(self):
         """Test summarization_model validation."""
-        # Valid model strings
+        # Valid model strings (with framework:model format)
         valid_models = [
             "litellm:gemini/gemini-1.5-flash",
             "openai:gpt-4",
@@ -220,9 +220,21 @@ class TestYacbaConfigValidation:
             )
             assert config.summarization_model == model
         
-        # Invalid model strings
+        # Single-word models should pass (will be processed by framework detection)
+        single_word_models = ["gpt-4", "claude-3-haiku", "gemini-flash"]
+        for model in single_word_models:
+            config = YacbaConfig(
+                model_string="litellm:gemini/gemini-1.5-flash",
+                system_prompt="Test prompt",
+                prompt_source="test",
+                tool_configs=[],
+                startup_files_content=None,
+                summarization_model=model
+            )
+            assert config.summarization_model == model
+        
+        # Invalid model strings (with colon but missing parts)
         invalid_models = [
-            "invalid",
             ":",
             "framework:",
             ":model"

@@ -1,0 +1,27 @@
+default_profile: development
+
+defaults:  
+  conversation_manager: sliding_window
+  window_size: 40
+  max_files: 10
+
+profiles:
+  development:
+    model: "litellm:gemini/gemini-1.5-flash"
+    system_prompt: "You are a helpful development assistant."
+    tool_configs_dir: "~/.yacba/tools/"
+    show_tool_use: true
+    
+  production:
+    model: "openai:gpt-4"
+    system_prompt: "You are a production assistant."
+    tool_configs_dir: "~/.yacba/tools/production/"
+    show_tool_use: false
+    conversation_manager: summarizing
+    session: prod-session
+    
+  coding:
+    inherits: development
+    model: "anthropic:claude-3-sonnet"
+    system_prompt: "You are an expert programmer."
+    max_files: 50
