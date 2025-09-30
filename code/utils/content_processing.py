@@ -29,7 +29,7 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
         # Check file size before attempting to read
         if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
             logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
-            return {"type": "text", 
+            return {"type": "text",
                 "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
             return {"type": "text", "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
         # Let the file utility handle text vs binary detection automatically
