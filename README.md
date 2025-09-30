@@ -71,7 +71,7 @@ After creating the link, you can simply run `yacba` from any terminal.
 
 To start a standard interactive chat session:
 ```bash
-./yacba
+yacba
 ```
 You can exit the chat by typing `/exit` or `/quit`, or by pressing `Ctrl+D`. Use `Enter` to add a new line to your input, and `Alt-Enter` to send your input to the LLM. For a list of in-chat commands, type `/help`.
 
@@ -127,7 +127,7 @@ YACBA features a robust and flexible configuration system using YAML or JSON fil
 3.  **Use Profiles:**
     ```bash
     # Use your default profile
-    ./yacba
+    yacba
 
     # Switch to a specific profile
     yacba --profile coding
