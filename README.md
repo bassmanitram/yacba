@@ -81,12 +81,12 @@ Headless mode is designed for scripting. It takes an initial message, streams th
 
 **Using the `-i` flag:**
 ```bash
-./yacba --headless -i "Summarize the main points of Moby Dick."
+yacba --headless -i "Summarize the main points of Moby Dick."
 ```
 
 **Piping from `stdin`:**
 ```bash
-cat report.txt | ./yacba --headless
+cat report.txt | yacba --headless
 ```
 
 ## Configuration
@@ -97,7 +97,7 @@ YACBA features a robust and flexible configuration system using YAML or JSON fil
 
 1.  **Generate a Sample Configuration:**
     ```bash
-    ./yacba --init-config ~/.yacba/config.yaml
+    yacba --init-config ~/.yacba/config.yaml
     ```
     This creates a global configuration file with default settings and examples. You can also create project-specific configurations at `./.yacba/config.yaml` or `./.yacba/config.json`.
 
@@ -130,10 +130,10 @@ YACBA features a robust and flexible configuration system using YAML or JSON fil
     ./yacba
 
     # Switch to a specific profile
-    ./yacba --profile coding
+    yacba --profile coding
 
     # Override profile settings on the fly
-    ./yacba --profile coding --model "openai:gpt-4"
+    yacba --profile coding --model "openai:gpt-4"
     ```
 
 For comprehensive details on the configuration system, including file discovery, structure, inheritance, template variables, and CLI commands, please refer to [**README.CONFIG.md**](README.CONFIG.md).
@@ -155,12 +155,12 @@ response_format:
 stop: null
 ```
 ```bash
-./yacba --model-config sample-model-configs/openai-gpt4.yaml
+yacba --model-config sample-model-configs/openai-gpt4.yaml
 ```
 
 **Example using command-line overrides:**
 ```bash
-./yacba --model-config sample-model-configs/openai-gpt4.yaml -c temperature:0.8 -c response_format.type:json_object
+yacba --model-config sample-model-configs/openai-gpt4.yaml -c temperature:0.8 -c response_format.type:json_object
 ```
 
 For more in-depth information and framework-specific examples (OpenAI, Anthropic, Gemini), see [**README.MODEL_CONFIG.md**](README.MODEL_CONFIG.md).
@@ -227,7 +227,7 @@ Keeps a configurable number of recent messages. Older messages are discarded.
 
 ```bash
 # Use sliding window with 60 messages
-./yacba --conversation-manager sliding_window --window-size 60
+yacba --conversation-manager sliding_window --window-size 60
 ```
 **Best for:** General conversations, development sessions.
 
@@ -237,10 +237,10 @@ Intelligently summarizes older conversation context, preserving important inform
 
 ```bash
 # Use summarizing with default settings
-./yacba --conversation-manager summarizing
+yacba --conversation-manager summarizing
 
 # Custom summarization settings
-./yacba --conversation-manager summarizing \
+yacba --conversation-manager summarizing \
   --summary-ratio 0.4 \
   --preserve-recent 15 \
   --summarization-model "litellm:gemini/gemini-1.5-flash"
@@ -252,7 +252,7 @@ Intelligently summarizes older conversation context, preserving important inform
 Disables conversation management, keeping the full conversation history in memory.
 ```bash
 # Disable conversation management
-./yacba --conversation-manager null
+yacba --conversation-manager null
 ```
 **Best for:** Short sessions, debugging, or when complete message history is essential.
 
@@ -320,7 +320,7 @@ Use a `coding` profile to analyze a Python project with specific tools and files
 #     files: ["src/**/*.py", "README.md"]
 #     model_config: "sample-model-configs/claude-precise.yaml" # e.g., low temperature
 
-./yacba --profile coding -i "Perform a security audit of the `src` directory."
+yacba --profile coding -i "Perform a security audit of the `src` directory."
 ```
 
 ### 2. Long Research Session with Summarization and Custom Prompt
@@ -328,7 +328,7 @@ Use a `coding` profile to analyze a Python project with specific tools and files
 Start a research session that intelligently summarizes older context, uses a cheaper model for summaries, and applies a custom system prompt for the main model.
 
 ```bash
-./yacba \
+yacba \
   --profile research-analyst \
   --conversation-manager summarizing \
   --summary-ratio 0.3 \
@@ -350,7 +350,7 @@ Use headless mode to query AWS S3 buckets via an MCP tool, piping the output to 
 #     tool_configs: ["./my-aws-tools-dir/"] # Contains aws-cli-stdio.tools.json or .tools.yaml
 #     show_tool_use: false
 
-./yacba --profile aws-cli --headless \
+yacba --profile aws-cli --headless \
   -i "Using my AWS tools, list all of my S3 buckets in the us-east-1 region." > s3_buckets.txt
 ```
 
@@ -359,7 +359,7 @@ Use headless mode to query AWS S3 buckets via an MCP tool, piping the output to 
 Set up a development session for a specific project, uploading relevant code files and tracking performance.
 
 ```bash
-./yacba --profile development \
+yacba --profile development \
   -f "src/[*.py,*.js]" \
   -f "docs/*.md" \
   --session "my-web-app-dev" \
