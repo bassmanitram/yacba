@@ -12,4 +12,7 @@ from cli.commands.base_command import BaseCommand
 
 class AdaptedCommands(BaseCommand):
     """Commands that have been adapted for CLI use."""
-    pass
+    def __init__(self, registry, engine):
+        super().__init__(registry)
+        self.engine = engine
+

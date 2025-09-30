@@ -98,7 +98,11 @@ def is_likely_text_file(file_path: PathLike) -> bool:
     except (OSError, IOError):
         return False
 
-@cached_operation("structured_file_load")
+_FILE_PARSER = {
+    "json": json.load,
+    "yaml": yaml.safe_load
+}
+
 def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict[str, Any]:
     """
     Load and parse structured configuration files (JSON/YAML) with caching.
@@ -125,17 +129,14 @@ def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            if file_format == 'yaml':
-                result = yaml.safe_load(f)
-                return result if result is not None else {}
-            elif file_format == 'json':
-                return json.load(f)
-            else:
-                raise ValueError(f"Unsupported file format: {file_format}")
+            result = _FILE_PARSER[file_format](f)
+            return result if result is not None else {}
     except yaml.YAMLError as e:
         raise yaml.YAMLError(f"Invalid YAML in {file_path}: {e}")
     except json.JSONDecodeError as e:
         raise json.JSONDecodeError(f"Invalid JSON in {file_path}: {e}", doc="", pos=0)
+    except Exception as e:
+        raise ValueError(f"Problem loading fir {file_path}: {e}")
 
 @cached_operation("file_content_load")
 def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Dict[str, Any]:
