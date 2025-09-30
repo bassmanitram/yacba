@@ -444,13 +444,6 @@ class TestYacbaConfigWithComplexData:
 
     def test_with_tool_configs(self):
         """Test YacbaConfig with tool configurations."""
-        tool_configs = [
-            ToolConfig(
-                name="test_tool",
-                type="python",
-                config={"module": "test_module"},
-                enabled=True
-            )
         ]
         
         config = YacbaConfig(
