@@ -301,7 +301,7 @@ While in an interactive session, use these commands:
 | `/exit`, `/quit` | Exit the application. |
 | `/help` | Show the list of available meta-commands. |
 | `/history` | Print the current conversation history as a JSON object. |
-| `/session [_LIST|name]` | With no argument, indicates the current session; `_LIST` lists avaliable sessions; `name` switches to the named session|
+| `/session [_LIST or name]` | With no argument, indicates the current session; `_LIST` lists avaliable sessions; `name` switches to the named session|
 | `/tools` | List the names of all tools currently available to the agent. |
 
 ## Advanced Examples
