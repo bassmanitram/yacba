@@ -13,11 +13,12 @@ It does not provide CROSS-value validation, since that is the responsibility
 of whatever handles the whole configuration (e.g., config orchestrator).
 """
 
-import argparse
+from argparse import Action, ArgumentError, ArgumentParser
 from dataclasses import dataclass
 import mimetypes
 import os
 import pathlib
+import re
 from typing import Any, Dict, List, Optional, Union, Callable
 
 from utils.general_utils import clean_dict
@@ -27,11 +28,59 @@ from utils.framework_detection import guess_framework_from_model_string
 
 # Utility functions for common default factories
 
+# Character set for valid parts of a MIME type (type and subtype).
+# Includes alphanumeric, dot, underscore, hyphen, and plus sign.
+# Explicitly EXCLUDES the wildcard '*' and standard tspecials (like ;, /, (, ), etc.)
+# This ensures it's for a *specific* MIME type, not a pattern or one with parameters.
+_MT_CHARS = r"[a-zA-Z0-9._+-]"
+
+# Regex for a "type/subtype" format where parts use specific allowed characters.
+# - ^ : Start of string
+# - {_VALID_MIMETYPE_PART_CHARS}+ : One or more valid characters for the 'type'
+# - / : A literal forward slash separator
+# - {_VALID_MIMETYPE_PART_CHARS}+ : One or more valid characters for the 'subtype'
+# - $ : End of string
+# - re.IGNORECASE : MIME types are case-insensitive
+_BASIC_MT = re.compile(
+    fr"^{_MT_CHARS}+/{_MT_CHARS}+$",
+    re.IGNORECASE
+)
+
+
+class FilesSpec(Action):
+    """
+    An argparse Action that processes up to two arguments for a given option.
+
+    It expects the option to be defined with nargs='*' so that argparse
+    collects all potential arguments into a list before this action processes them.
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        # 'values' will be a list because nargs='*' is used in add_argument.
+        # This list contains all arguments provided after the option.
+        print(values)
+        if len(values) > 2:
+            raise ArgumentError(
+                self,
+                f"Option '{option_string}' expects up to two arguments, but {len(values)} were provided."
+            )
+        if len(values) > 1:
+            if not bool(_BASIC_MT.fullmatch(values[1])):
+                raise ArgumentError(
+                    self,
+                    f"Option '{option_string}' expects the second argument to be a mimetype, but {len(values)} were provided."
+                )
+        files = getattr(namespace, self.dest)
+        if not files:
+            files = []
+            setattr(namespace, self.dest, files)
+        # Store the (valid) list of values in the namespace under the destination name.
+        files.append(values)
 
 def _validate_files(files_list) -> List[List[str]]:
     files = []
     for file_group in files_list:
         file_glob = file_group[0]
+        mimetype = None
         if len(file_group) == 2:
             mimetype = file_group[1]
             if '/' not in mimetype or mimetype.count('/') != 1:
@@ -156,6 +205,7 @@ class ArgumentDefinition:
     choices: Optional[List[str]] = None
     nargs: Optional[Union[str, int]] = None
     validator: Optional[Callable[[Any], Any]] = None
+    default: Optional[Any] = None
 
 # Centralized argument definitions - SINGLE SOURCE OF TRUTH
 ARGUMENTS_FROM_ENV_VARS = clean_dict({
@@ -231,10 +281,10 @@ ARGUMENT_DEFINITIONS = [
 
     # File uploads
     ArgumentDefinition(
-        names=["-", "--files"],
+        names=["-f", "--files"],
         help="Files to upload and analyze. Can be specified multiple times.",
         nargs="+",
-        action="append",
+        action=FilesSpec,
         validator=_validate_files,
         argname="files",
     ),
@@ -396,13 +446,13 @@ def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
     return config
 
 
-def parse_args() -> argparse.ArgumentParser:
+def parse_args() -> ArgumentParser:
     """
     Create argument parser with configuration file integration.
 
     This is similar to unified_parser but includes config file arguments.
     """
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="YACBA - Yet Another ChatBot Agent",
         add_help=False  # We'll add help manually to control order
     )
@@ -424,6 +474,8 @@ def parse_args() -> argparse.ArgumentParser:
             kwargs['choices'] = arg_def.choices
         if arg_def.nargs:
             kwargs['nargs'] = arg_def.nargs
+        if arg_def.default:
+            kwargs['default'] = arg_def.default
 
         parser.add_argument(*arg_def.names, **kwargs)
 
