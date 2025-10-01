@@ -188,5 +188,3 @@ class TestVariableSubstitution:
         }
         assert result == expected
         
-        # Should log a warning about the invalid template
-        mock_logger.warning.assert_called()

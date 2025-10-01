@@ -230,11 +230,15 @@ class TestArgumentParsingErrorScenarios:
                 parse_args()
 
     def test_invalid_numeric_arguments(self):
-        """Test invalid numeric arguments."""
+        """Test invalid numeric arguments are accepted by parser but fail in validation."""
         argv = ['yacba', '--model', 'gpt-4', '--system-prompt', 'Test',
                 '--max-files', 'not_a_number']
         
         with patch.object(sys, 'argv', argv):
-            # This should exit with error due to invalid integer
-            with pytest.raises(SystemExit):
-                parse_args()
+            # Parser should succeed (accepts strings)
+            result = parse_args()
+            assert result.max_files == 'not_a_number'
+            
+            # But validation should fail
+            with pytest.raises(ValueError, match="Invalid value for 'max_files'"):
+                validate_args(vars(result))
