@@ -27,9 +27,11 @@ async def run_headless_mode(backend: ChatBackend, initial_message: str = None, v
     
     # 1. Handle initial message if provided
     if initial_message:
+        if verbose:
+            print("[Sending initial prompt]", file=stderr)
         await backend.handle_input(initial_message)
         if verbose:
-            print("--- End of initial response ---", file=stderr)
+            print("[End of initial response]", file=stderr)
         print("")
 
         if verbose:
@@ -88,6 +90,6 @@ async def run_headless_mode(backend: ChatBackend, initial_message: str = None, v
         if should_exit_program:
             break # Exit the main program loop
 
-        if verbose:
-            print("\n[YACBA Headless Interactive Mode Exited]", file=stderr)
+    if verbose:
+        print("\n[YACBA Headless Interactive Mode Exited]", file=stderr)
 
