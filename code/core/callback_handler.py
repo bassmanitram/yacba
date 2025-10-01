@@ -9,6 +9,8 @@ from loguru import logger
 from prompt_toolkit import HTML, print_formatted_text
 from strands.handlers.callback_handler import PrintingCallbackHandler
 
+from utils.general_utils import print_structured_data
+
 # A sensible maximum length for tool input values
 MAX_VALUE_LENGTH = 90
 
@@ -46,25 +48,11 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         self.disable_truncation = os.environ.get('YACBA_SHOW_FULL_TOOL_INPUT', 'false').lower() == 'true'
         self.prompt_string = HTML(prompt_string)
 
+
     def _format_and_print_tool_input(self, tool_name: str, tool_input: Any):
         """Formats and prints tool input, handling truncation."""
-        print(f"\nTool #{self.tool_count}: {tool_name}")
-
-        if not isinstance(tool_input, dict):
-            # Handle non-dict input (e.g., strings, lists)
-            value_str = str(tool_input)
-            if not self.disable_truncation and len(value_str) > MAX_VALUE_LENGTH:
-                value_str = value_str[: MAX_VALUE_LENGTH] + '...'
-            print(f"  - input: {value_str}")
-            return
-
-        # Handle dictionary input
-        for key, value in tool_input.items():
-            value_str = str(value)
-            # Apply truncation only if it's enabled and the string is too long
-            if not self.disable_truncation and len(value_str) > MAX_VALUE_LENGTH:
-                value_str = value_str[: MAX_VALUE_LENGTH] + '...'
-            print(f"  - {key}: {value_str}")
+        print_formatted_text(f"\nTool #{self.tool_count}: {tool_name}")
+        print_structured_data(tool_input, 1, -1 if self.disable_truncation else MAX_VALUE_LENGTH, printer = print_formatted_text)
 
     def __call__(self, **kwargs: Any) -> None:
         """
@@ -77,23 +65,31 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         logger.trace("SilentToolUseCallbackHandler.__call__ arguments: {}", kwargs)
 
         event = kwargs.get("event", {})
+        reasoningText = kwargs.get("reasoningText", False)
+        data = kwargs.get("data", "")
+        complete = kwargs.get("complete", False)
+        current_tool_use = kwargs.get("current_tool_use", {})
 
         # In interactive mode, handle the "Chatbot:" prefix and final newline.
         if not self.headless:
-            data = kwargs.get("data", "")
             if data and not self.in_message:
                 self.in_message = True
                 print_formatted_text(self.prompt_string, end = "", flush = True)
 
             if "messageStop" in event and self.in_message:
                 self.in_message = False
-                print()  # Print the final newline.
+                print_formatted_text(flush = True)  # Print the final newline.
+
+        if reasoningText:
+            print_formatted_text(reasoningText, end="")
+
+        if data:
+            print_formatted_text(data, end="" if not complete else "\n")
 
         # Conditionally suppress tool usage information based on show_tool_use setting
         # If show_tool_use is False (default), suppress the tool use details
         # This removes the verbose "Using tool..." messages for cleaner output
         if self.show_tool_use:
-            current_tool_use = kwargs.get("current_tool_use", {})
             if current_tool_use:
                 if not self.in_tool_use:
                     self.tool_count += 1
@@ -109,8 +105,5 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
                     self.previous_tool_use = None
                 self.in_tool_use = False
 
-        kwargs.pop("current_tool_use", None)
-
-        # Pass the remaining arguments (like messageChunk) to the parent handler,
-        # which prints the actual content from the language model.
-        super().__call__(**kwargs)
+        if complete and data:
+            print_formatted_text("\n")
