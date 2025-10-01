@@ -46,6 +46,16 @@ _BASIC_MT = re.compile(
     re.IGNORECASE
 )
 
+#
+# It aint pretty but its clear, and it works!
+#
+class CustomUsageArgumentParser(ArgumentParser):
+    def format_usage(self):
+        return super().format_usage().replace('[-f FILES [FILES ...]]', '[-f FILE_GLOB [MIMETYPE]]')
+
+    def format_help(self):
+        return super().format_help().replace('-f FILES [FILES ...]', '-f FILE_GLOB [MIMETYPE]').replace('--files FILES [FILES ...]', '--files FILE_GLOB [MIMETYPE]')
+
 
 class FilesSpec(Action):
     """
@@ -54,6 +64,9 @@ class FilesSpec(Action):
     It expects the option to be defined with nargs='*' so that argparse
     collects all potential arguments into a list before this action processes them.
     """
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, **kwargs)
+
     def __call__(self, parser, namespace, values, option_string=None):
         # 'values' will be a list because nargs='*' is used in add_argument.
         # This list contains all arguments provided after the option.
@@ -452,7 +465,7 @@ def parse_args() -> ArgumentParser:
 
     This is similar to unified_parser but includes config file arguments.
     """
-    parser = ArgumentParser(
+    parser = CustomUsageArgumentParser(
         description="YACBA - Yet Another ChatBot Agent",
         add_help=False  # We'll add help manually to control order
     )
