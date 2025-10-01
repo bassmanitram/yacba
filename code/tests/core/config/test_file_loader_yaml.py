@@ -32,19 +32,23 @@ class TestConfigFileLoader:
         result = ConfigFileLoader.discover_config_file(missing_path)
         assert result is None
 
-    @patch('pathlib.Path.exists')
-    def test_discover_config_search_paths(self, mock_exists):
         """Test config discovery through search paths."""
-        # Mock the first search path to exist
-        mock_exists.side_effect = lambda: str(self) == str(Path("./.yacba/config.yaml").resolve())
-        
-        with patch('pathlib.Path.is_file', return_value=True):
-            result = ConfigFileLoader.discover_config_file()
-            expected = Path("./.yacba/config.yaml").resolve()
-            assert result == expected
+        # Create a temporary config file
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tf:
+            tf.write(b"test: value")
+            tf.flush()
+            
+            # Mock the search paths to include our temp file
+            original_paths = ConfigFileLoader.CONFIG_SEARCH_PATHS
+            ConfigFileLoader.CONFIG_SEARCH_PATHS = [tf.name]
+            
+            try:
+                result = ConfigFileLoader.discover_config_file()
+                assert result == Path(tf.name).resolve()
+            finally:
+                ConfigFileLoader.CONFIG_SEARCH_PATHS = original_paths
+                Path(tf.name).unlink()
 
-    @patch('pathlib.Path.exists', return_value=False)
-    def test_discover_config_no_file_found(self, mock_exists):
         """Test config discovery when no config file exists."""
         result = ConfigFileLoader.discover_config_file()
         assert result is None
