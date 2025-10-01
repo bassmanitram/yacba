@@ -4,14 +4,6 @@ Error handling and formatting for YACBA CLI.
 Provides consistent error formatting and agent interaction error handling.
 """
 
-import sys
-from typing import Union, List, Dict, Any
-
-from loguru import logger
-from strands import Agent
-from yacba_types.models import FrameworkAdapter
-
-
 def format_error(e: Exception) -> str:
     """
     Extracts detailed information from exceptions for better user feedback.
