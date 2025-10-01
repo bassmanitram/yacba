@@ -4,8 +4,9 @@ Updated to support configurable tool use reporting and environment-controlled tr
 """
 
 import os
-from typing import Any
+from typing import Any, Optional
 from loguru import logger
+from prompt_toolkit import HTML, print_formatted_text
 from strands.handlers.callback_handler import PrintingCallbackHandler
 
 # A sensible maximum length for tool input values
@@ -25,7 +26,10 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
     - Printing the final newline after a response in interactive mode.
     """
 
-    def __init__(self, headless: bool = False, show_tool_use: bool = False):
+    def __init__(self, headless: Optional[bool] = False, 
+        show_tool_use: Optional[bool] = False,
+        prompt_string: Optional[str] = "<b><darkcyan>Chatbot:</darkcyan></b> "
+        ):
         """
         Initialize the callback handler.
 
@@ -40,6 +44,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         self.in_tool_use = False
         # Check env var once at startup for efficiency
         self.disable_truncation = os.environ.get('YACBA_SHOW_FULL_TOOL_INPUT', 'false').lower() == 'true'
+        self.prompt_string = HTML(prompt_string)
 
     def _format_and_print_tool_input(self, tool_name: str, tool_input: Any):
         """Formats and prints tool input, handling truncation."""
@@ -77,9 +82,8 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         if not self.headless:
             data = kwargs.get("data", "")
             if data and not self.in_message:
-                # Use a standard print for compatibility and simplicity.
                 self.in_message = True
-                print("Chatbot: ", end="")
+                print_formatted_text(self.prompt_string, end = "")
 
             if "messageStop" in event and self.in_message:
                 self.in_message = False

@@ -9,6 +9,7 @@ import sys
 from typing import Optional
 
 from loguru import logger
+from prompt_toolkit import HTML, print_formatted_text
 from prompt_toolkit.application import Application
 from prompt_toolkit.input import create_input
 from prompt_toolkit.key_binding import KeyBindings
@@ -20,7 +21,6 @@ from cli.commands.registry import CommandRegistry
 from yacba_types.backend import ChatBackend
 from ..interface import create_prompt_session
 
-
 class ChatInterface:
     """
     Manages the interactive chat session, including user input, command handling,
@@ -31,7 +31,8 @@ class ChatInterface:
         self,
         backend: ChatBackend,
         command_handler: Optional[CommandRegistry] = None,
-        completer: Optional[Completer] = None
+        completer: Optional[Completer] = None,
+        prompt_string: Optional[str] = "<b><ansigreen>You:</ansigreen></b> "
     ):
         """
         Initializes the chat interface.
@@ -44,17 +45,19 @@ class ChatInterface:
         self.command_handler = command_handler or CommandRegistry()
         self.session = create_prompt_session(completer=completer)
         self.main_app = self.session.app
+        self.prompt_string = HTML(prompt_string)
 
     async def run(self, initial_message: Optional[str] = None):
         """Starts and manages the main interactive chat loop."""
         if initial_message:
-            print(f"You: {initial_message}")
+            print_formatted_text(self.prompt_string, end = "")
+            print(initial_message)
             await self._handle_chat_with_cancellation(initial_message)
             print()
 
         while True:
             try:
-                user_input = await self.session.prompt_async("You: ")
+                user_input = await self.session.prompt_async(self.prompt_string)
                 if self._should_exit(user_input):
                     break
                 if not user_input.strip():
