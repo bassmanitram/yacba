@@ -437,12 +437,16 @@ ARGUMENT_DEFINITIONS = [
 
 
 def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate and convert argument values using their validators."""
     for arg_def in ARGUMENT_DEFINITIONS:
         if arg_def.validator and arg_def.argname in config:
-            try:
-                config[arg_def.argname] = arg_def.validator(config[arg_def.argname])
-            except Exception as e:
-                raise ValueError(f"Invalid value for '{arg_def.argname}': {e}")
+            value = config[arg_def.argname]
+            # Skip validation for None values (optional arguments not provided)
+            if value is not None:
+                try:
+                    config[arg_def.argname] = arg_def.validator(value)
+                except Exception as e:
+                    raise ValueError(f"Invalid value for '{arg_def.argname}': {e}")
     return config
 
 
