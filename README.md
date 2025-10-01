@@ -77,17 +77,31 @@ You can exit the chat by typing `/exit` or `/quit`, or by pressing `Ctrl+D`. Use
 
 ### Headless Mode
 
-Headless mode is designed for scripting. It takes an initial message, streams the agent's response directly to `stdout`, and then exits.
+Headless mode is designed for scripting.
 
 **Using the `-i` flag:**
 ```bash
-yacba --headless -i "Summarize the main points of Moby Dick."
+yacba -H -i "Summarize the main points of Moby Dick."
 ```
 
 **Piping from `stdin`:**
 ```bash
-cat report.txt | yacba --headless
+cat report.txt | yacba -H
 ```
+
+Headless mode can send individual messages from stdin to the LLM and then wait for responses until sending the next message. You do this by inserting lines
+that contain only `/send` where your message breaks are. Headless mode always terminates on EOF, sending any remaining message and awaiting is response before
+exiting
+
+**A very light-weight chatbot:**
+```
+cat | yacba -H
+``
+Then type out your message, hit `Enter`, type `/send` hit `Enter` again, assess the response.
+Continue at will, then hit `<CTRL-D>` to exit.
+
+Agent output from headless executions is written to `stdout` _with no specific delimiters_, whereas status messages are all sent to `stderr`. You can
+ask the LLM to delimit its output as necessary.
 
 ## Configuration
 
