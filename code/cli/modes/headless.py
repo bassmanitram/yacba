@@ -16,7 +16,7 @@ from sys import stderr
 from loguru import logger
 from yacba_types.backend import ChatBackend
 
-async def run_headless_mode(backend: ChatBackend, initial_message: str, verbose: bool = True) -> bool:
+async def run_headless_mode(backend: ChatBackend, initial_message: str = None, verbose: bool = True) -> bool:
     """
     Runs YACBA in a multi-turn headless mode.
     It reads stdin, buffers input, sends to the backend upon '/send' or EOF,
@@ -47,8 +47,12 @@ async def run_headless_mode(backend: ChatBackend, initial_message: str, verbose:
             try:
                 line = await asyncio.to_thread(input)
             except EOFError:
+                if verbose:
+                    print("[EOF received]", file=stderr)
                 is_eof_this_turn = True
                 should_exit_program = True # Signal outer loop to exit after this turn
+                break
+            
             except Exception as e:
                 logger.error(f"Error reading stdin: {e}", file=stderr)
                 should_exit_program = True

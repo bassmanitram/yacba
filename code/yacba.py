@@ -74,11 +74,6 @@ async def main_async() -> None:
     # Parse configuration using migrated config parser
     config: YacbaConfig = parse_config()
 
-    # Validate headless mode requirements
-    if config.headless and not config.initial_message:
-        logger.error("Headless mode requires an initial message via -i or stdin.")
-        sys.exit(ExitCode.CONFIG_ERROR)
-
     # Print welcome message for interactive mode
     if not config.headless:
         print_welcome_message()
