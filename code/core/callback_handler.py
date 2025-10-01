@@ -83,7 +83,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
             data = kwargs.get("data", "")
             if data and not self.in_message:
                 self.in_message = True
-                print_formatted_text(self.prompt_string, end = "")
+                print_formatted_text(self.prompt_string, end = "", flush = True)
 
             if "messageStop" in event and self.in_message:
                 self.in_message = False
