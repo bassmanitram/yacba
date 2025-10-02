@@ -77,6 +77,7 @@ class HelpCommand(BaseCommand):
         self.print_info("  • Use '/help <command>' for detailed information about a specific command")
         self.print_info("  • Use Enter to add new lines while typing")
         self.print_info("  • Use Alt+Enter or Ctrl+J to send your message")
+        self.print_info("  • Use Alt+C to interrupt the processing of your message")
         self.print_info("  • Use file('path/to/file') to upload files during conversation")
         self.print_info("  • Use Ctrl+D or Ctrl+C to exit")
 
