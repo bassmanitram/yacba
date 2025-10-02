@@ -71,7 +71,7 @@ class InfoCommands(AdaptedCommands):
             self.print_info(": Current conversation history:")
             self.print_info(history_json)
 
-        except json.JSONEncodeError as e:
+        except (TypeError, ValueError) as e:
             self.print_error(f"Failed to serialize conversation history: {e}")
         except Exception as e:
             self.print_error(f"Failed to display history: {e}")
