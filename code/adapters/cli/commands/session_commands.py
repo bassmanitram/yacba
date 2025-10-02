@@ -46,19 +46,6 @@ class SessionCommands(AdaptedCommands):
 
         #  : Case 1: /session (no arguments)
         if not args:
-            current_session = session_manager.session_id
-            if session_manager.is_active:
-                print(f"Currently in session: '{current_session}'")
-            else:
-                msg = ("Not in an active session. "
-                       "Start one with /session <name>.")
-                print(msg)
-            return
-
-        session_name = args[0]
-
-        #  : Case 2: /session _LIST
-        if session_name == "_LIST":
             sessions = session_manager.list_sessions()
             if sessions:
                 print("Available sessions:")
@@ -70,10 +57,9 @@ class SessionCommands(AdaptedCommands):
                 print("No saved sessions found.")
             return
 
-        #  : Case 3: /session _DELETE (REMOVED) - This functionality is now
-        #  in /clear
+        session_name = args[0]
 
-        # : Case 4: Validate the session name format
+        # : Case 2: Validate the session name format
         if not re.match(r"^[a-z][a-z0-9_-]*$", session_name):
             print(f"Invalid session name: '{session_name}'.")
             print("Name must be lowercase, start with a letter, and contain "
