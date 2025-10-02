@@ -160,7 +160,10 @@ class YacbaEngine(ChatBackend):
                 agent_id=self.config.agent_id or "yacba_agent",
                 model=model,
                 tools=self.loaded_tools,
-                callback_handler=YacbaCallbackHandler(headless=self.config.headless, show_tool_use=self.config.show_tool_use),
+                callback_handler=YacbaCallbackHandler(
+                    headless=self.config.headless, 
+                    show_tool_use=self.config.show_tool_use, 
+                    response_prefix=self.config.response_prefix),
                 session_manager=self.session_manager,
                 conversation_manager=self.conversation_manager,  # Add conversation manager
                 **agent_args

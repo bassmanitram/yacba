@@ -9,7 +9,7 @@ import sys
 from typing import Optional
 
 from loguru import logger
-from prompt_toolkit import HTML, print_formatted_text
+from prompt_toolkit import HTML, print_formatted_text as print
 from prompt_toolkit.application import Application
 from prompt_toolkit.input import create_input
 from prompt_toolkit.key_binding import KeyBindings
@@ -20,6 +20,8 @@ from cli.commands.registry import CommandRegistry
 # Note: Removed ChatState import as requested
 from yacba_types.backend import ChatBackend
 from ..interface import create_prompt_session
+
+THINKING = HTML("<i><grey>Thinking... (Press Alt+C to cancel)</grey></i>")
 
 class ChatInterface:
     """
@@ -32,7 +34,7 @@ class ChatInterface:
         backend: ChatBackend,
         command_handler: Optional[CommandRegistry] = None,
         completer: Optional[Completer] = None,
-        prompt_string: Optional[str] = "<b><ansigreen>You:</ansigreen></b> "
+        prompt_string: Optional[str] = None
     ):
         """
         Initializes the chat interface.
@@ -45,12 +47,12 @@ class ChatInterface:
         self.command_handler = command_handler or CommandRegistry()
         self.session = create_prompt_session(completer=completer)
         self.main_app = self.session.app
-        self.prompt_string = HTML(prompt_string)
+        self.prompt_string = HTML(prompt_string or "User: ")
 
     async def run(self, initial_message: Optional[str] = None):
         """Starts and manages the main interactive chat loop."""
         if initial_message:
-            print_formatted_text(self.prompt_string, end = "")
+            print(self.prompt_string, end = "")
             print(initial_message)
             await self._handle_chat_with_cancellation(initial_message)
             print()
@@ -101,7 +103,7 @@ class ChatInterface:
 
         engine_task = asyncio.create_task(self.backend.handle_input(user_input))
         listener_task = asyncio.create_task(cancel_app.run_async())
-        print("Thinking... (Press Alt+C to cancel)")
+        print(THINKING)
 
         try:
             done, pending = await asyncio.wait(
@@ -141,10 +143,11 @@ async def chat_loop_async(
     backend: ChatBackend,
     command_handler: Optional[CommandRegistry] = None,
     completer: Optional[Completer] = None,
-    initial_message: Optional[str] = None
+    initial_message: Optional[str] = None,
+    prompt_string: Optional[str] = None
 ):
     """
     Initializes and runs the interactive chat interface.
     """
-    interface = ChatInterface(backend, command_handler, completer)
+    interface = ChatInterface(backend, command_handler, completer, prompt_string)
     await interface.run(initial_message)

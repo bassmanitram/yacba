@@ -121,7 +121,8 @@ async def main_async() -> None:
                     manager.engine,
                     command_registry,
                     completer,
-                    config.initial_message)
+                    config.initial_message,
+                    config.cli_prompt)
 
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")

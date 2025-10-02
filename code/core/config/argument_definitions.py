@@ -243,6 +243,8 @@ ARGUMENT_DEFAULTS = {
     "headless": "False",
     "show_tool_use": "False",
     "clear_cache": "False",
+    "response_prefix": "<b><darkcyan>Chatbot:</darkcyan></b> ",
+    "cli_prompt": "<b><ansigreen>You:</ansigreen></b> "
 }
 
 ARGUMENT_DEFINITIONS = [
@@ -388,6 +390,19 @@ ARGUMENT_DEFINITIONS = [
         argname="headless",
         action="store_true",
         validator=_validate_bool
+    ),
+
+    # User interface customization
+    ArgumentDefinition(
+        names=["--cli-prompt"],
+        help="The prompt to display when the Agent is expecting the user to enter data. Can contain HTML formatting for color and boldness etc. (e.g., '<b><skyblue>You: </skyblue></b>').",
+        argname="cli_prompt"
+    ),
+
+    ArgumentDefinition(
+        names=["--response-prefix"],
+        help="The prefix that is added to each complete response message that is displayed to the user. Can contain HTML formatting for color and boldness etc. (e.g., '<b><seagreen>Chatbot: </seagreen></b>').",
+        argname="response_prefix"
     ),
 
     # Output control

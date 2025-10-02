@@ -30,7 +30,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
 
     def __init__(self, headless: Optional[bool] = False, 
         show_tool_use: Optional[bool] = False,
-        prompt_string: Optional[str] = "<b><darkcyan>Chatbot:</darkcyan></b> "
+        response_prefix: Optional[str] = None
         ):
         """
         Initialize the callback handler.
@@ -46,7 +46,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         self.in_tool_use = False
         # Check env var once at startup for efficiency
         self.disable_truncation = os.environ.get('YACBA_SHOW_FULL_TOOL_INPUT', 'false').lower() == 'true'
-        self.prompt_string = HTML(prompt_string)
+        self.response_prefix = HTML(response_prefix or "Chatbot: ")
 
 
     def _format_and_print_tool_input(self, tool_name: str, tool_input: Any):
@@ -74,7 +74,7 @@ class YacbaCallbackHandler(PrintingCallbackHandler):
         if not self.headless:
             if data and not self.in_message:
                 self.in_message = True
-                print_formatted_text(self.prompt_string, end = "", flush = True)
+                print_formatted_text(self.response_prefix, end = "", flush = True)
 
             if "messageStop" in event and self.in_message:
                 self.in_message = False

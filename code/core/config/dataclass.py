@@ -40,6 +40,9 @@ class YacbaConfig:
     agent_id: Optional[str] = None              # Session namespace
     emulate_system_prompt: bool = False         # Framework compatibility
     show_tool_use: bool = False
+    # User interface customization
+    cli_prompt: Optional[str] = None            # Custom user input prompt with HTML formatting
+    response_prefix: Optional[str] = None       # Custom response message prefix with HTML formatting
 
     initial_message: Optional[str] = None       # Initial user input
     max_files: int = 20                         # File processing limits

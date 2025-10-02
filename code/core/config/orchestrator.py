@@ -250,6 +250,9 @@ def parse_config() -> YacbaConfig:
 
             # Output control
             show_tool_use=yacba_config.get('show_tool_use', False),
+            # User interface customization
+            cli_prompt=yacba_config.get('cli_prompt'),
+            response_prefix=yacba_config.get('response_prefix'),
 
             # Performance
             clear_cache=yacba_config.get('clear_cache', False),
