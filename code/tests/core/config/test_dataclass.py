@@ -293,3 +293,155 @@ class TestYacbaConfigEdgeCases:
         assert config.show_tool_use is True
         assert config.model_config == {}  # Default factory
         assert config.session_name is None  # Default None
+
+
+class TestYacbaConfigUICustomization:
+    """Test YacbaConfig UI customization fields."""
+
+    def test_ui_customization_fields_exist(self):
+        """Test that UI customization fields exist in YacbaConfig."""
+        config = YacbaConfig(
+            model_string="gpt-4",
+            system_prompt="Test prompt",
+            prompt_source="test",
+            tool_configs=[],
+            startup_files_content=None,
+            cli_prompt="<b>You: </b>",
+            response_prefix="<b>Bot: </b>"
+        )
+        
+        assert hasattr(config, 'cli_prompt')
+        assert hasattr(config, 'response_prefix')
+        assert config.cli_prompt == "<b>You: </b>"
+        assert config.response_prefix == "<b>Bot: </b>"
+
+    def test_ui_customization_fields_optional(self):
+        """Test that UI customization fields are optional."""
+        config = YacbaConfig(
+            model_string="gpt-4",
+            system_prompt="Test prompt",
+            prompt_source="test",
+            tool_configs=[],
+            startup_files_content=None
+            # Don't set cli_prompt or response_prefix
+        )
+        
+        assert config.cli_prompt is None
+        assert config.response_prefix is None
+
+    def test_ui_customization_with_html_formatting(self):
+        """Test UI customization fields with HTML formatting."""
+        cli_prompt = '<b style="color: #4A90E2"><span>👤 You:</span></b> '
+        response_prefix = '<div class="bot-response"><b><span style="color: #50C878">🤖 Assistant:</span></b></div>'
+        
+        config = YacbaConfig(
+            model_string="gpt-4",
+            system_prompt="Test prompt",
+            prompt_source="test",
+            tool_configs=[],
+            startup_files_content=None,
+            cli_prompt=cli_prompt,
+            response_prefix=response_prefix
+        )
+        
+        assert config.cli_prompt == cli_prompt
+        assert config.response_prefix == response_prefix
+
+    def test_ui_customization_with_empty_strings(self):
+        """Test UI customization fields with empty strings."""
+        config = YacbaConfig(
+            model_string="gpt-4",
+            system_prompt="Test prompt",
+            prompt_source="test",
+            tool_configs=[],
+            startup_files_content=None,
+            cli_prompt="",
+            response_prefix=""
+        )
+        
+        assert config.cli_prompt == ""
+        assert config.response_prefix == ""
+
+    def test_ui_customization_with_special_characters(self):
+        """Test UI customization fields with special characters and emojis."""
+        cli_prompt = "🎯 <b><skyblue>You</skyblue></b> → "
+        response_prefix = "🤖 <b><seagreen>AI Assistant</seagreen></b>: "
+        
+        config = YacbaConfig(
+            model_string="gpt-4",
+            system_prompt="Test prompt",
+            prompt_source="test",
+            tool_configs=[],
+            startup_files_content=None,
+            cli_prompt=cli_prompt,
+            response_prefix=response_prefix
+        )
+        
+        assert config.cli_prompt == cli_prompt
+        assert config.response_prefix == response_prefix
+
+    def test_ui_customization_fields_type_annotations(self):
+        """Test that UI customization fields have correct type annotations."""
+        from typing import get_type_hints
+        
+        type_hints = get_type_hints(YacbaConfig)
+        
+        assert 'cli_prompt' in type_hints
+        assert 'response_prefix' in type_hints
+        
+        # Should be Optional[str] which resolves to Union[str, None]
+        cli_prompt_type = type_hints['cli_prompt']
+        response_prefix_type = type_hints['response_prefix']
+        
+        # Check that the types allow None (Optional[str])
+        assert hasattr(cli_prompt_type, '__args__')
+        assert type(None) in cli_prompt_type.__args__
+        assert str in cli_prompt_type.__args__
+
+    def test_ui_customization_with_all_other_fields(self):
+        """Test UI customization fields work with all other YacbaConfig fields."""
+        config = YacbaConfig(
+            model_string="litellm:gemini/gemini-1.5-flash",
+            system_prompt="You are a helpful assistant with custom UI.",
+            prompt_source="command_line",
+            tool_configs=[],
+            startup_files_content=None,
+            headless=False,
+            model_config={"temperature": 0.7, "max_tokens": 2000},
+            session_name="test_session",
+            agent_id="test_agent",
+            emulate_system_prompt=False,
+            show_tool_use=True,
+            initial_message="Hello with custom UI!",
+            max_files=25,
+            cli_prompt="<b><cyan>You:</cyan></b> ",
+            response_prefix="<b><magenta>Assistant:</magenta></b> "
+        )
+        
+        # Verify all fields are set correctly
+        assert config.model_string == "litellm:gemini/gemini-1.5-flash"
+        assert config.cli_prompt == "<b><cyan>You:</cyan></b> "
+        assert config.response_prefix == "<b><magenta>Assistant:</magenta></b> "
+        assert config.show_tool_use is True
+        assert config.max_files == 25
+        assert config.session_name == "test_session"
+
+    def test_ui_customization_dataclass_defaults(self):
+        """Test that UI customization fields have correct defaults in dataclass."""
+        import inspect
+        from dataclasses import fields
+        
+        # Get dataclass field information
+        config_fields = {f.name: f for f in fields(YacbaConfig)}
+        
+        cli_prompt_field = config_fields['cli_prompt']
+        response_prefix_field = config_fields['response_prefix']
+        
+        # Check default values
+        assert cli_prompt_field.default is None
+        assert response_prefix_field.default is None
+        
+        # Check that they don't have default_factory
+        from dataclasses import MISSING
+        assert cli_prompt_field.default_factory is MISSING
+        assert response_prefix_field.default_factory is MISSING

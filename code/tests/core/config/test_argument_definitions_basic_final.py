@@ -175,3 +175,135 @@ class TestFilesSpecAction:
         
         with pytest.raises(ArgumentError, match="expects up to two arguments"):
             action(parser, namespace, ['*.txt', 'text/plain', 'extra'], '-f')
+
+
+class TestUICustomizationArguments:
+    """Test UI customization argument definitions."""
+
+    def test_cli_prompt_argument_definition_exists(self):
+        """Test that --cli-prompt argument is properly defined."""
+        from core.config.argument_definitions import ARGUMENT_DEFINITIONS
+        
+        cli_prompt_arg = None
+        for arg_def in ARGUMENT_DEFINITIONS:
+            if arg_def.argname == 'cli_prompt':
+                cli_prompt_arg = arg_def
+                break
+        
+        assert cli_prompt_arg is not None, "--cli-prompt argument not found in definitions"
+        assert '--cli-prompt' in cli_prompt_arg.names
+        assert arg_def.argname == 'cli_prompt'
+        assert 'HTML formatting' in arg_def.help
+        assert 'skyblue' in arg_def.help  # Check example is included
+
+    def test_response_prefix_argument_definition_exists(self):
+        """Test that --response-prefix argument is properly defined."""
+        from core.config.argument_definitions import ARGUMENT_DEFINITIONS
+        
+        response_prefix_arg = None
+        for arg_def in ARGUMENT_DEFINITIONS:
+            if arg_def.argname == 'response_prefix':
+                response_prefix_arg = arg_def
+                break
+        
+        assert response_prefix_arg is not None, "--response-prefix argument not found in definitions"
+        assert '--response-prefix' in response_prefix_arg.names
+        assert arg_def.argname == 'response_prefix'
+        assert 'HTML formatting' in arg_def.help
+        assert 'seagreen' in arg_def.help  # Check example is included
+
+    def test_ui_arguments_in_parser(self):
+        """Test that UI customization arguments are included in argument parser."""
+        from core.config.argument_definitions import parse_args
+        from unittest.mock import patch
+        import sys
+        
+        # Test parsing with UI arguments
+        test_argv = [
+            'yacba',
+            '--model', 'gpt-4',
+            '--system-prompt', 'Test',
+            '--cli-prompt', '<b><blue>You: </blue></b>',
+            '--response-prefix', '<b><green>Bot: </green></b>'
+        ]
+        
+        with patch.object(sys, 'argv', test_argv):
+            args = parse_args()
+            assert hasattr(args, 'cli_prompt')
+            assert hasattr(args, 'response_prefix')
+            assert args.cli_prompt == '<b><blue>You: </blue></b>'
+            assert args.response_prefix == '<b><green>Bot: </green></b>'
+
+    def test_ui_arguments_optional(self):
+        """Test that UI customization arguments are optional."""
+        from core.config.argument_definitions import parse_args
+        from unittest.mock import patch
+        import sys
+        
+        # Test parsing without UI arguments
+        test_argv = [
+            'yacba',
+            '--model', 'gpt-4',
+            '--system-prompt', 'Test'
+        ]
+        
+        with patch.object(sys, 'argv', test_argv):
+            args = parse_args()
+            assert hasattr(args, 'cli_prompt')
+            assert hasattr(args, 'response_prefix')
+            assert args.cli_prompt is None
+            assert args.response_prefix is None
+
+    def test_ui_arguments_with_html_formatting(self):
+        """Test UI arguments with complex HTML formatting."""
+        from core.config.argument_definitions import parse_args
+        from unittest.mock import patch
+        import sys
+        
+        complex_cli_prompt = '<b style="color: #4A90E2"><span>👤 You:</span></b> '
+        complex_response_prefix = '<div class="bot-response"><b><span style="color: #50C878">🤖 Assistant:</span></b></div>'
+        
+        test_argv = [
+            'yacba',
+            '--model', 'gpt-4',
+            '--system-prompt', 'Test',
+            '--cli-prompt', complex_cli_prompt,
+            '--response-prefix', complex_response_prefix
+        ]
+        
+        with patch.object(sys, 'argv', test_argv):
+            args = parse_args()
+            assert args.cli_prompt == complex_cli_prompt
+            assert args.response_prefix == complex_response_prefix
+
+    def test_ui_arguments_validation_none_required(self):
+        """Test that UI arguments don't require special validation."""
+        from core.config.argument_definitions import validate_args
+        
+        # Test config with UI arguments
+        config = {
+            'model': 'gpt-4',
+            'system_prompt': 'Test',
+            'cli_prompt': '<b>Custom prompt:</b>',
+            'response_prefix': '<i>Response:</i>'
+        }
+        
+        # Should not raise any validation errors
+        validated_config = validate_args(config)
+        assert validated_config['cli_prompt'] == '<b>Custom prompt:</b>'
+        assert validated_config['response_prefix'] == '<i>Response:</i>'
+
+    def test_ui_arguments_empty_strings_allowed(self):
+        """Test that empty strings are allowed for UI arguments."""
+        from core.config.argument_definitions import validate_args
+        
+        config = {
+            'model': 'gpt-4',
+            'system_prompt': 'Test',
+            'cli_prompt': '',
+            'response_prefix': ''
+        }
+        
+        validated_config = validate_args(config)
+        assert validated_config['cli_prompt'] == ''
+        assert validated_config['response_prefix'] == ''
