@@ -8,7 +8,7 @@ import pytest
 from requests import Response
 from unittest.mock import Mock
 
-from cli.interface.error_handling import format_error
+from utils.error_handling import format_error
 
 
 class TestFormatError:

@@ -7,18 +7,13 @@ This package contains all command-line interface related functionality:
 - Meta-command handlers
 """
 
-# Import main CLI functions for easy access
-from .interface import print_welcome_message, print_startup_info
-from .modes import chat_loop_async, run_headless_mode
+from .async_repl import run_async_repl
+from .headless import run_headless
 
 __all__ = [
-    # Interface components
-    'print_welcome_message',
-    'print_startup_info',
-
     # Execution modes
-    'chat_loop_async',
-    'run_headless_mode',
+    'run_async_repl',
+    'run_headless',
 ]
 
 # CLI package version

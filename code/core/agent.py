@@ -11,7 +11,7 @@ from typing import Union, List, Dict, Any
 
 from loguru import logger
 from strands import Agent
-from cli.interface.error_handling import format_error
+from utils.error_handling import format_error
 from yacba_types.models import FrameworkAdapter
 
 

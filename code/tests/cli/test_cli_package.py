@@ -144,11 +144,11 @@ class TestCLIPackageIntegration:
         assert registry is not None
         
         # Test that modes can import from interface
-        from cli.modes.interactive import ChatInterface
+        from cli.modes.async_repl import AsyncREPL
         from cli.interface.session import create_prompt_session
         
         with patch('cli.interface.session.create_prompt_session'):
-            interface = ChatInterface(Mock())
+            interface = AsyncREPL(Mock())
             assert interface is not None
 
 

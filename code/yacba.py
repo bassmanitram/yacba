@@ -3,6 +3,7 @@ Main entry point for the YACBA Chatbot application.
 Fully typed version using yacba_types.
 """
 
+from pathlib import Path
 import sys
 import os
 import asyncio
@@ -11,8 +12,8 @@ from loguru import logger
 
 # Import migrated components with proper typing
 from cli import (
-    run_headless_mode,
-    chat_loop_async,
+    run_headless,
+    run_async_repl,
 )
 from adapters.cli.commands.registry import BackendCommandRegistry
 from adapters.cli.completer import YacbaCompleter
@@ -109,7 +110,7 @@ async def main_async() -> None:
 
             # Run in appropriate mode
             if config.headless:
-                success: bool = await run_headless_mode(
+                success: bool = await run_headless(
                     manager.engine,
                     config.initial_message)
                 if not success:
@@ -117,12 +118,13 @@ async def main_async() -> None:
             else:
                 command_registry = BackendCommandRegistry(manager.engine)
                 completer = YacbaCompleter(command_registry.list_commands())
-                await chat_loop_async(
+                await run_async_repl(
                     manager.engine,
                     command_registry,
                     completer,
                     config.initial_message,
-                    config.cli_prompt)
+                    config.cli_prompt,
+                    Path.home() / ".yacba" / "yacba_history")
 
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")

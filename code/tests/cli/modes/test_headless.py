@@ -8,7 +8,7 @@ import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock, call
 
-from cli.modes.headless import run_headless_mode
+from cli.modes.headless import run_headless
 
 
 class TestRunHeadlessModeCore:
@@ -21,7 +21,7 @@ class TestRunHeadlessModeCore:
         mock_backend.handle_input = AsyncMock()
         
         with patch('builtins.input', side_effect=EOFError):
-            await run_headless_mode(
+            await run_headless(
                 backend=mock_backend,
                 initial_message="Test initial message",
                 verbose=False  # Disable verbose to avoid stderr complexity
@@ -36,7 +36,7 @@ class TestRunHeadlessModeCore:
         mock_backend.handle_input = AsyncMock()
         
         with patch('builtins.input', side_effect=EOFError):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             # Should not call backend with initial message
             mock_backend.handle_input.assert_not_called()
@@ -50,7 +50,7 @@ class TestRunHeadlessModeCore:
         input_sequence = ["Hello world", "/send", EOFError]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             mock_backend.handle_input.assert_called_once_with("Hello world")
 
@@ -69,7 +69,7 @@ class TestRunHeadlessModeCore:
         ]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             expected_input = "Line 1Line 2Line 3"
             mock_backend.handle_input.assert_called_once_with(expected_input)
@@ -89,7 +89,7 @@ class TestRunHeadlessModeCore:
         ]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             assert mock_backend.handle_input.call_count == 2
             mock_backend.handle_input.assert_has_calls([
@@ -109,7 +109,7 @@ class TestRunHeadlessModeCore:
         ]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             # Should send buffered content before exiting
             mock_backend.handle_input.assert_called_once_with("Buffered content")
@@ -123,7 +123,7 @@ class TestRunHeadlessModeCore:
         input_sequence = ["/send", EOFError]  # Just /send with no content
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             # Should not call backend for empty input
             mock_backend.handle_input.assert_not_called()
@@ -137,7 +137,7 @@ class TestRunHeadlessModeCore:
         input_sequence = ["   \n\t  ", "/send", EOFError]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             # Whitespace-only input should not call backend
             mock_backend.handle_input.assert_not_called()
@@ -150,7 +150,7 @@ class TestRunHeadlessModeCore:
         
         with patch('builtins.input', side_effect=Exception("Input error")):
             # Should not raise exception, should handle gracefully
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             mock_backend.handle_input.assert_not_called()
 
@@ -165,7 +165,7 @@ class TestRunHeadlessModeCore:
         with patch('builtins.input', side_effect=input_sequence):
             # Backend exception should propagate, not be caught silently
             with pytest.raises(Exception, match="Backend error"):
-                await run_headless_mode(backend=mock_backend, verbose=False)
+                await run_headless(backend=mock_backend, verbose=False)
             
             mock_backend.handle_input.assert_called_once_with("Test message")
 
@@ -191,7 +191,7 @@ class TestHeadlessModeIntegration:
         ]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             assert mock_backend.handle_input.call_count == 3
             expected_calls = [
@@ -209,7 +209,7 @@ class TestHeadlessModeIntegration:
         
         # Simulate piped input that ends with EOF
         with patch('builtins.input', side_effect=["Analyze this data", EOFError]):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             # Should process buffered content on EOF
             mock_backend.handle_input.assert_called_once_with("Analyze this data")
@@ -228,7 +228,7 @@ class TestHeadlessModeIntegration:
         ]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             expected_message = "This message contains /send in the middle/send as a proper command"
             mock_backend.handle_input.assert_called_once_with(expected_message)
@@ -242,7 +242,7 @@ class TestHeadlessModeIntegration:
         input_sequence = ["test message", "  /send  ", EOFError]
         
         with patch('builtins.input', side_effect=input_sequence):
-            await run_headless_mode(backend=mock_backend, verbose=False)
+            await run_headless(backend=mock_backend, verbose=False)
             
             # Should still recognize /send with whitespace
             mock_backend.handle_input.assert_called_once_with("test message")
@@ -255,7 +255,7 @@ class TestHeadlessModeIntegration:
         
         with patch('builtins.input', side_effect=EOFError):
             # Should complete without raising exceptions
-            result = await run_headless_mode(backend=mock_backend, verbose=False)
+            result = await run_headless(backend=mock_backend, verbose=False)
             
             # Function should complete (return value not specified in original function)
             # Just testing that it doesn't crash

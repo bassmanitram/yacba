@@ -7,7 +7,7 @@ Focused testing of core functionality without complex UI mocking.
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
-from cli.modes.interactive import ChatInterface, chat_loop_async
+from cli.modes.async_repl import AsyncREPL, run_async_repl
 from cli.commands.registry import CommandRegistry
 
 
@@ -23,7 +23,7 @@ class TestChatInterfaceInit:
             mock_session.app = Mock()
             mock_create_session.return_value = mock_session
             
-            interface = ChatInterface(mock_backend)
+            interface = AsyncREPL(mock_backend)
             
             assert interface.backend is mock_backend
             assert isinstance(interface.command_handler, CommandRegistry)
@@ -40,7 +40,7 @@ class TestChatInterfaceInit:
             mock_session.app = Mock()
             mock_create_session.return_value = mock_session
             
-            interface = ChatInterface(
+            interface = AsyncREPL(
                 backend=mock_backend,
                 command_handler=mock_command_handler,
                 completer=mock_completer
@@ -58,7 +58,7 @@ class TestShouldExit:
         """Set up test fixtures."""
         mock_backend = Mock()
         with patch('cli.modes.interactive.create_prompt_session'):
-            self.interface = ChatInterface(mock_backend)
+            self.interface = AsyncREPL(mock_backend)
 
     def test_should_exit_commands(self):
         """Test various exit commands."""
@@ -97,7 +97,7 @@ class TestChatLoopAsync:
             mock_interface.run = AsyncMock()
             mock_interface_class.return_value = mock_interface
             
-            await chat_loop_async(mock_backend)
+            await run_async_repl(mock_backend)
             
             mock_interface_class.assert_called_once_with(mock_backend, None, None)
             mock_interface.run.assert_called_once_with(None)
@@ -115,7 +115,7 @@ class TestChatLoopAsync:
             mock_interface.run = AsyncMock()
             mock_interface_class.return_value = mock_interface
             
-            await chat_loop_async(
+            await run_async_repl(
                 backend=mock_backend,
                 command_handler=mock_command_handler,
                 completer=mock_completer,
@@ -135,7 +135,7 @@ class TestChatInterfaceCore:
         """Set up test fixtures."""
         self.mock_backend = Mock()
         with patch('cli.modes.interactive.create_prompt_session'):
-            self.interface = ChatInterface(self.mock_backend)
+            self.interface = AsyncREPL(self.mock_backend)
 
     @pytest.mark.asyncio
     async def test_run_with_immediate_exit(self):
@@ -216,7 +216,7 @@ class TestChatInterfaceIntegration:
             mock_session.prompt_async = AsyncMock(return_value="/exit")
             mock_create_session.return_value = mock_session
             
-            interface = ChatInterface(mock_backend)
+            interface = AsyncREPL(mock_backend)
             
             # Should be able to run without errors
             await interface.run()
@@ -236,7 +236,7 @@ class TestChatInterfaceIntegration:
             mock_interface_class.return_value = mock_interface
             
             # Should complete without errors
-            await chat_loop_async(mock_backend)
+            await run_async_repl(mock_backend)
             
             # Interface should have been created and run
             mock_interface_class.assert_called_once()
@@ -251,7 +251,7 @@ class TestChatInterfaceIntegration:
             mock_session.app = Mock()
             mock_create_session.return_value = mock_session
             
-            interface = ChatInterface(mock_backend)
+            interface = AsyncREPL(mock_backend)
             
             # Should have all expected attributes
             assert hasattr(interface, 'backend')
@@ -263,7 +263,7 @@ class TestChatInterfaceIntegration:
             # Should have expected methods
             assert callable(interface.run)
             assert callable(interface._should_exit)
-            assert callable(interface._handle_chat_with_cancellation)
+            assert callable(interface._process_input)
 
     @pytest.mark.asyncio
     async def test_error_resilience(self):
@@ -280,7 +280,7 @@ class TestChatInterfaceIntegration:
             ])
             mock_create_session.return_value = mock_session
             
-            interface = ChatInterface(mock_backend)
+            interface = AsyncREPL(mock_backend)
             
             with patch('builtins.print'):
                 with patch('sys.stderr'):
