@@ -1,5 +1,5 @@
 """
-Simplified tests for cli.modes.headless module.
+Simplified tests for cli.headless module.
 
 Focused testing of core functionality without complex stderr mocking.
 """
@@ -8,7 +8,7 @@ import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock, call
 
-from cli.modes.headless import run_headless
+from cli.headless import run_headless
 
 
 class TestRunHeadlessModeCore:
