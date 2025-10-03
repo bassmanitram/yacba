@@ -11,7 +11,7 @@ from strands import Agent
 from strands.agent.conversation_manager import ConversationManager
 from .agent import YacbaAgent
 from utils.content_processing import parse_input_with_files
-from yacba_types.backend import ChatBackend
+from yacba_types.backend import AsyncREPLBackend
 from yacba_types.models import FrameworkAdapter
 from adapters.tools.factory import ToolFactory
 from .callback_handler import YacbaCallbackHandler
@@ -22,7 +22,7 @@ from .conversation_manager_factory import ConversationManagerFactory
 from yacba_types.tools import ToolProcessingResult, ToolSystemStatus
 
 
-class YacbaEngine(ChatBackend):
+class YacbaEngine(AsyncREPLBackend):
     """
     The core, UI-agnostic engine for YACBA. It manages the agent, tools,
     model, and conversation management, but has no knowledge of the command line or session files.

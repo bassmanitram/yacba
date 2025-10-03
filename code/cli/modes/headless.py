@@ -14,9 +14,9 @@ import readline
 from sys import stderr
 
 from loguru import logger
-from yacba_types.backend import ChatBackend
+from yacba_types.backend import AsyncREPLBackend
 
-async def run_headless_mode(backend: ChatBackend, initial_message: str = None, verbose: bool = True) -> bool:
+async def run_headless_mode(backend: AsyncREPLBackend, initial_message: str = None, verbose: bool = True) -> bool:
     """
     Runs YACBA in a multi-turn headless mode.
     It reads stdin, buffers input, sends to the backend upon '/send' or EOF,

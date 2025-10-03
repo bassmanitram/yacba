@@ -2,7 +2,7 @@ from typing import Protocol
 from typing import Protocol
 
 
-class ChatBackend(Protocol):
+class AsyncREPLBackend(Protocol):
 
     def startup(self):
         """
@@ -15,10 +15,9 @@ class ChatBackend(Protocol):
         Clean up any resources held by the backend.
         """
         ...
-    async def handle_input(self, user_input: str, cancellation: bool = False):
+    async def handle_input(self, user_input: str):
         """
         Process user input and yield response chunks asynchronously.
-        Allows for cancellation of the operation.
 
         Args:
             user_input: The input string from the user.

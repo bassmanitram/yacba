@@ -18,7 +18,7 @@ from prompt_toolkit.completion import Completer
 
 from cli.commands.registry import CommandRegistry
 # Note: Removed ChatState import as requested
-from yacba_types.backend import ChatBackend
+from yacba_types.backend import AsyncREPLBackend
 from ..interface import create_prompt_session
 
 THINKING = HTML("<i><grey>Thinking... (Press Alt+C to cancel)</grey></i>")
@@ -31,7 +31,7 @@ class ChatInterface:
 
     def __init__(
         self,
-        backend: ChatBackend,
+        backend: AsyncREPLBackend,
         command_handler: Optional[CommandRegistry] = None,
         completer: Optional[Completer] = None,
         prompt_string: Optional[str] = None
@@ -140,7 +140,7 @@ class ChatInterface:
 
 # Wrapper function to start the interface
 async def chat_loop_async(
-    backend: ChatBackend,
+    backend: AsyncREPLBackend,
     command_handler: Optional[CommandRegistry] = None,
     completer: Optional[Completer] = None,
     initial_message: Optional[str] = None,
