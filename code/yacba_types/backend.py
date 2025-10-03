@@ -1,5 +1,4 @@
 from typing import Protocol
-from typing import Protocol
 
 
 class AsyncREPLBackend(Protocol):
