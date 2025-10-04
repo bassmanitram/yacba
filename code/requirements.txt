@@ -1,6 +1,7 @@
 strands-agents
-strands-mcp
 litellm
 loguru
 prompt-toolkit
 pyyaml
+#git+https://github.com/bassmanitram/repl-toolkit.git
+-e /home/jbartle9/tmp/repl_toolkit

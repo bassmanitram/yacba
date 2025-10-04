@@ -1,24 +1,25 @@
 #  Command registry for validation and help generation
 from typing import Any
-from cli.commands.registry import CommandRegistry
-from cli.commands.base_command import BaseCommand
+
+from .session_commands import SessionCommands
+from .info_commands import InfoCommands
 from .adapted_commands import AdaptedCommands
 from core.engine import YacbaEngine
+from repl_toolkit.commands import CommandRegistry, BaseCommand
 
 COMMAND_REGISTRY = {
     # : Session management
     '/session': {
-        'handler': 'adapters.cli.commands.session_commands.SessionCommands',
+        'handler_class': SessionCommands,
         'category': 'Session Management',
         'description': 'Manage conversation sessions',
         'usage': [
-            '/session - Show current session',
+            '/session - List sessions',
             '/session <name> - Switch to session',
-            '/session _LIST - List all sessions'
         ]
     },
     '/clear': {
-        'handler': 'adapters.cli.commands.session_commands.SessionCommands',
+        'handler_class': SessionCommands,
         'category': 'Session Management',
         'description': 'Clear current conversation',
         'usage': ['/clear - Clear conversation history']
@@ -26,26 +27,26 @@ COMMAND_REGISTRY = {
 
     #  : Information commands
     '/history': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler_class': InfoCommands,
         'category': 'Information',
         'description': 'Show conversation history',
         'usage': ['/history - Display message history as JSON']
     },
     '/tools': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler_class': InfoCommands,
         'category': 'Information',
         'description': 'List available tools',
         'usage': ['/tools - Show currently loaded tools']
     },
     '/conversation-manager': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler_class': InfoCommands,
         'category': 'Information',
         'description': 'Show conversation manager configuration',
         'usage': ['/conversation-manager - Display current conversation '
                   'management settings']
     },
     '/conversation-stats': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler_class': InfoCommands,
         'category': 'Information',
         'description': 'Show conversation statistics',
         'usage': ['/conversation-stats - Display conversation memory '
@@ -54,7 +55,7 @@ COMMAND_REGISTRY = {
 }
 
 
-class BackendCommandRegistry(CommandRegistry):
+class YacbaCommandRegistry(CommandRegistry):
     """Utility class for command registry operations."""
 
     def __init__(self, engine: YacbaEngine):

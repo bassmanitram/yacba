@@ -1,5 +1,5 @@
 """
-Tests for adapters.cli.commands.info_commands module.
+Tests for adapters.repl.commands.info_commands module.
 
 Tests for information display commands that work with the engine adapter.
 """
@@ -9,8 +9,8 @@ import json
 from unittest.mock import Mock, patch
 from typing import List
 
-from adapters.cli.commands.info_commands import InfoCommands
-from cli.commands.base_command import CommandError
+from adapters.repl.commands.info_commands import InfoCommands
+from repl_toolkit.commands import CommandError
 
 
 class TestInfoCommandsInit:
@@ -390,7 +390,7 @@ class TestGetCommandUsage:
 
     def test_get_command_usage_unknown(self):
         """Test usage for unknown command."""
-        with patch('adapters.cli.commands.adapted_commands.AdaptedCommands.get_command_usage', return_value="Unknown usage"):
+        with patch('adapters.repl.commands.adapted_commands.AdaptedCommands.get_command_usage', return_value="Unknown usage"):
             result = self.info_cmd.get_command_usage("/unknown")
             
             assert result == "Unknown usage"

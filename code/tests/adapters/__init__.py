@@ -1,1 +1,1 @@
-"""Test package for adapters."""
+# Tests for adapters

@@ -10,9 +10,8 @@ Note: /help is handled separately in help_command.py
 
 from typing import List
 import re
-from cli.commands.base_command import CommandError
 from .adapted_commands import AdaptedCommands
-
+from repl_toolkit.commands import CommandError
 
 class SessionCommands(AdaptedCommands):
     """Handler for information display commands (excluding /help)."""

@@ -1,5 +1,5 @@
 """
-Tests for adapters.cli.commands.session_commands module.
+Tests for adapters.repl.commands.session_commands module.
 
 Tests for session management commands that work with the engine adapter.
 """
@@ -9,9 +9,7 @@ import re
 from unittest.mock import Mock, patch
 from typing import List
 
-from adapters.cli.commands.session_commands import SessionCommands
-from cli.commands.base_command import CommandError
-
+from adapters.repl.commands.session_commands import SessionCommands
 
 class TestSessionCommandsInit:
     """Test SessionCommands initialization."""

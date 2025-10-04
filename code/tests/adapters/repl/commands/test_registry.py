@@ -1,5 +1,5 @@
 """
-Tests for adapters.cli.commands.registry module.
+Tests for adapters.repl.commands.registry module.
 
 Tests for the backend command registry with engine integration.
 """
@@ -8,12 +8,12 @@ import pytest
 from unittest.mock import Mock, patch
 from typing import Dict, Any
 
-from adapters.cli.commands.registry import (
-    BackendCommandRegistry, 
+from adapters.repl.commands.registry import (
+    YacbaCommandRegistry, 
     COMMAND_REGISTRY
 )
-from adapters.cli.commands.adapted_commands import AdaptedCommands
-from cli.commands.base_command import BaseCommand, CommandError
+from adapters.repl.commands.adapted_commands import AdaptedCommands
+from repl_toolkit.commands import BaseCommand, CommandError
 
 
 class TestBackendCommandRegistryData:
@@ -31,7 +31,7 @@ class TestBackendCommandRegistryData:
         for cmd in session_commands:
             assert cmd in COMMAND_REGISTRY
             cmd_info = COMMAND_REGISTRY[cmd]
-            assert cmd_info['handler'] == 'adapters.cli.commands.session_commands.SessionCommands'
+            assert cmd_info['handler'] == 'adapters.repl.commands.session_commands.SessionCommands'
             assert cmd_info['category'] == 'Session Management'
 
     def test_info_commands_registration(self):
@@ -41,7 +41,7 @@ class TestBackendCommandRegistryData:
         for cmd in info_commands:
             assert cmd in COMMAND_REGISTRY
             cmd_info = COMMAND_REGISTRY[cmd]
-            assert cmd_info['handler'] == 'adapters.cli.commands.info_commands.InfoCommands'
+            assert cmd_info['handler'] == 'adapters.repl.commands.info_commands.InfoCommands'
             assert cmd_info['category'] == 'Information'
 
     def test_registry_entries_completeness(self):
@@ -62,7 +62,7 @@ class TestBackendCommandRegistryInit:
     def test_registry_initialization(self):
         """Test registry initialization with engine."""
         mock_engine = Mock()
-        registry = BackendCommandRegistry(mock_engine)
+        registry = YacbaCommandRegistry(mock_engine)
         
         assert hasattr(registry, 'commands')
         assert hasattr(registry, 'command_cache')
@@ -81,7 +81,7 @@ class TestBackendCommandRegistryHandlerInstantiation:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.registry = BackendCommandRegistry(self.mock_engine)
+        self.registry = YacbaCommandRegistry(self.mock_engine)
 
     def test_instantiate_handler_none_class(self):
         """Test instantiating handler with None class."""
@@ -109,7 +109,7 @@ class TestBackendCommandRegistryHandlerRetrieval:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.registry = BackendCommandRegistry(self.mock_engine)
+        self.registry = YacbaCommandRegistry(self.mock_engine)
 
     def test_get_session_command_handler(self):
         """Test getting handler for session command."""
@@ -120,7 +120,7 @@ class TestBackendCommandRegistryHandlerRetrieval:
             result = self.registry.get_command_handler('/session')
             
             assert result is mock_handler
-            mock_create.assert_called_once_with('adapters.cli.commands.session_commands.SessionCommands')
+            mock_create.assert_called_once_with('adapters.repl.commands.session_commands.SessionCommands')
 
     def test_get_info_command_handler(self):
         """Test getting handler for info command."""
@@ -131,7 +131,7 @@ class TestBackendCommandRegistryHandlerRetrieval:
             result = self.registry.get_command_handler('/history')
             
             assert result is mock_handler
-            mock_create.assert_called_once_with('adapters.cli.commands.info_commands.InfoCommands')
+            mock_create.assert_called_once_with('adapters.repl.commands.info_commands.InfoCommands')
 
     def test_get_base_command_handler(self):
         """Test getting handler for base command (help)."""
@@ -156,7 +156,7 @@ class TestBackendCommandRegistryHandlerRetrieval:
             assert mock_create.call_count == 1
             
             # Cache should be populated
-            handler_class = 'adapters.cli.commands.session_commands.SessionCommands'
+            handler_class = 'adapters.repl.commands.session_commands.SessionCommands'
             assert handler_class in self.registry.command_cache
             
             # Second call should use cache
@@ -171,7 +171,7 @@ class TestBackendCommandRegistryHandling:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.registry = BackendCommandRegistry(self.mock_engine)
+        self.registry = YacbaCommandRegistry(self.mock_engine)
 
     @pytest.mark.asyncio
     async def test_handle_session_command(self):
@@ -224,7 +224,7 @@ class TestBackendCommandRegistryValidation:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.registry = BackendCommandRegistry(self.mock_engine)
+        self.registry = YacbaCommandRegistry(self.mock_engine)
 
     def test_validate_backend_commands(self):
         """Test validation of backend-specific commands."""
@@ -254,7 +254,7 @@ class TestBackendCommandRegistryHelp:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.registry = BackendCommandRegistry(self.mock_engine)
+        self.registry = YacbaCommandRegistry(self.mock_engine)
 
     def test_get_command_help_session(self):
         """Test getting help for session command."""
@@ -304,7 +304,7 @@ class TestBackendCommandRegistryIntegration:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.registry = BackendCommandRegistry(self.mock_engine)
+        self.registry = YacbaCommandRegistry(self.mock_engine)
 
     def test_full_backend_command_workflow(self):
         """Test complete backend command workflow."""
@@ -370,7 +370,7 @@ class TestBackendCommandRegistryIntegration:
             mock_load.return_value = mock_class
             
             with patch('builtins.issubclass', return_value=True):
-                handler = self.registry._create_handler('adapters.cli.commands.session_commands.SessionCommands')
+                handler = self.registry._create_handler('adapters.repl.commands.session_commands.SessionCommands')
                 
                 # Should have been called with registry and engine
                 mock_class.assert_called_once_with(self.registry, self.mock_engine)

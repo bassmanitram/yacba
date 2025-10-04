@@ -10,13 +10,18 @@ import asyncio
 from typing import NoReturn, List, Optional
 from loguru import logger
 
-# Import migrated components with proper typing
-from cli import (
-    run_headless,
-    run_async_repl,
+# Import repl_toolkit functions
+from repl_toolkit import run_async_repl, run_headless_mode
+
+# Import YACBA adapters for repl_toolkit
+from adapters.repl import (
+    YacbaAsyncBackend,
+    YacbaHeadlessBackend,
+    YacbaCommandRegistry,
+    YacbaCompleter
 )
-from adapters.cli.commands.registry import BackendCommandRegistry
-from adapters.cli.completer import YacbaCompleter
+
+# Import existing YACBA components
 from utils.startup_messages import print_startup_info, print_welcome_message
 from utils.content_processing import files_to_content_blocks
 from core import ChatbotManager, parse_config, YacbaConfig
@@ -108,23 +113,35 @@ async def main_async() -> None:
             if not config.headless and config.tool_configs:
                 print("Tools initialized.")
 
-            # Run in appropriate mode
+            # Run in appropriate mode using repl_toolkit
             if config.headless:
-                success: bool = await run_headless(
-                    manager.engine,
-                    config.initial_message)
+                # Create headless backend adapter
+                backend = YacbaHeadlessBackend(manager.engine)
+                success: bool = await run_headless_mode(
+                    backend,
+                    config.initial_message
+                )
                 if not success:
                     sys.exit(ExitCode.RUNTIME_ERROR)
             else:
-                command_registry = BackendCommandRegistry(manager.engine)
-                completer = YacbaCompleter(command_registry.list_commands())
+                # Create async REPL backend adapter
+                backend = YacbaAsyncBackend(manager.engine)
+                
+                # Create command handler adapter
+                command_handler = YacbaCommandRegistry(manager.engine)
+                
+                # Create completer adapter
+                completer = YacbaCompleter(command_handler.list_commands())
+                
+                # Run the async REPL using repl_toolkit
                 await run_async_repl(
-                    manager.engine,
-                    command_registry,
-                    completer,
-                    config.initial_message,
-                    config.cli_prompt,
-                    Path.home() / ".yacba" / "yacba_history")
+                    backend=backend,
+                    command_handler=command_handler,
+                    completer=completer,
+                    initial_message=config.initial_message,
+                    prompt_string=config.cli_prompt,
+                    history_path=Path.home() / ".yacba" / "yacba_history"
+                )
 
     except Exception as e:
         logger.error(f"Fatal error in ChatbotManager: {e}")

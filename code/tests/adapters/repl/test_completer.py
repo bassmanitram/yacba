@@ -1,5 +1,5 @@
 """
-Tests for adapters.cli.completer module.
+Tests for adapters.repl.completer module.
 
 Tests for tab completion functionality in YACBA CLI.
 """
@@ -10,7 +10,7 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.completion import Completion
 from prompt_toolkit.formatted_text import to_plain_text
 
-from adapters.cli.completer import YacbaCompleter
+from adapters.repl.completer import YacbaCompleter
 
 
 class TestYacbaCompleterInit:
