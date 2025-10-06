@@ -115,7 +115,7 @@ class ConversationManagerFactory:
             # FIXED: Don't pass base_model_config - let the model use its own
             # defaults. This avoids configuration conflicts between different
             # model types
-            model, adapter = loader.create_model(model_string, adhoc_config={})
+            model, adapter = loader.create_model(model_string, model_config={})
 
             if not model:
                 logger.warning("Failed to create summarization model: "

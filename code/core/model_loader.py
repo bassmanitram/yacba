@@ -48,14 +48,14 @@ class StrandsModelLoader:
     }
 
     def create_model(self, model_string: str,
-                     adhoc_config: Optional[Dict[str, Any]] = None) -> Optional[
+                     model_config: Optional[Dict[str, Any]] = None) -> Optional[
                          Tuple[Model, FrameworkAdapter]]:
         """
         Parses a model string, loads the appropriate Strands model class,
         and instantiates it with the provided configuration.
         Returns the model instance and the appropriate framework adapter.
         """
-        adhoc_config = adhoc_config or {}
+        model_config = model_config or {}
 
         if ":" in model_string:
             framework, model_name = model_string.split(":", 1)
@@ -83,10 +83,10 @@ class StrandsModelLoader:
             ModelClass = getattr(module, handler["class"])
 
             model_args = {handler["model_id_param"]: model_name}
-            model_args.update(adhoc_config)
+            model_args.update(model_config)
 
             logger.info(f"Initializing {handler['class']} with ad-hoc "
-                        f"config: {adhoc_config}")
+                        f"config: {model_config}")
             model_instance = ModelClass(**model_args)
             return model_instance, AdapterClass()
 
