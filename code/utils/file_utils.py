@@ -5,7 +5,7 @@ import mimetypes
 import os
 from pathlib import Path
 import re
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 import yaml
 
 from loguru import logger
@@ -26,7 +26,6 @@ def guess_mimetype(file_path: PathLike) -> str:
     """
     mimetype, _ = mimetypes.guess_type(str(file_path))
     return mimetype or 'application/octet-stream'
-
 
 def is_likely_text_file(file_path: PathLike) -> bool:
     """
@@ -139,7 +138,7 @@ def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict
         raise ValueError(f"Problem loading fir {file_path}: {e}")
 
 @cached_operation("file_content_load")
-def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Dict[str, Any]:
+def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Union[bytes, str]:
     """
     Load file contents with format detection and caching.
 
@@ -162,18 +161,12 @@ def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Dict[s
         content_type = 'text' if is_likely_text_file(path) else 'binary'
 
     try:
-        if content_type == 'text':
+        if content_type == "text":
             with open(path, 'r', errors='replace') as f:
-                return {"type": "text", "content": f.read()}
+                return f.read()
         else:
             with open(path, 'rb') as f:
-                encoded = base64.b64encode(f.read()).decode('utf-8')
-                return {
-                    "type": "binary",
-                    "content": encoded,
-                    "encoding": "base64",
-                    "mimetype": guess_mimetype(path)
-                }
+                return f.read()
     except OSError as e:
         raise OSError(f"Error reading file {file_path}: {e}")
 

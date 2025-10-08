@@ -2,13 +2,14 @@
 # Handles the transformation of user-provided files and text into the
 # specific content block format required by the strands-agents library.
 
+from mimetypes import guess_extension
 import re
 import os
 from pathlib import Path
 from loguru import logger
 from typing import List, Dict, Any, Union, Optional, Generator
 
-from utils.file_utils import guess_mimetype, resolve_glob, load_file_content
+from utils.file_utils import guess_mimetype, is_likely_text_file, resolve_glob, load_file_content
 
 # Define a reasonable file size limit to avoid memory issues (e.g., 10MB)
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -18,41 +19,67 @@ FILE_PATTERN = re.compile(
     r"file\((?P<quote>['\"])(?P<path>.*?)(?P=quote)\s*(?P<mimetype>\S+)?\)"
 )
 
+DOCUMENT_TYPES = [ 'pdf', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'html', 'txt', 'md' ]
 
 def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, Any]]:
-    """
-    Reads a single file and prepares it as a content block for the agent.
-    Returns a text block for text files, or a generic binary block for others.
-    Skips files that are too large.
-    """
-    try:
-        # Check file size before attempting to read
-        if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
-            logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
-            return {"type": "text",
-                "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
-            return {"type": "text", "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"}
-        # Let the file utility handle text vs binary detection automatically
-        result = load_file_content(file_path, 'auto')
+    # Skip files that exceed the size limit
+    if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
+        logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
+        return {
+            "type": "text",
+            "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"
+        }
 
-        if result['type'] == 'text':
-            logger.debug(f"Reading file '{file_path}' as text.")
-            return {"type": "text", "text": result['content']}
-        else:
-            logger.debug(f"Reading file '{file_path}' as base64-encoded binary.")
-            # The 'source' dictionary is the standard way to send binary data.
-            return {
-                "type": "image", # This is a generic type for binary data in strands
-                "source": {
-                    "type": "base64",
-                    "media_type": result.get('mimetype', mimetype),  # Use detected or provided
-                    "data": result['content']
-                }
+    detected_mimetype = mimetype or guess_mimetype(file_path) or "application/octet-stream"
+    format = (guess_extension(detected_mimetype) or ".bin")[1:]
+    likely_text = is_likely_text_file(file_path)
+    file_bytes = load_file_content(file_path, 'binary')
+    
+    # Video files
+    if detected_mimetype.startswith("video/"):
+        return {
+            "video": {
+                "format": format,
+                "source": {"bytes": file_bytes}
             }
-    except Exception as e:
-        logger.error(f"Could not read or encode file {file_path}: {e}")
-        return None
+        }
 
+    # Image files
+    if detected_mimetype.startswith("image/"):
+        return {
+            "image": {
+                "format": format,
+                "source": {"bytes": file_bytes}
+            }
+        }
+
+    # Known document types
+    if format in DOCUMENT_TYPES:
+        return {
+            "document": {
+                "name": str(file_path),
+                "format": format,
+                "source": {"bytes": file_bytes}
+            }
+        }
+
+    # Other text files
+    if likely_text:
+        return {
+            "document": {
+                "name": str(file_path),
+                "format": "txt",
+                "source": {"bytes": file_bytes}
+            }
+        }
+
+    # Fallback: treat as binary image
+    return {
+        "image": {
+            "format": format,
+            "source": {"bytes": file_bytes}
+        }
+    }
 
 def process_path_argument(path_str: str, mimetype: Optional[str], max_files: int) -> List[tuple[str, str]]:
     """

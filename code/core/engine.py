@@ -213,7 +213,7 @@ class YacbaEngine(ChatBackend):
             self._cleanup_on_error()
             return False
         except Exception as e:
-            logger.error(f"Error during agent streaming: {e}")
+            logger.exception('Error during agent streaming')
             self._cleanup_on_error()
             return False
 
