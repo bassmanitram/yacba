@@ -63,6 +63,7 @@ def _import_item(
             # First, try to import the full path as a module (for cases where the item is a module)
             item = importlib.import_module(full_item_path)
         except ImportError:
+            logger.exception(f"Cannot load {full_item_path}")
             # If that fails, import the base module and get the attribute from it
             module = importlib.import_module(full_module_path)
             item = getattr(module, item_name)
@@ -106,7 +107,7 @@ class PythonToolAdapter(ToolAdapter):
                     logger.debug(f"Attempting to load function '{func_spec}' from module '{module_path}' (package_path '{package_path}')")
                     tool = _import_item(module_path, func_spec, package_path, source_dir)
                 except (ImportError, AttributeError, FileNotFoundError) as e:
-                    logger.warning(f"Error loading function '{func_spec}' from module '{module_path}' (package_path '{package_path}')): {e}")
+                    logger.warn(f"Error loading function '{func_spec}' from module '{module_path}' (package_path '{package_path}')): {e}")
                     missing_functions.append(func_spec)
                     continue
 

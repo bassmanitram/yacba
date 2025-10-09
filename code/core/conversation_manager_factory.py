@@ -14,7 +14,7 @@ from strands.agent.conversation_manager import (
     SlidingWindowConversationManager,
     SummarizingConversationManager
 )
-from strands import Agent
+from strands.agent import Agent
 
 from .config import YacbaConfig
 from .model_loader import StrandsModelLoader

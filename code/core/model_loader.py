@@ -85,16 +85,19 @@ class StrandsModelLoader:
             model_args = {handler["model_id_param"]: model_name}
             model_args.update(model_config)
 
+            adapter: DefaultAdapter = AdapterClass()
+            model_args = adapter.adapt_model_args(model_args)
+
             logger.info(f"Initializing {handler['class']} with ad-hoc "
                         f"config: {model_config}")
             model_instance = ModelClass(**model_args)
-            return model_instance, AdapterClass()
+            return model_instance, adapter
 
         except ImportError:
             logger.error(f"Could not import {handler['class']} from "
                          f"{handler['module']}. Is the library installed?")
             return None, None
         except Exception as e:
-            logger.error("Failed to create model instance for framework "
+            logger.exception("Failed to create model instance for framework "
                          f"'{framework}': {e}")
             return None, None

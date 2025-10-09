@@ -3,9 +3,12 @@ Main entry point for the YACBA Chatbot application.
 Fully typed version using yacba_types.
 """
 
+import nest_asyncio
+import asyncio
+nest_asyncio.apply()
+
 import sys
 import os
-import asyncio
 from typing import NoReturn, List, Optional
 from loguru import logger
 

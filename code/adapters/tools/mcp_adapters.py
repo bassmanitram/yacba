@@ -5,10 +5,6 @@ from loguru import logger
 from yacba_types.tools import ToolCreationResult
 
 from .base_adapter import ToolAdapter
-from mcp import StdioServerParameters
-from strands.tools.mcp import MCPClient
-from mcp.client.stdio import stdio_client
-from mcp.client.streamable_http import streamablehttp_client
 
 
 class MCPStdIOAdapter(ToolAdapter):
@@ -22,12 +18,15 @@ class MCPStdIOAdapter(ToolAdapter):
         if 'env' in config:
             process_env.update(config['env'])
 
+        from mcp import StdioServerParameters
         params = StdioServerParameters(command=config["command"], args=config.get("args", []), env=process_env)
 
         def create_stdio_client():
+            from mcp.client.stdio import stdio_client
             return stdio_client(params)
 
         try:
+            from strands.tools.mcp import MCPClient
             client = self.exit_stack.enter_context(MCPClient(create_stdio_client))
             all_tools = client.list_tools_sync()
 
@@ -86,9 +85,11 @@ class MCPHTTPAdapter(ToolAdapter):
         logger.debug(f"Connecting to MCP server '{server_id}' via HTTP at {url}")
 
         def create_http_client():
+            from mcp.client.streamable_http import streamablehttp_client
             return streamablehttp_client(url)
 
         try:
+            from strands.tools.mcp import MCPClient
             client = self.exit_stack.enter_context(MCPClient(create_http_client))
             all_tools = client.list_tools_sync()
 

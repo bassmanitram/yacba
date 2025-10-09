@@ -7,7 +7,7 @@ from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
 
-from strands import Agent
+from strands.agent import Agent
 from strands.agent.conversation_manager import ConversationManager
 from .agent import YacbaAgent
 from utils.content_processing import parse_input_with_files
@@ -171,7 +171,7 @@ class YacbaEngine(ChatBackend):
             logger.info("Agent successfully created with conversation management.")
             return self.agent
         except Exception as e:
-            logger.error(f"Fatal error initializing the agent: {e}", exc_info=True)
+            logger.exception(f"Fatal error initializing the agent")
             return None
 
     def startup(self):

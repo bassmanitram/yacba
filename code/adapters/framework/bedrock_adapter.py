@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from botocore.exceptions import ClientError
 from loguru import logger
 from yacba_types import Tool, Message
-
+from botocore.config import Config as BotocoreConfig
 
 class BedrockAdapter:
     """
@@ -150,3 +150,9 @@ class BedrockAdapter:
                 continue
 
         return transformed_list
+
+    def adapt_model_args(self, args: Dict[str,Any]) -> Dict[str,Any]:
+        boto_client_config = args.pop("boto_client_config", None)
+        if boto_client_config:
+            args["boto_client_config"] = BotocoreConfig(**boto_client_config)
+        return args

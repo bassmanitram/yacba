@@ -7,7 +7,7 @@ from typing import Optional, List, Any
 from pathlib import Path
 from loguru import logger
 
-from strands import Agent
+from strands.agent import Agent
 from strands.session.session_manager import SessionManager
 from strands.session.file_session_manager import FileSessionManager
 from strands.types.content import Message

@@ -3,6 +3,17 @@ MYDIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 # A Bash script to help call yacba
 #
 
+#
+# Load the virtual environment (assumed to be in .venv)
+#
+if [[ -f "$MYDIR/.venv/bin/activate" ]]; then
+	echo "Activated venv from $MYDIR/.venv/bin/activate" >&2
+	source "$MYDIR/.venv/bin/activate"
+elif [[ -f "$MYDIR/../.venv/bin/activate" ]]; then
+	echo "Activated venv from $MYDIR/../.venv/bin/activate" >&2
+	source "$MYDIR/../.venv/bin/activate"
+fi
+
 ## Logging is through Loguru - by default don't display anything except errors
 export LOGURU_LEVEL=${LOGURU_LEVEL:-ERROR}
 

@@ -131,3 +131,6 @@ class DefaultAdapter:
             Transformed content
         """
         return content
+
+    def adapt_model_args(self, args: Any) -> Any:
+        return args
