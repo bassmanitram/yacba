@@ -1,5 +1,7 @@
-strands-agents
+# Tools doesn't work with later agents versions yet
+strands-agents==1.10.0
 strands-agents-tools
+
 litellm
 loguru
 prompt-toolkit
