@@ -1,0 +1,175 @@
+"""
+Configuration converter from YACBA to strands_agent_factory.
+
+This module handles the translation of YACBA's sophisticated configuration
+system into the simpler AgentFactoryConfig format required by strands_agent_factory.
+"""
+
+from pathlib import Path
+from typing import List, Tuple, Optional, Any, Dict, Literal
+from loguru import logger
+
+from strands_agent_factory import AgentFactoryConfig
+from core.config.dataclass import YacbaConfig
+from yacba_types.config import ToolConfig
+
+# Define the type locally since it's just a literal
+ConversationManagerType = Literal["null", "sliding_window", "summarizing"]
+
+
+class YacbaToStrandsConfigConverter:
+    """
+    Converts YACBA configuration to strands_agent_factory configuration.
+    
+    This converter handles the mapping between YACBA's comprehensive configuration
+    system and the streamlined AgentFactoryConfig used by strands_agent_factory.
+    """
+    
+    def __init__(self, yacba_config: YacbaConfig):
+        """
+        Initialize the converter with YACBA configuration.
+        
+        Args:
+            yacba_config: The parsed YACBA configuration object
+        """
+        self.yacba_config = yacba_config
+        logger.debug(f"Initialized config converter for model: {yacba_config.model_string}")
+    
+    def convert(self) -> AgentFactoryConfig:
+        """
+        Convert YACBA configuration to AgentFactoryConfig.
+        
+        Returns:
+            AgentFactoryConfig: Converted configuration for strands_agent_factory
+        """
+        logger.debug("Converting YACBA config to strands_agent_factory config")
+        
+        # Convert tool configurations to paths
+        tool_config_paths = self._convert_tool_configs()
+        
+        # Convert file uploads to file paths
+        file_paths = self._convert_file_uploads()
+        
+        # Determine session configuration
+        sessions_home = self._get_sessions_home()
+        
+        # Create the AgentFactoryConfig
+        config = AgentFactoryConfig(
+            # Core model configuration
+            model=self.yacba_config.model_string,
+            system_prompt=self.yacba_config.system_prompt,
+            model_config=self.yacba_config.model_config,
+            emulate_system_prompt=self.yacba_config.emulate_system_prompt,
+            
+            # Initial message and files
+            initial_message=self._build_initial_message(),
+            file_paths=file_paths,
+            
+            # Tool configuration
+            tool_config_paths=tool_config_paths,
+            
+            # Session management
+            session_id=self.yacba_config.session_name,
+            sessions_home=sessions_home,
+            
+            # Conversation management
+            conversation_manager_type=self._convert_conversation_manager_type(),
+            sliding_window_size=self.yacba_config.sliding_window_size,
+            preserve_recent_messages=self.yacba_config.preserve_recent_messages,
+            summary_ratio=self.yacba_config.summary_ratio,
+            summarization_model=self.yacba_config.summarization_model,
+            custom_summarization_prompt=self.yacba_config.custom_summarization_prompt,
+            should_truncate_results=self.yacba_config.should_truncate_results,
+            
+            # UI customization
+            show_tool_use=self.yacba_config.show_tool_use,
+            response_prefix=self.yacba_config.response_prefix,
+        )
+        
+        logger.debug(f"Converted config with {len(tool_config_paths)} tool configs and {len(file_paths)} files")
+        return config
+    
+    def _convert_tool_configs(self) -> List[Path]:
+        """
+        Convert YACBA tool configurations to tool config paths.
+        
+        Returns:
+            List[Path]: List of paths to tool configuration files/directories
+        """
+        if not self.yacba_config.tool_configs:
+            return []
+        
+        # Extract unique config paths from tool configurations
+        config_paths = set()
+        for tool_config in self.yacba_config.tool_configs:
+            if hasattr(tool_config, 'config_path') and tool_config.config_path:
+                config_paths.add(Path(tool_config.config_path))
+            elif hasattr(tool_config, 'source_file') and tool_config.source_file:
+                config_paths.add(Path(tool_config.source_file))
+        
+        result = list(config_paths)
+        logger.debug(f"Converted {len(self.yacba_config.tool_configs)} tool configs to {len(result)} config paths")
+        return result
+    
+    def _convert_file_uploads(self) -> List[Tuple[Path, Optional[str]]]:
+        """
+        Convert YACBA file uploads to strands_agent_factory file paths format.
+        
+        Returns:
+            List[Tuple[Path, Optional[str]]]: List of (path, mimetype) tuples
+        """
+        if not self.yacba_config.files_to_upload:
+            return []
+        
+        result = []
+        for file_upload in self.yacba_config.files_to_upload:
+            path = Path(file_upload['path'])
+            mimetype = file_upload.get('mimetype')
+            result.append((path, mimetype))
+        
+        logger.debug(f"Converted {len(self.yacba_config.files_to_upload)} file uploads")
+        return result
+    
+    def _get_sessions_home(self) -> Optional[Path]:
+        """
+        Determine the sessions home directory.
+        
+        Returns:
+            Optional[Path]: Sessions directory path if session persistence is enabled
+        """
+        if not self.yacba_config.has_session:
+            return None
+        
+        # Use a default sessions directory - could be made configurable
+        return Path.home() / ".yacba" / "sessions"
+    
+    def _build_initial_message(self) -> Optional[str]:
+        """
+        Build the initial message from YACBA configuration.
+        
+        Returns:
+            Optional[str]: Initial message text, or None if no initial message
+        """
+        # YACBA handles file content separately via startup_files_content
+        # The initial_message should just be the user's explicit initial message
+        return self.yacba_config.initial_message
+    
+    def _convert_conversation_manager_type(self) -> ConversationManagerType:
+        """
+        Convert YACBA conversation manager type to strands_agent_factory type.
+        
+        Returns:
+            ConversationManagerType: Converted conversation manager type
+        """
+        # The types should match, but we'll be explicit about the conversion
+        yacba_type = self.yacba_config.conversation_manager_type
+        
+        if yacba_type == "null":
+            return "null"
+        elif yacba_type == "sliding_window":
+            return "sliding_window"
+        elif yacba_type == "summarizing":
+            return "summarizing"
+        else:
+            logger.warning(f"Unknown conversation manager type: {yacba_type}, defaulting to sliding_window")
+            return "sliding_window"

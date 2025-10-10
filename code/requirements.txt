@@ -1,9 +1,6 @@
-# Tools doesn't work with later agents versions yet
-strands-agents==1.10.0
-strands-agents-tools
+# New dependencies for refactored architecture
+-e /home/jbartle9/tmp/strands-agent-factory
+-e /home/jbartle9/tmprepl-toolkit
 
-litellm
 loguru
-prompt-toolkit
 pyyaml
-nest_asyncio
