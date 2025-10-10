@@ -91,24 +91,20 @@ class YacbaToStrandsConfigConverter:
     
     def _convert_tool_configs(self) -> List[Path]:
         """
-        Convert YACBA tool configurations to tool config paths.
+        Convert YACBA tool configuration paths to Path objects.
         
         Returns:
             List[Path]: List of paths to tool configuration files/directories
         """
-        if not self.yacba_config.tool_configs:
+        if not self.yacba_config.tool_config_paths:
             return []
         
-        # Extract unique config paths from tool configurations
-        config_paths = set()
-        for tool_config in self.yacba_config.tool_configs:
-            if hasattr(tool_config, 'config_path') and tool_config.config_path:
-                config_paths.add(Path(tool_config.config_path))
-            elif hasattr(tool_config, 'source_file') and tool_config.source_file:
-                config_paths.add(Path(tool_config.source_file))
+        # Convert path-like objects to Path objects
+        result = []
+        for path_like in self.yacba_config.tool_config_paths:
+            result.append(Path(path_like))
         
-        result = list(config_paths)
-        logger.debug(f"Converted {len(self.yacba_config.tool_configs)} tool configs to {len(result)} config paths")
+        logger.debug(f"Converted {len(self.yacba_config.tool_config_paths)} tool config paths")
         return result
     
     def _convert_file_uploads(self) -> List[Tuple[Path, Optional[str]]]:
@@ -123,8 +119,18 @@ class YacbaToStrandsConfigConverter:
         
         result = []
         for file_upload in self.yacba_config.files_to_upload:
-            path = Path(file_upload['path'])
-            mimetype = file_upload.get('mimetype')
+            # Handle different file upload formats
+            if isinstance(file_upload, dict):
+                path = Path(file_upload['path'])
+                mimetype = file_upload.get('mimetype')
+            elif isinstance(file_upload, (list, tuple)) and len(file_upload) >= 2:
+                path = Path(file_upload[0])
+                mimetype = file_upload[1] if len(file_upload) > 1 else None
+            else:
+                # Assume it's just a path
+                path = Path(file_upload)
+                mimetype = None
+            
             result.append((path, mimetype))
         
         logger.debug(f"Converted {len(self.yacba_config.files_to_upload)} file uploads")

@@ -1,4 +1,3 @@
-import base64
 import glob
 import json
 import mimetypes
@@ -10,22 +9,9 @@ import yaml
 
 from loguru import logger
 
-from .performance_utils import timed_operation, perf_monitor, cached_operation
+from .performance_utils import cached_operation
 from yacba_types.base import PathLike
 
-
-def guess_mimetype(file_path: PathLike) -> str:
-    """
-    Guess the MIME type of a file based on its extension.
-
-    Args:
-        file_path: Path to the file
-
-    Returns:
-        MIME type string, defaults to 'application/octet-stream'
-    """
-    mimetype, _ = mimetypes.guess_type(str(file_path))
-    return mimetype or 'application/octet-stream'
 
 def is_likely_text_file(file_path: PathLike) -> bool:
     """
@@ -170,71 +156,6 @@ def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Union[
     except OSError as e:
         raise OSError(f"Error reading file {file_path}: {e}")
 
-@timed_operation("directory_scan")
-def scan_directory(
-    directory: PathLike,
-    limit: int,
-    filters: Optional[List[str]] = None
-) -> List[str]:
-    """
-    Recursively scans a directory for files with performance optimizations.
-    Uses glob matching if filters provided, otherwise finds text files.
-
-    Args:
-        directory: Directory to scan
-        limit: Maximum number of files to return
-        filters: Optional list of glob patterns to filter files
-
-    Returns:
-        List of file paths (up to limit)
-
-    Raises:
-        ValueError: If limit is not positive
-        FileNotFoundError: If directory doesn't exist
-    """
-    if limit < 1:
-        raise ValueError("limit must be positive")
-
-    dir_path = Path(directory)
-    if not dir_path.exists():
-        raise FileNotFoundError(f"Directory not found: {directory}")
-    if not dir_path.is_dir():
-        raise ValueError(f"Path is not a directory: {directory}")
-
-    found_files: List[str] = []
-    perf_monitor.increment_counter("directories_scanned")
-
-    if filters:
-        # Use glob matching if filters are provided
-        for filter_glob in filters:
-            if len(found_files) >= limit:
-                break
-
-            # Create a recursive glob pattern
-            search_pattern = str(dir_path / '**' / filter_glob)
-            for file_path in glob.glob(search_pattern, recursive=True):
-                if os.path.isfile(file_path):
-                    found_files.append(file_path)
-                    perf_monitor.increment_counter("files_found")
-                    if len(found_files) >= limit:
-                        break
-    else:
-        # Fallback to text file scanning
-        for root, _, files in os.walk(str(dir_path)):
-            if len(found_files) >= limit:
-                break
-            for file in files:
-                file_path = os.path.join(root, file)
-                if is_likely_text_file(file_path):
-                    found_files.append(file_path)
-                    perf_monitor.increment_counter("files_found")
-                    if len(found_files) >= limit:
-                        break
-
-    logger.debug(f"Scanned directory '{directory}', found {len(found_files)} files")
-    return found_files[: limit]
-
-@timed_operation("file_validation")
 def validate_file_path(file_path: PathLike) -> bool:
     """
     Validate that a file path exists and is accessible.
@@ -251,24 +172,6 @@ def validate_file_path(file_path: PathLike) -> bool:
     except (OSError, ValueError):
         return False
 
-@timed_operation("directory_validation")
-def validate_directory_path(dir_path: PathLike) -> bool:
-    """
-    Validate that a directory path exists and is accessible.
-
-    Args:
-        dir_path: Directory path to validate
-
-    Returns:
-        True if path is valid and accessible, False otherwise
-    """
-    try:
-        path = Path(dir_path)
-        return path.exists() and path.is_dir()
-    except (OSError, ValueError):
-        return False
-
-
 def get_file_size(file_path: PathLike) -> int:
     """
     Get the size of a file in bytes.
@@ -284,53 +187,12 @@ def get_file_size(file_path: PathLike) -> int:
     except (OSError, ValueError):
         return 0
 
-
-def ensure_directory_exists(dir_path: PathLike) -> bool:
-    """
-    Ensure a directory exists, creating it if necessary.
-
-    Args:
-        dir_path: Directory path to ensure exists
-
-    Returns:
-        True if directory exists or was created successfully, False otherwise
-    """
-    try:
-        Path(dir_path).mkdir(parents=True, exist_ok=True)
-        return True
-    except (OSError, ValueError):
-        return False
-
-
-def validate_file_size(file_path: PathLike, max_size_mb: int = 100) -> bool:
-    """
-    Validates that a file is not too large.
-
-    Args:
-        file_path: Path to the file
-        max_size_mb: Maximum size in megabytes
-
-    Returns:
-        True if file size is acceptable, False otherwise
-    """
-    try:
-        path = Path(file_path)
-        if not path.exists():
-            return False
-
-        size_mb = path.stat().st_size / (1024 * 1024)
-        return size_mb <= max_size_mb
-    except OSError:
-        return False
-
-
 def _extract_glob_list(pattern: str) -> list:
     """Extract comma-separated patterns from [pattern1, pattern2,...] format"""
     match = re.search(r'\[([^\]]+)\]', pattern)
     if match:
         return [p.strip() for p in match.group(1).split(',')]
     return [pattern]  # Return original if no brackets found
-
 
 def resolve_glob(pattern: str) -> list:
     """Resolve custom glob pattern like './dir1/dir2/[*.py, Readme.md]'"""

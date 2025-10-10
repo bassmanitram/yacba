@@ -24,7 +24,6 @@ from typing import Any, Dict, List, Optional, Union, Callable
 from utils.general_utils import clean_dict
 from utils.file_utils import resolve_glob, load_file_content
 from loguru import logger
-from utils.framework_detection import guess_framework_from_model_string
 
 # Utility functions for common default factories
 
@@ -117,20 +116,6 @@ def _validate_files(files_list) -> List[List[str]]:
     return files
 
 
-def _validate_model_string(model_str: str) -> str:
-    if not model_str:
-        raise ValueError("Model string cannot be empty")
-
-    if ":" in model_str:
-        framework, model = model_str.split(":", 1)
-    else:
-        framework = guess_framework_from_model_string(model_str)
-        model = model_str
-    if not framework or not model:
-        raise ValueError(f"Invalid model string format: {model_str}")
-    return f"{framework}:{model}"
-
-
 def _validate_bool(value: Any) -> bool:
     """
     Validate that argument is either actually a bool or a string that represents a bool
@@ -202,7 +187,7 @@ def _validate_file_or_str(file_or_str: str) -> str:
             raise ValueError(f"File {path_str} does not exist")
         try:
             result = load_file_content(p, 'text')
-            return result['content']
+            return result
         except Exception as e:
             raise ValueError(f"Error reading file {path_str}: {e}")
     return file_or_str
@@ -252,7 +237,6 @@ ARGUMENT_DEFINITIONS = [
     ArgumentDefinition(
         names=["-m", "--model"],
         help="The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm: gemini/gemini-2.5-flash",
-        validator=_validate_model_string,
         argname="model",
     ),
 
@@ -357,7 +341,6 @@ ARGUMENT_DEFINITIONS = [
     ArgumentDefinition(
         names=["--summarization-model"],
         help="Optional separate model for summarization (e.g., 'litellm: gemini/gemini-2.5-flash' for cheaper summaries).",
-        validator=_validate_model_string,
         argname="summarization_model",
     ),
 

@@ -51,9 +51,9 @@ class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
         logger.debug(f"Processing user input: {user_input[:100]}{'...' if len(user_input) > 100 else ''}")
         
         try:
-            # Use the AgentProxy's send_message_to_agent method
-            # This handles all the strands-agents complexity internally
-            success = await self.agent_proxy.send_message_to_agent(user_input)
+            # Use the AgentProxy with synchronous context manager
+            with self.agent_proxy as agent:
+                success = await agent.send_message_to_agent(user_input)
             
             if success:
                 logger.debug("Input processed successfully")
@@ -97,8 +97,9 @@ class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
             bool: True if successful, False otherwise
         """
         try:
-            # Access the underlying agent and clear messages
-            self.agent_proxy.clear_messages()
+            # Access the underlying agent and clear messages using synchronous context manager
+            with self.agent_proxy as agent:
+                agent.clear_messages()
             logger.debug("Conversation history cleared")
             return True
         except Exception as e:
@@ -113,6 +114,8 @@ class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
             list[str]: List of tool names
         """
         try:
+            # For getting tool names, we might not need the context manager
+            # if it's just accessing a property
             return getattr(self.agent_proxy, 'tool_names', [])
         except Exception as e:
             logger.error(f"Error getting tool names: {e}")
@@ -126,11 +129,14 @@ class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
             dict: Statistics about the conversation
         """
         try:
-            # This will depend on what statistics the agent proxy provides
-            # For now, return basic info
+            # Access stats using synchronous context manager
+            with self.agent_proxy as agent:
+                message_count = len(getattr(agent, 'messages', []))
+                tool_count = len(self.get_tool_names())
+            
             return {
-                "message_count": len(getattr(self.agent_proxy, 'messages', [])),
-                "tool_count": len(self.get_tool_names())
+                "message_count": message_count,
+                "tool_count": tool_count
             }
         except Exception as e:
             logger.error(f"Error getting conversation stats: {e}")
