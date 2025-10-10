@@ -153,8 +153,3 @@ class YacbaConfig:
     def uses_summarizing(self) -> bool:
         """Check if using summarizing conversation management."""
         return self.conversation_manager_type == "summarizing"
-
-    # Performance optimization settings
-    clear_cache: bool = False
-    show_perf_stats: bool = False
-    disable_cache: bool = False

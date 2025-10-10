@@ -13,7 +13,10 @@ The orchestrator coordinates between the various configuration sources and
 ensures a consistent configuration object is provided to the application.
 """
 
+import os
 import sys
+from pathlib import Path
+from typing import List, Dict, Optional, Any
 
 from loguru import logger
 
@@ -22,7 +25,7 @@ from yacba_types import ExitCode
 
 from utils.config_discovery import discover_tool_configs
 from utils.file_utils import validate_file_path, get_file_size
-from utils.model_config_parser import parse_model_config
+from utils.model_config_parser import parse_model_config, ModelConfigError
 
 from .arguments import (ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS,
                         parse_args, validate_args)
@@ -181,11 +184,6 @@ def parse_config() -> YacbaConfig:
             # User interface customization
             cli_prompt=yacba_config.get('cli_prompt'),
             response_prefix=yacba_config.get('response_prefix'),
-
-            # Performance
-            clear_cache=yacba_config.get('clear_cache', False),
-            show_perf_stats=yacba_config.get('show_perf_stats', False),
-            disable_cache=yacba_config.get('disable_cache', False),
 
             # Tool discovery results (set during parsing)
             tool_discovery_result=tool_discovery_result

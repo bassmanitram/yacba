@@ -9,7 +9,6 @@ import yaml
 
 from loguru import logger
 
-from .performance_utils import cached_operation
 from yacba_types.base import PathLike
 
 
@@ -90,7 +89,7 @@ _FILE_PARSER = {
 
 def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict[str, Any]:
     """
-    Load and parse structured configuration files (JSON/YAML) with caching.
+    Load and parse structured configuration files (JSON/YAML).
 
     Args:
         file_path: Path to the configuration file
@@ -123,17 +122,16 @@ def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict
     except Exception as e:
         raise ValueError(f"Problem loading fir {file_path}: {e}")
 
-@cached_operation("file_content_load")
 def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Union[bytes, str]:
     """
-    Load file contents with format detection and caching.
+    Load file contents with format detection.
 
     Args:
         file_path: Path to the file
         content_type: 'text', 'binary', or 'auto' (detect from file analysis)
 
     Returns:
-        Dictionary with 'type' and 'content' keys, plus optional metadata
+        File content as string (text) or bytes (binary)
 
     Raises:
         FileNotFoundError: If file doesn't exist

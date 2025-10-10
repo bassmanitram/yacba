@@ -34,8 +34,7 @@ from repl_toolkit import run_async_repl, run_headless_mode
 def _check_and_clear_cache_early():
     """Check for --clear-cache flag early and clear cache before config parsing."""
     if '--clear-cache' in sys.argv:
-        from utils.performance_utils import fs_cache
-        fs_cache.clear()
+        logger.info("Cache clearing requested but no performance cache is active")
 
 
 async def _run_agent_lifecycle(config: YacbaConfig) -> None:

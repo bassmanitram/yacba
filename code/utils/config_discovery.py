@@ -6,7 +6,6 @@ from loguru import logger
 
 from yacba_types.config import ToolDiscoveryResult
 from yacba_types.base import PathLike
-from .performance_utils import perf_monitor
 
 
 def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple[List[str], ToolDiscoveryResult]:
@@ -85,7 +84,6 @@ def _discover_single_directory(directory: PathLike) -> Tuple[List[str], List[dic
     # Convert to absolute paths
     file_paths = [str(Path(f).absolute()) for f in config_files]
     
-    perf_monitor.increment_counter("tool_discovery_attempts")
     logger.info(f"Found {len(file_paths)} tool configuration files in '{directory}'")
     
     # Log each found file

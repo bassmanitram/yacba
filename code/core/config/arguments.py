@@ -227,7 +227,6 @@ ARGUMENT_DEFAULTS = {
     "no_truncate_results": "False",
     "headless": "False",
     "show_tool_use": "False",
-    "clear_cache": "False",
     "response_prefix": "<b><darkcyan>Chatbot:</darkcyan></b> ",
     "cli_prompt": "<b><ansigreen>You:</ansigreen></b> "
 }
@@ -395,15 +394,6 @@ ARGUMENT_DEFINITIONS = [
         action="store_true",
         validator=_validate_bool,
         argname="show_tool_use"
-    ),
-
-    # Performance and debugging
-    ArgumentDefinition(
-        names=["--clear-cache"],
-        help="Clear the performance cache before starting.",
-        action="store_true",
-        validator=_validate_bool,
-        argname="clear_cache"
     ),
 
     # Configuration system arguments (added by integration layer)
