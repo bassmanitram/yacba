@@ -1,14 +1,16 @@
-#  Command registry for validation and help generation
+"""Command registry for validation and help generation."""
 from typing import Any
-from cli.commands.registry import CommandRegistry
-from cli.commands.base_command import BaseCommand
+from loguru import logger
+
+from repl_toolkit.commands.registry import CommandRegistry
+from repl_toolkit.commands.base import BaseCommand
 from .adapted_commands import AdaptedCommands
-from core.engine import YacbaEngine
+from ...strands_factory.backend_adapter import YacbaStrandsBackend
 
 COMMAND_REGISTRY = {
-    # : Session management
+    # Session management
     '/session': {
-        'handler': 'adapters.cli.commands.session_commands.SessionCommands',
+        'handler': 'adapters.repl_toolkit.commands.session_commands.SessionCommands',
         'category': 'Session Management',
         'description': 'Manage conversation sessions',
         'usage': [
@@ -18,34 +20,34 @@ COMMAND_REGISTRY = {
         ]
     },
     '/clear': {
-        'handler': 'adapters.cli.commands.session_commands.SessionCommands',
+        'handler': 'adapters.repl_toolkit.commands.session_commands.SessionCommands',
         'category': 'Session Management',
         'description': 'Clear current conversation',
         'usage': ['/clear - Clear conversation history']
     },
 
-    #  : Information commands
+    # Information commands
     '/history': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler': 'adapters.repl_toolkit.commands.info_commands.InfoCommands',
         'category': 'Information',
         'description': 'Show conversation history',
         'usage': ['/history - Display message history as JSON']
     },
     '/tools': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler': 'adapters.repl_toolkit.commands.info_commands.InfoCommands',
         'category': 'Information',
         'description': 'List available tools',
         'usage': ['/tools - Show currently loaded tools']
     },
     '/conversation-manager': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler': 'adapters.repl_toolkit.commands.info_commands.InfoCommands',
         'category': 'Information',
         'description': 'Show conversation manager configuration',
         'usage': ['/conversation-manager - Display current conversation '
                   'management settings']
     },
     '/conversation-stats': {
-        'handler': 'adapters.cli.commands.info_commands.InfoCommands',
+        'handler': 'adapters.repl_toolkit.commands.info_commands.InfoCommands',
         'category': 'Information',
         'description': 'Show conversation statistics',
         'usage': ['/conversation-stats - Display conversation memory '
@@ -55,12 +57,20 @@ COMMAND_REGISTRY = {
 
 
 class BackendCommandRegistry(CommandRegistry):
-    """Utility class for command registry operations."""
+    """Command registry that works with YacbaStrandsBackend."""
 
-    def __init__(self, engine: YacbaEngine):
+    def __init__(self, backend: YacbaStrandsBackend):
         super().__init__()
-        self.engine = engine
-        self.commands.update(COMMAND_REGISTRY)
+        self.backend = backend
+        # Register YACBA-specific commands on top of basic repl_toolkit commands
+        for command, config in COMMAND_REGISTRY.items():
+            self.add_command(
+                command=command,
+                handler_class=config.get('handler'),  # Will be resolved dynamically
+                category=config['category'],
+                description=config['description'],
+                usage=config['usage'][0] if isinstance(config['usage'], list) else config['usage']
+            )
 
     def _instantiate_handler(self, command: str,
                              handler_class: Any) -> BaseCommand:
@@ -77,5 +87,5 @@ class BackendCommandRegistry(CommandRegistry):
         if not issubclass(handler_class, AdaptedCommands):
             return super()._instantiate_handler(command, handler_class)
 
-        #  : For adapted commands, pass the engine instance
-        return handler_class(self, self.engine)
+        # For adapted commands, pass the backend instance
+        return handler_class(self, self.backend)

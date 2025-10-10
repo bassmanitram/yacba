@@ -6,8 +6,10 @@ interactive and headless interfaces with YACBA's existing
 command system and functionality.
 """
 
-from .command_adapter import YacbaCommandAdapter
+from .commands.registry import BackendCommandRegistry
+from .completer import YacbaCompleter
 
 __all__ = [
-    'YacbaCommandAdapter'
+    'BackendCommandRegistry',
+    'YacbaCompleter'
 ]

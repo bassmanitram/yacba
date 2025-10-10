@@ -12,7 +12,7 @@ from strands_agent_factory.core.agent import AgentProxy
 from repl_toolkit.ptypes import AsyncBackend, HeadlessBackend
 
 
-class YacbaStrandsBackend:
+class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
     """
     Adapter that wraps a strands_agent_factory AgentProxy to implement
     both AsyncBackend and HeadlessBackend protocols for repl_toolkit.
@@ -104,3 +104,34 @@ class YacbaStrandsBackend:
         except Exception as e:
             logger.error(f"Error clearing conversation: {e}")
             return False
+    
+    def get_tool_names(self) -> list[str]:
+        """
+        Get list of available tool names.
+        
+        Returns:
+            list[str]: List of tool names
+        """
+        try:
+            return getattr(self.agent_proxy, 'tool_names', [])
+        except Exception as e:
+            logger.error(f"Error getting tool names: {e}")
+            return []
+    
+    async def get_conversation_stats(self) -> dict:
+        """
+        Get conversation statistics.
+        
+        Returns:
+            dict: Statistics about the conversation
+        """
+        try:
+            # This will depend on what statistics the agent proxy provides
+            # For now, return basic info
+            return {
+                "message_count": len(getattr(self.agent_proxy, 'messages', [])),
+                "tool_count": len(self.get_tool_names())
+            }
+        except Exception as e:
+            logger.error(f"Error getting conversation stats: {e}")
+            return {}

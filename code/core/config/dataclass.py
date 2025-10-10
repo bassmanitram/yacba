@@ -3,19 +3,21 @@ Typed configuration object for YACBA focused on core responsibilities.
 
 YACBA manages:
 - Model configuration and framework selection
-- Tool configuration (not execution)
+- Tool configuration paths (not parsing/execution)
 - File processing and session persistence
 - CLI orchestration
 
-Tool execution and protocol details are handled by strands-agents.
+Tool parsing and execution are handled by strands_agent_factory.
 """
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Literal
+from pathlib import Path
 
 # Import our focused types
-from yacba_types.config import ToolConfig, FileUpload, ToolDiscoveryResult
+from yacba_types.config import FileUpload, ToolDiscoveryResult
 from yacba_types.content import Message
+from yacba_types.base import PathLike
 
 # Type for conversation manager strategies
 ConversationManagerType = Literal["null", "sliding_window", "summarizing"]
@@ -24,13 +26,13 @@ ConversationManagerType = Literal["null", "sliding_window", "summarizing"]
 class YacbaConfig:
     """
     A strongly typed data class for YACBA's core configuration responsibilities.
-    Focused on what YACBA manages, not what strands-agents handles.
+    Focused on what YACBA manages, not what strands_agent_factory handles.
     """
     # Core configuration (YACBA's primary responsibilities)
     model_string: str                           # Model selection and framework detection
     system_prompt: str                          # System prompt management
     prompt_source: str                          # Source tracking for debugging
-    tool_configs: List[ToolConfig]              # Tool configuration (not execution)
+    tool_config_paths: List[PathLike]           # Tool config file paths (not parsed configs)
     startup_files_content: Optional[List[Message]]  # Processed startup files
 
     # Optional configuration with defaults
@@ -107,6 +109,11 @@ class YacbaConfig:
     def has_startup_files(self) -> bool:
         """Check if there are startup files configured."""
         return bool(self.files_to_upload)
+
+    @property
+    def has_tool_configs(self) -> bool:
+        """Check if there are tool config paths configured."""
+        return bool(self.tool_config_paths)
 
     @property
     def framework_name(self) -> str:
