@@ -6,12 +6,12 @@ interface while maintaining compatibility with the underlying system.
 """
 
 from repl_toolkit.commands.base import BaseCommand
-from ...strands_factory.backend_adapter import YacbaStrandsBackend
+from ..backend import YacbaBackend
 
 
 class AdaptedCommands(BaseCommand):
-    """Commands that have been adapted for CLI use with YacbaStrandsBackend."""
+    """Commands that have been adapted for CLI use with YacbaBackend."""
     
-    def __init__(self, registry, backend: YacbaStrandsBackend):
+    def __init__(self, registry, backend: YacbaBackend):
         super().__init__(registry)
         self.backend = backend

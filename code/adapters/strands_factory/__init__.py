@@ -6,9 +6,7 @@ and architecture to work with strands_agent_factory components.
 """
 
 from .config_converter import YacbaToStrandsConfigConverter
-from .backend_adapter import YacbaStrandsBackend
 
 __all__ = [
-    'YacbaToStrandsConfigConverter',
-    'YacbaStrandsBackend'
+    'YacbaToStrandsConfigConverter'
 ]

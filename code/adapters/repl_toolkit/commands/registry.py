@@ -5,7 +5,7 @@ from loguru import logger
 from repl_toolkit.commands.registry import CommandRegistry
 from repl_toolkit.commands.base import BaseCommand
 from .adapted_commands import AdaptedCommands
-from ...strands_factory.backend_adapter import YacbaStrandsBackend
+from ..backend import YacbaBackend
 
 COMMAND_REGISTRY = {
     # Session management
@@ -56,10 +56,10 @@ COMMAND_REGISTRY = {
 }
 
 
-class BackendCommandRegistry(CommandRegistry):
-    """Command registry that works with YacbaStrandsBackend."""
+class YacbaCommandRegistry(CommandRegistry):
+    """Command registry that works with YacbaBackend."""
 
-    def __init__(self, backend: YacbaStrandsBackend):
+    def __init__(self, backend: YacbaBackend):
         super().__init__()
         self.backend = backend
         # Register YACBA-specific commands on top of basic repl_toolkit commands

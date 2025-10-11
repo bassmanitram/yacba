@@ -25,7 +25,8 @@ from yacba_types import ExitCode
 
 # strands_agent_factory integration
 from strands_agent_factory import AgentFactory
-from adapters.strands_factory import YacbaToStrandsConfigConverter, YacbaStrandsBackend
+from adapters.strands_factory import YacbaToStrandsConfigConverter
+from adapters.repl_toolkit import YacbaBackend
 
 # repl_toolkit integration
 from repl_toolkit import run_async_repl, run_headless_mode
@@ -60,7 +61,7 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         agent = factory.create_agent()  # This should be synchronous after initialization
         
         # Create backend adapter
-        backend = YacbaStrandsBackend(agent)
+        backend = YacbaBackend(agent)
         
         # Create agent proxy for startup info
         class AgentProxy:
@@ -138,7 +139,7 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
         logger.warning(f"Error printing startup info: {e}")
 
 
-async def _run_headless_mode(backend: YacbaStrandsBackend, config: YacbaConfig) -> None:
+async def _run_headless_mode(backend: YacbaBackend, config: YacbaConfig) -> None:
     """
     Run in headless mode using repl_toolkit.
     
@@ -158,7 +159,7 @@ async def _run_headless_mode(backend: YacbaStrandsBackend, config: YacbaConfig) 
         sys.exit(ExitCode.RUNTIME_ERROR)
 
 
-async def _run_interactive_mode(backend: YacbaStrandsBackend, config: YacbaConfig) -> None:
+async def _run_interactive_mode(backend: YacbaBackend, config: YacbaConfig) -> None:
     """
     Run in interactive mode using repl_toolkit.
     

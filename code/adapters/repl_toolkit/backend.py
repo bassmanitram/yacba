@@ -12,7 +12,7 @@ from strands_agent_factory.core.agent import AgentProxy
 from repl_toolkit.ptypes import AsyncBackend, HeadlessBackend
 
 
-class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
+class YacbaBackend(AsyncBackend, HeadlessBackend):
     """
     Adapter that wraps a strands_agent_factory AgentProxy to implement
     both AsyncBackend and HeadlessBackend protocols for repl_toolkit.
@@ -29,7 +29,7 @@ class YacbaStrandsBackend(AsyncBackend, HeadlessBackend):
             agent_proxy: The strands_agent_factory AgentProxy instance
         """
         self.agent_proxy = agent_proxy
-        logger.debug("Initialized YacbaStrandsBackend with AgentProxy")
+        logger.debug("Initialized YacbaBackend with AgentProxy")
     
     async def handle_input(self, user_input: str) -> bool:
         """
