@@ -14,10 +14,6 @@ from typing import NoReturn
 # Configure logging early
 from loguru import logger
 
-# Add paths for the new dependencies (temporary for development)
-sys.path.insert(0, "/home/jbartle9/tmp/strands_agent_factory")
-sys.path.insert(0, "/home/jbartle9/tmp/repl_toolkit")
-
 # YACBA core functionality - configuration and startup
 from core import parse_config, YacbaConfig
 from utils.startup_messages import print_startup_info, print_welcome_message
@@ -63,22 +59,8 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         # Create backend adapter
         backend = YacbaBackend(agent)
         
-        # Create agent proxy for startup info
-        class AgentProxy:
-            def __init__(self, agent_instance):
-                self.agent = agent_instance
-                
-            def get_available_tools(self):
-                """Get list of available tool names."""
-                try:
-                    return self.agent.tool_names if hasattr(self.agent, 'tool_names') else []
-                except Exception:
-                    return []
-                    
-        agent_proxy = AgentProxy(agent)
-        
-        # Print startup information using YACBA's existing functionality
-        _print_startup_info(config, agent_proxy)
+        # Print startup information
+        _print_startup_info(config, backend)
         
         # Run in appropriate mode
         if config.headless:
