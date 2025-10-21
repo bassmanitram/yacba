@@ -65,6 +65,12 @@ async def run_headless_mode(backend: ChatBackend, initial_message: str = None, v
                     print("[/send command received]", file=stderr)
                 break # '/send' command received, process buffer
             
+            if line.strip() == "/clear":
+                if verbose:
+                    print("[/clear command received]", file=stderr)
+                backend.session_manager.clear()
+                break # '/clear' command received, clear the context
+            
             current_input_buffer.append(line)
             # Optional: provide user feedback by echoing input to stderr
             # print(f"> {line.strip()}", file=stderr) 

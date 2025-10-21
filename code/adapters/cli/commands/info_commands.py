@@ -61,12 +61,12 @@ class InfoCommands(AdaptedCommands):
             return
 
         try:
-            if not self.agent.messages:
+            if not self.engine.agent.messages:
                 self.print_info("No conversation history available.")
                 return
 
             #  Format the history nicely
-            history_json = json.dumps(self.agent.messages, indent=2,
+            history_json = json.dumps(self.engine.agent.messages, indent=2,
                                       ensure_ascii=False)
             self.print_info(": Current conversation history:")
             self.print_info(history_json)
@@ -176,7 +176,7 @@ class InfoCommands(AdaptedCommands):
             return
 
         try:
-            agent = self.agent
+            agent = self.engine.agent
             manager = self.engine.conversation_manager
 
             current_messages = len(agent.messages) if agent.messages else 0

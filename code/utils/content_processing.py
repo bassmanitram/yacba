@@ -26,7 +26,6 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
     if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
         logger.warning(f"Skipping file '{file_path}' because it exceeds the {MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB size limit.")
         return {
-            "type": "text",
             "text": f"\n[Content of file '{file_path.name}' was skipped because it is too large.]\n"
         }
 
@@ -53,6 +52,7 @@ def _process_single_file(file_path: Path, mimetype: str) -> Optional[Dict[str, A
             }
         }
 
+    logger.debug(f"format check for file {file_path}: {format}")
     # Known document types
     if format in DOCUMENT_TYPES:
         return {
@@ -147,6 +147,20 @@ def files_to_content_blocks(
 
     return content_blocks
 
+def debug_print_content_blocks(blocks: List[Dict[str, Any]]) -> None:
+    """Utility function to print content blocks for debugging."""
+    for block in blocks:
+        if block.get("text") is not None:
+            logger.debug(f"Text Block: {block['text'][:100]}...")  # Print first 100 chars
+        elif "image" in block:
+            logger.debug(f"Image Block: format={block['image']['format']}, size={len(block['image']['source']['bytes'])} bytes")
+        elif "video" in block:
+            logger.debug(f"Video Block: format={block['video']['format']}, size={len(block['video']['source']['bytes'])} bytes")
+        elif "document" in block:
+            logger.debug(f"Document Block: name={block['document']['name']}, format={block['document']['format']}, size={len(block['document']['source']['bytes'])} bytes")
+        else:
+            logger.debug(f"Unknown Block Type: {block}")
+    return "Block count: " + str(len(blocks))
 
 def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[Dict[str, Any]]]:
     """Parses user input for file(...) syntax."""
@@ -170,19 +184,21 @@ def parse_input_with_files(user_input: str, max_files: int) -> Union[str, List[D
 
         # Use unified file processing
         files_list = process_path_argument(path, mimetype, max_files=remaining_slots)
+        logger.debug(f"Referenced file list: {files_list}")
         file_blocks = files_to_content_blocks(files_list, add_headers=False, max_files=remaining_slots)
+        logger.debug(debug_print_content_blocks(file_blocks))
         content.extend(file_blocks)
 
         last_index = match.end()
 
     if not content:
+        logger.debug("No file() patterns found in input.")
         return user_input.strip()
 
     text_after = user_input[last_index:].strip()
     if text_after:
-        content.append({"type": "text", "text": text_after})
+        content.append({"text": text_after})
 
-    if not any('source' in item for item in content):
-        return "".join(item.get("text", "") for item in content)
-
+    logger.debug(debug_print_content_blocks(content))
+    
     return content
