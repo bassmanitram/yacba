@@ -2,20 +2,20 @@
 Backend adapter implementing repl_toolkit protocols for strands_agent_factory.
 
 This module provides the bridge between YACBA's strands_agent_factory Agent
-and the repl_toolkit AsyncBackend/HeadlessBackend protocols.
+and the repl_toolkit AsyncBackend protocol
 """
 
 from typing import Optional
 from loguru import logger
 
 from strands_agent_factory.core.agent import AgentProxy
-from repl_toolkit.ptypes import AsyncBackend, HeadlessBackend
+from repl_toolkit.ptypes import AsyncBackend
 
 
-class YacbaBackend(AsyncBackend, HeadlessBackend):
+class YacbaBackend(AsyncBackend):
     """
     Adapter that wraps a strands_agent_factory AgentProxy to implement
-    both AsyncBackend and HeadlessBackend protocols for repl_toolkit.
+    both AsyncBackend protocol for repl_toolkit.
     
     This allows YACBA to use repl_toolkit's interactive and headless
     interfaces while leveraging strands_agent_factory for agent management.
@@ -35,7 +35,7 @@ class YacbaBackend(AsyncBackend, HeadlessBackend):
         """
         Handle user input by processing it through the agent.
         
-        This method implements both AsyncBackend and HeadlessBackend protocols
+        This method implements both AsyncBackend an protocols
         by providing a unified interface for processing user input.
         
         Args:
@@ -51,10 +51,8 @@ class YacbaBackend(AsyncBackend, HeadlessBackend):
         logger.debug(f"Processing user input: {user_input[:100]}{'...' if len(user_input) > 100 else ''}")
         
         try:
-            # Use the AgentProxy with synchronous context manager
-            with self.agent_proxy as agent:
-                success = await agent.send_message_to_agent(user_input)
-            
+
+            success = await self.agent_proxy.send_message_to_agent(user_input,show_user_input=False)           
             if success:
                 logger.debug("Input processed successfully")
             else:
@@ -89,7 +87,7 @@ class YacbaBackend(AsyncBackend, HeadlessBackend):
         # AgentProxy should be ready if it was created successfully
         return self.agent_proxy is not None
     
-    async def clear_conversation(self) -> bool:
+    def clear_conversation(self) -> bool:
         """
         Clear the conversation history.
         
@@ -98,8 +96,7 @@ class YacbaBackend(AsyncBackend, HeadlessBackend):
         """
         try:
             # Access the underlying agent and clear messages using synchronous context manager
-            with self.agent_proxy as agent:
-                agent.clear_messages()
+            self.agent_proxy.clear_messages()
             logger.debug("Conversation history cleared")
             return True
         except Exception as e:
@@ -114,14 +111,12 @@ class YacbaBackend(AsyncBackend, HeadlessBackend):
             list[str]: List of tool names
         """
         try:
-            # For getting tool names, we might not need the context manager
-            # if it's just accessing a property
-            return getattr(self.agent_proxy, 'tool_names', [])
+            return self.agent_proxy.tools
         except Exception as e:
             logger.error(f"Error getting tool names: {e}")
             return []
     
-    async def get_conversation_stats(self) -> dict:
+    def get_conversation_stats(self) -> dict:
         """
         Get conversation statistics.
         

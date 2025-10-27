@@ -43,6 +43,10 @@ class YacbaToStrandsConfigConverter:
             AgentFactoryConfig: Converted configuration for strands_agent_factory
         """
         logger.debug("Converting YACBA config to strands_agent_factory config")
+
+        if self.yacba_config._agent_factory_config is not None:
+            logger.debug("Using cached AgentFactoryConfig")
+            return self.yacba_config._agent_factory_config  # type: ignore
         
         # Convert tool configurations to paths
         tool_config_paths = self._convert_tool_configs()
@@ -85,6 +89,8 @@ class YacbaToStrandsConfigConverter:
             show_tool_use=self.yacba_config.show_tool_use,
             response_prefix=self.yacba_config.response_prefix,
         )
+        # Cache the converted config for future use
+        self.yacba_config._agent_factory_config = config
         
         logger.debug(f"Converted config with {len(tool_config_paths)} tool configs and {len(file_paths)} files")
         return config

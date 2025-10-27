@@ -15,17 +15,19 @@ from typing import NoReturn
 from loguru import logger
 
 # YACBA core functionality - configuration and startup
+from adapters.repl_toolkit.completer import YacbaCompleter
 from core import parse_config, YacbaConfig
 from utils.startup_messages import print_startup_info, print_welcome_message
 from yacba_types import ExitCode
 
 # strands_agent_factory integration
 from strands_agent_factory import AgentFactory
+from strands_agent_factory.core.agent import AgentProxy
 from adapters.strands_factory import YacbaToStrandsConfigConverter
-from adapters.repl_toolkit import YacbaBackend
 
 # repl_toolkit integration
-from repl_toolkit import run_async_repl, run_headless_mode
+from repl_toolkit import AsyncREPL, HeadlessREPL
+from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry
 
 
 def _check_and_clear_cache_early():
@@ -56,22 +58,18 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         # Create the agent
         agent = factory.create_agent()  # This should be synchronous after initialization
         
-        # Create backend adapter
-        backend = YacbaBackend(agent)
-        
-        # Print startup information
-        _print_startup_info(config, backend)
+        # Create action registry with backend
+        action_registry = YacbaActionRegistry()
         
         # Run in appropriate mode
         if config.headless:
-            await _run_headless_mode(backend, config)
+            await _run_headless_mode(agent, action_registry, config)
         else:
-            await _run_interactive_mode(backend, config)
+            await _run_interactive_mode(agent, action_registry, config)
                 
     except Exception as e:
         logger.error(f"Fatal error in agent lifecycle: {e}")
         sys.exit(ExitCode.FATAL_ERROR)
-
 
 def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
     """
@@ -86,42 +84,23 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
         model_id = config.model_string or "Unknown"
         system_prompt = config.system_prompt or "No system prompt"
         prompt_source = config.prompt_source or "configuration"
-        
-        # Create dummy tool system status for compatibility
-        from yacba_types.tools import ToolSystemStatus, ToolProcessingResult
-        from yacba_types.config import ToolDiscoveryResult
-        
-        # Create minimal status objects
-        discovery_result = ToolDiscoveryResult(
-            successful_configs=[],
-            failed_configs=[],
-            total_files_scanned=0
-        )
-        
-        tool_status = ToolSystemStatus(
-            discovery_result=discovery_result,
-            processing_results=[],
-            total_tools_loaded=len(agent_proxy.get_available_tools())
-        )
-        
-        # Get startup files (empty for now)
-        startup_files = []
+        factory_config = config.agent_factory_config or {}
         
         # Use YACBA's existing startup message function
         print_startup_info(
             model_id=model_id,
             system_prompt=system_prompt,
             prompt_source=prompt_source,
-            tool_system_status=tool_status,
-            startup_files=startup_files,
+            tools=agent_proxy.tool_specs or [],
+            startup_files=factory_config.file_paths or [],
             conversation_manager_info=f"Conversation Manager: {config.conversation_manager_type}"
         )
             
     except Exception as e:
-        logger.warning(f"Error printing startup info: {e}")
+        logger.error(f"Error printing startup info: {e}")
 
 
-async def _run_headless_mode(backend: YacbaBackend, config: YacbaConfig) -> None:
+async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig) -> None:
     """
     Run in headless mode using repl_toolkit.
     
@@ -130,47 +109,68 @@ async def _run_headless_mode(backend: YacbaBackend, config: YacbaConfig) -> None
         config: YACBA configuration
     """
     logger.info("Starting headless mode...")
-    
-    success = await run_headless_mode(
-        backend=backend,
-        initial_message=config.initial_message
+
+    repl = HeadlessREPL(        
+        action_registry=action_registry,
     )
-    
+
+    success = False
+    with agent as agent_context:
+        # Create backend adapter
+        backend = YacbaBackend(agent_context)
+       
+        # Run the async REPL
+        success = await repl.run(
+            backend=backend,
+            initial_message=config.initial_message,
+        )
+
     if not success:
         logger.error("Headless mode completed with errors")
         sys.exit(ExitCode.RUNTIME_ERROR)
 
 
-async def _run_interactive_mode(backend: YacbaBackend, config: YacbaConfig) -> None:
+async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig) -> None:
     """
     Run in interactive mode using repl_toolkit.
     
     Args:
-        backend: The backend adapter  
+        backend: The backend adapter
+        action_registry: The action registry
         config: YACBA configuration
     """
     logger.info("Starting interactive mode...")
     
-    # Disable completer for now to avoid async issues - can be re-enabled later
-    completer = None
+    # Create the custom completer
+    completer = YacbaCompleter(meta_commands=action_registry.list_commands())
     
     # Prepare history path
-    history_path = None
-    if config.has_session:
+    if config.session_name:
         sessions_dir = Path.home() / ".yacba" / "sessions"
         sessions_dir.mkdir(parents=True, exist_ok=True)
         history_path = sessions_dir / f"{config.session_name}_history.txt"
+    else:
+        history_path = Path.home() / ".yacba/history.txt"  # No session, no history file
     
-    # Run the async REPL without command handler (let repl_toolkit handle basic commands)
-    await run_async_repl(
-        backend=backend,
-        command_handler=None,  # No custom command handler needed
-        completer=completer,  # Disabled for now
-        initial_message=config.initial_message,
+    repl = AsyncREPL(        
+        action_registry=action_registry,
+        completer=completer,
         prompt_string=config.cli_prompt or "User: ",
         history_path=history_path
     )
 
+    with agent as agent_context:
+        # Create backend adapter
+        backend = YacbaBackend(agent_context)
+
+        # Print startup information
+        _print_startup_info(config, agent_context)
+        
+        # Run the async REPL
+        await repl.run(
+            backend=backend,
+            initial_message=config.initial_message,
+        )
 
 def main() -> NoReturn:
     """

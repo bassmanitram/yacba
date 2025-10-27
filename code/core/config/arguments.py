@@ -227,8 +227,8 @@ ARGUMENT_DEFAULTS = {
     "no_truncate_results": "False",
     "headless": "False",
     "show_tool_use": "False",
-    "response_prefix": "<b><darkcyan>Chatbot:</darkcyan></b> ",
-    "cli_prompt": "<b><ansigreen>You:</ansigreen></b> "
+    "response_prefix": "<b><darkcyan>🤖 Assistant:</darkcyan></b> ",
+    "cli_prompt": "<b><ansigreen>👤 You:</ansigreen></b> "
 }
 
 ARGUMENT_DEFINITIONS = [
