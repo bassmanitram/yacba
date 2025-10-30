@@ -5,6 +5,7 @@ from loguru import logger
 from repl_toolkit import ActionRegistry
 from .session_actions import register_session_actions
 from .info_actions import register_info_actions
+from .status_action import register_status_actions
 
 class YacbaActionRegistry(ActionRegistry):
     """Action registry that integrates YACBA-specific actions with repl-toolkit."""
@@ -17,4 +18,5 @@ class YacbaActionRegistry(ActionRegistry):
         logger.debug("Registering YACBA actions")
         register_session_actions(self)
         register_info_actions(self)
+        register_status_actions(self)
         logger.debug(f"Registered {len(self.actions)} total actions")

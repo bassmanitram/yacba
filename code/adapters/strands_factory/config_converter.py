@@ -11,7 +11,13 @@ from loguru import logger
 
 from strands_agent_factory import AgentFactoryConfig
 from config.dataclass import YacbaConfig
-from repl_toolkit import create_auto_printer
+
+# Import create_auto_printer - available in project virtual environment
+try:
+    from repl_toolkit import create_auto_printer
+except ImportError:
+    # Fallback for testing outside project venv
+    create_auto_printer = lambda: print
 
 # Define the type locally since it's just a literal
 ConversationManagerType = Literal["null", "sliding_window", "summarizing"]

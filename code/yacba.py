@@ -57,9 +57,9 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         
         # Run in appropriate mode
         if config.headless:
-            await _run_headless_mode(agent, action_registry, config)
+            await _run_headless_mode(agent, action_registry, config, strands_config)
         else:
-            await _run_interactive_mode(agent, action_registry, config)
+            await _run_interactive_mode(agent, action_registry, config, strands_config)
                 
     except Exception as e:
         logger.error(f"Fatal error in agent lifecycle: {e}")
@@ -93,7 +93,7 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
         logger.error(f"Error printing startup info: {e}")
 
 
-async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig) -> None:
+async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig, strands_config) -> None:
     """
     Run in headless mode using repl_toolkit.
     
@@ -101,6 +101,7 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
         agent: The agent proxy
         action_registry: The action registry
         config: YACBA configuration
+        strands_config: Converted strands_agent_factory configuration
     """
     logger.info("Starting headless mode...")
 
@@ -111,7 +112,7 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
     success = False
     with agent as agent_context:
         # Create backend adapter
-        backend = YacbaBackend(agent_context)
+        backend = YacbaBackend(agent_context, strands_config)
        
         # Run the async REPL
         success = await repl.run(
@@ -124,7 +125,7 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
         sys.exit(ExitCode.RUNTIME_ERROR)
 
 
-async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig) -> None:
+async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig, strands_config) -> None:
     """
     Run in interactive mode using repl_toolkit.
     
@@ -132,6 +133,7 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
         agent: The agent proxy
         action_registry: The action registry
         config: YACBA configuration
+        strands_config: Converted strands_agent_factory configuration
     """
     logger.info("Starting interactive mode...")
     
@@ -157,7 +159,7 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
 
     with agent as agent_context:
         # Create backend adapter
-        backend = YacbaBackend(agent_context)
+        backend = YacbaBackend(agent_context, strands_config)
 
         # Print startup information
         _print_startup_info(config, agent_context)
