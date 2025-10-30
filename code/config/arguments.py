@@ -166,14 +166,14 @@ def _validate_file_path(p):
 
 
 def _validate_existing_file(path_str: str) -> str:
-    p = pathlib.Path(path_str)
+    p = pathlib.Path(path_str).expanduser()
     if not p.is_file():
         raise ValueError(f"File {path_str} does not exist")
     return str(p.resolve())
 
 
 def _validate_existing_dir(path_str: str) -> str:
-    p = pathlib.Path(path_str)
+    p = pathlib.Path(path_str).expanduser()
     if not p.is_dir():
         raise ValueError(f"Directory {path_str} does not exist")
     return str(p.resolve())
@@ -182,7 +182,7 @@ def _validate_existing_dir(path_str: str) -> str:
 def _validate_file_or_str(file_or_str: str) -> str:
     if file_or_str.startswith("@"):
         path_str = file_or_str[1:]
-        p = pathlib.Path(path_str)
+        p = pathlib.Path(path_str).expanduser()
         if not p.is_file():
             raise ValueError(f"File {path_str} does not exist")
         try:
@@ -235,7 +235,7 @@ ARGUMENT_DEFINITIONS = [
     # Core model configuration
     ArgumentDefinition(
         names=["-m", "--model"],
-        help="The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm: gemini/gemini-2.5-flash",
+        help="The model to use, in <framework>:<model_id> format. Default from YACBA_MODEL_ID or litellm:gemini/gemini-2.5-flash",
         argname="model",
     ),
 
@@ -248,7 +248,7 @@ ARGUMENT_DEFINITIONS = [
 
     ArgumentDefinition(
         names=["-c", "--config-override"],
-        help="Override model configuration property. Format: 'property.path: value'. Can be used multiple times.",
+        help="Override model configuration property. Format: 'property.path:value'. Can be used multiple times.",
         action="append",
         argname="config_override",
     ),
@@ -339,7 +339,7 @@ ARGUMENT_DEFINITIONS = [
 
     ArgumentDefinition(
         names=["--summarization-model"],
-        help="Optional separate model for summarization (e.g., 'litellm: gemini/gemini-2.5-flash' for cheaper summaries).",
+        help="Optional separate model for summarization (e.g., 'litellm:gemini/gemini-2.5-flash' for cheaper summaries).",
         argname="summarization_model",
     ),
 
@@ -348,6 +348,21 @@ ARGUMENT_DEFINITIONS = [
         help="Custom system prompt for summarization. If not provided, uses built-in prompt.",
         argname="custom_summarization_prompt",
     ),
+
+    ArgumentDefinition(
+        names=["--summarization-model-config"],
+        help="Path to a JSON file containing summarization model configuration (e.g., temperature, max_tokens).",
+        validator=_validate_existing_file,
+        argname="summarization_model_config",
+    ),
+
+    ArgumentDefinition(
+        names=["-C", "--summarization-config-override"],
+        help="Override summarization model configuration property. Format: 'property.path:value'. Can be used multiple times.",
+        action="append",
+        argname="summarization_config_override",
+    ),
+
 
     ArgumentDefinition(
         names=["--no-truncate-results"],
@@ -396,18 +411,18 @@ ARGUMENT_DEFINITIONS = [
         argname="show_tool_use"
     ),
 
-    # Configuration system arguments (added by integration layer)
+    # Configuration system arguments
     ArgumentDefinition(
         names=["--profile"],
-        help="Use named profile from configuration file",
+        help="Use named profile from configuration file (auto-discovered at ./.yacba/config.yaml or ~/.yacba/config.yaml)",
         argname="profile"
     ),
 
     ArgumentDefinition(
-        names=["--config"],
-        help="Path to configuration file",
+        names=["--config-file"],
+        help="Path to configuration file (yaml, json, toml) to use as overrides. Overrides discovered configs but is overridden by CLI arguments.",
         validator=_validate_existing_file,
-        argname="config"
+        argname="config_file"
     ),
 
     ArgumentDefinition(

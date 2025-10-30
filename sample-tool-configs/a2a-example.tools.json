@@ -1,0 +1,25 @@
+{
+  "tools": [
+    {
+      "id": "research-agents",
+      "type": "a2a",
+      "urls": [
+        "https://research-agent-1.example.com",
+        "https://research-agent-2.example.com"
+      ],
+      "timeout": 300
+    },
+    {
+      "id": "production-agents", 
+      "type": "a2a",
+      "urls": [
+        "https://prod-agent-1.example.com",
+        "https://prod-agent-2.example.com",
+        "https://prod-agent-3.example.com"
+      ],
+      "timeout": 600,
+      "webhook_url": "https://my-webhook.example.com/notify",
+      "webhook_token": "${A2A_WEBHOOK_TOKEN}"
+    }
+  ]
+}

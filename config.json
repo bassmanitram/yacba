@@ -1,0 +1,5 @@
+{
+  "model": "openai:gpt-4",
+  "headless": true,
+  "show_tool_use": false
+}

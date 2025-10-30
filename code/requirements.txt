@@ -1,6 +1,6 @@
 # New dependencies for refactored architecture
--e /home/jbartle9/tmp/strands-agent-factory
--e /home/jbartle9/tmp/repl-toolkit
-
+strands-agent-factory
+repl-toolkit
+profile-config
 loguru
 pyyaml

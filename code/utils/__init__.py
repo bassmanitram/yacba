@@ -7,7 +7,7 @@ from .file_utils import (
     get_file_size
 )
 from .general_utils import clean_dict
-from .config_discovery import discover_tool_configs
+from .config_utils import discover_tool_configs
 
 __all__ = [
     'get_file_size', 'clean_dict',

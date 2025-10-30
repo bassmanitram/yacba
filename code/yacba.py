@@ -16,7 +16,7 @@ from loguru import logger
 
 # YACBA core functionality - configuration and startup
 from adapters.repl_toolkit.completer import YacbaCompleter
-from core import parse_config, YacbaConfig
+from config import parse_config, YacbaConfig
 from utils.startup_messages import print_startup_info, print_welcome_message
 from yacba_types import ExitCode
 
@@ -28,12 +28,6 @@ from adapters.strands_factory import YacbaToStrandsConfigConverter
 # repl_toolkit integration
 from repl_toolkit import AsyncREPL, HeadlessREPL
 from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry
-
-
-def _check_and_clear_cache_early():
-    """Check for --clear-cache flag early and clear cache before config parsing."""
-    if '--clear-cache' in sys.argv:
-        logger.info("Cache clearing requested but no performance cache is active")
 
 
 async def _run_agent_lifecycle(config: YacbaConfig) -> None:
@@ -84,7 +78,6 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
         model_id = config.model_string or "Unknown"
         system_prompt = config.system_prompt or "No system prompt"
         prompt_source = config.prompt_source or "configuration"
-        factory_config = config.agent_factory_config or {}
         
         # Use YACBA's existing startup message function
         print_startup_info(
@@ -92,7 +85,7 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
             system_prompt=system_prompt,
             prompt_source=prompt_source,
             tools=agent_proxy.tool_specs or [],
-            startup_files=factory_config.file_paths or [],
+            startup_files=config.files_to_upload or [],
             conversation_manager_info=f"Conversation Manager: {config.conversation_manager_type}"
         )
             
@@ -105,7 +98,8 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
     Run in headless mode using repl_toolkit.
     
     Args:
-        backend: The backend adapter
+        agent: The agent proxy
+        action_registry: The action registry
         config: YACBA configuration
     """
     logger.info("Starting headless mode...")
@@ -122,7 +116,7 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
         # Run the async REPL
         success = await repl.run(
             backend=backend,
-            initial_message=config.initial_message,
+            initial_message="Evaluate" if agent.has_initial_messages else None,
         )
 
     if not success:
@@ -135,7 +129,7 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
     Run in interactive mode using repl_toolkit.
     
     Args:
-        backend: The backend adapter
+        agent: The agent proxy
         action_registry: The action registry
         config: YACBA configuration
     """
@@ -156,7 +150,9 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
         action_registry=action_registry,
         completer=completer,
         prompt_string=config.cli_prompt or "User: ",
-        history_path=history_path
+        history_path=history_path,
+        enable_system_prompt=True,
+        enable_suspend=True
     )
 
     with agent as agent_context:
@@ -169,7 +165,7 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
         # Run the async REPL
         await repl.run(
             backend=backend,
-            initial_message=config.initial_message,
+            initial_message="Evaluate" if agent.has_initial_messages else None,
         )
 
 def main() -> NoReturn:
@@ -180,9 +176,6 @@ def main() -> NoReturn:
     or exits with an error code.
     """
     try:
-        # Check for cache clearing before any imports that might use cache
-        _check_and_clear_cache_early()
-        
         print_welcome_message()
         
         # Parse configuration

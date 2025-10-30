@@ -39,6 +39,7 @@ class YacbaConfig:
     headless: bool = False                      # CLI mode selection
     model_config: dict = field(default_factory=dict) # Model parameters
     session_name: Optional[str] = None          # Session persistence
+    summarization_model_config: dict = field(default_factory=dict) # Summarization model parameters
     agent_id: Optional[str] = None              # Session namespace
     emulate_system_prompt: bool = False         # Framework compatibility
     show_tool_use: bool = False
@@ -61,8 +62,6 @@ class YacbaConfig:
     summarization_model: Optional[str] = None   # Optional separate model for summarization
     custom_summarization_prompt: Optional[str] = None  # Custom prompt for summarization
     should_truncate_results: bool = True        # Whether to truncate tool results on overflow
-
-    _agent_factory_config: Optional[dict] = field(default=None, repr=False)  # Internal cache for converted config
 
     def __post_init__(self) -> None:
         """Inter-value validation of configuration after initialization."""
@@ -106,11 +105,6 @@ class YacbaConfig:
                 framework, model = self.summarization_model.split(":", 1)
                 if not framework or not model:
                     raise ValueError(f"Invalid summarization_model format: {self.summarization_model}")
-
-    @property
-    def agent_factory_config(self) -> Optional[dict]:
-        """Get cached converted AgentFactoryConfig if available."""
-        return self._agent_factory_config
 
     @property
     def has_startup_files(self) -> bool:

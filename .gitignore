@@ -209,3 +209,4 @@ backups*/**
 *yacba-session.*
 .yacba_cache
 .yacba_history
+docs/research/*

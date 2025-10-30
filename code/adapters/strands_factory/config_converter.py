@@ -10,8 +10,8 @@ from typing import List, Tuple, Optional, Any, Dict, Literal
 from loguru import logger
 
 from strands_agent_factory import AgentFactoryConfig
-from core.config.dataclass import YacbaConfig
-from yacba_types.config import ToolConfig
+from config.dataclass import YacbaConfig
+from repl_toolkit import create_auto_printer
 
 # Define the type locally since it's just a literal
 ConversationManagerType = Literal["null", "sliding_window", "summarizing"]
@@ -43,10 +43,6 @@ class YacbaToStrandsConfigConverter:
             AgentFactoryConfig: Converted configuration for strands_agent_factory
         """
         logger.debug("Converting YACBA config to strands_agent_factory config")
-
-        if self.yacba_config._agent_factory_config is not None:
-            logger.debug("Using cached AgentFactoryConfig")
-            return self.yacba_config._agent_factory_config  # type: ignore
         
         # Convert tool configurations to paths
         tool_config_paths = self._convert_tool_configs()
@@ -82,15 +78,15 @@ class YacbaToStrandsConfigConverter:
             preserve_recent_messages=self.yacba_config.preserve_recent_messages,
             summary_ratio=self.yacba_config.summary_ratio,
             summarization_model=self.yacba_config.summarization_model,
+            summarization_model_config=self.yacba_config.summarization_model_config,
             custom_summarization_prompt=self.yacba_config.custom_summarization_prompt,
             should_truncate_results=self.yacba_config.should_truncate_results,
             
             # UI customization
             show_tool_use=self.yacba_config.show_tool_use,
             response_prefix=self.yacba_config.response_prefix,
+            output_printer=create_auto_printer(),  # Auto-format HTML/ANSI in response_prefix
         )
-        # Cache the converted config for future use
-        self.yacba_config._agent_factory_config = config
         
         logger.debug(f"Converted config with {len(tool_config_paths)} tool configs and {len(file_paths)} files")
         return config

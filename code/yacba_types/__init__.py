@@ -12,7 +12,6 @@ Tool execution and protocol details are handled by strands-agents.
 
 # Import all from submodules
 from .base import JSONValue, JSONDict, PathLike, ExitCode
-from .config import ToolConfig, MCPToolConfig, PythonToolConfig
 from .config import ToolDiscoveryResult, SessionData, FileUpload
 from .content import ContentBlock, TextBlock, ImageBlock, MessageContent
 from .content import Message
@@ -25,9 +24,6 @@ __all__ = [
     'ExitCode',
 
     # Config types (what YACBA manages)
-    'ToolConfig',
-    'MCPToolConfig',
-    'PythonToolConfig',
     'ToolDiscoveryResult',
     'SessionData',
     'FileUpload',

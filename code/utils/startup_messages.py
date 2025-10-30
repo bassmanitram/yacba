@@ -55,6 +55,9 @@ def print_startup_info(
     # Display tool status
     _print_tool_status(write, tools)
 
+    # Display A2A servers
+    _print_a2a_servers(write, tools)
+
     # Display uploaded files
     _print_startup_files(write, startup_files)
 
@@ -77,25 +80,24 @@ def _print_conversation_manager_info(write_func, conversation_manager_info: str)
 def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
     """Print tool system status information."""
     
-    # tools is a list of tool spec dicts.
-    # we are interested in:
-    #     * id
-    #     * source_file
-    #     * error (if present)
-    #     * tool_names (if present)
+    # Exclude A2A tools from regular tool display since they always have
+    # the same 3 generic tools (a2a_discover_agent, a2a_list_discovered_agents, a2a_send_message)
+    # Users care about the agent URLs, not the generic tool names
+    non_a2a_tools = [t for t in tools if t.get('type') != 'a2a']
+    
+    # Filter the non-A2A tools for different categories
+    successful_loads = [t for t in non_a2a_tools if 'tool_names' in t and not t.get('error')]
+    failed_loads = [t for t in non_a2a_tools if t.get('error')]
+    no_tools = [t for t in non_a2a_tools if 'tool_names' in t and not t['tool_names']]
+    has_tools = [t for t in non_a2a_tools if 'tool_names' in t and t['tool_names']]
 
-    successful_loads = [t for t in tools if 'tool_names' in t and not t.get('error')]
-    failed_loads = [t for t in tools if t.get('error')]
-    no_tools = [t for t in tools if 'tool_names' in t and not t['tool_names']]
-    has_tools = [t for t in tools if 'tool_names' in t and t['tool_names']]
-
-    if tools:
+    if tools:  # Check original tools list for presence
         write_func("\nTool System Status:")
         write_func(f"  Configuration files scanned: {len(tools)}")
-        write_func(f"  Valid configurations loaded: {len(successful_loads)}")
-        write_func(f"  Tools successfully loaded: {sum(len(t['tool_names']) for t in has_tools)}")
+        write_func(f"  Valid configurations loaded: {len([t for t in tools if 'tool_names' in t and not t.get('error')])}")
+        write_func(f"  Tools successfully loaded: {sum(len(t['tool_names']) for t in [t for t in tools if 'tool_names' in t and t['tool_names']])}")
 
-        # Report successful tool loading
+        # Report successful tool loading (excluding A2A)
         if successful_loads:
             write_func("  Successful tool loading:")
             for spec in successful_loads:
@@ -104,7 +106,7 @@ def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
                 tool_names = spec.get('tool_names', [])
                 write_func(f"    {tool_id} ({Path(source_file).name}): {len(tool_names)} tools - {', '.join(tool_names)}")
 
-        # Report configurations with no usable tools
+        # Report configurations with no usable tools (excluding A2A)
         if no_tools:
             write_func("  No usable tools found:")
             for spec in no_tools:
@@ -112,7 +114,7 @@ def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
                 source_file = spec.get('source_file', 'unknown')
                 write_func(f"    {tool_id} ({Path(source_file).name}): No tools available")
 
-        # Report configuration parsing failures
+        # Report configuration parsing failures (excluding A2A)
         if failed_loads:
             write_func("  Configuration failures:")
             for spec in failed_loads:
@@ -122,6 +124,24 @@ def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
                 write_func(f"    {tool_id} ({Path(source_file).name}): {error}")
     else:
         write_func("Available Tools: None")
+
+
+def _print_a2a_servers(write_func, tools: List[EnhancedToolSpec]):
+    """Print A2A server information."""
+    a2a_tools = [t for t in tools if t.get('type') == 'a2a' and not t.get('error')]
+    
+    if a2a_tools:
+        write_func("\nA2A Servers:")
+        total_agents = sum(len(t.get('urls', [])) for t in a2a_tools)
+        write_func(f"  Total A2A agents available: {total_agents}")
+        
+        for spec in a2a_tools:
+            provider_id = spec.get('id', 'unknown')
+            source_file = spec.get('source_file', 'unknown')
+            urls = spec.get('urls', [])
+            write_func(f"  {provider_id} ({Path(source_file).name}):")
+            for url in urls:
+                write_func(f"    - {url}")
 
 
 def _print_startup_files(write_func, startup_files: List[tuple[str, str]]):
