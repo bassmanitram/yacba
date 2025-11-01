@@ -202,7 +202,7 @@ def _validate_file_or_str(file_or_str: str) -> str:
             raise ValueError(f"File {path_str} does not exist")
         try:
             result = load_file_content(p, 'text')
-            return result['content']
+            return result
         except Exception as e:
             raise ValueError(f"Error reading file {path_str}: {e}")
     return file_or_str
