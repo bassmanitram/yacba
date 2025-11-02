@@ -148,7 +148,7 @@ class BedrockAdapter:
                         "text": f"[User uploaded a binary file of type '{media_type}' that cannot be displayed.]"
                     })
                 continue
-
+            transformed_list.append(block)
         return transformed_list
 
     def adapt_model_args(self, args: Dict[str,Any]) -> Dict[str,Any]:

@@ -197,7 +197,7 @@ def _validate_existing_dir(path_str: str) -> str:
 def _validate_file_or_str(file_or_str: str) -> str:
     if file_or_str.startswith("@"):
         path_str = file_or_str[1:]
-        p = pathlib.Path(path_str)
+        p = pathlib.Path(path_str).expanduser()
         if not p.is_file():
             raise ValueError(f"File {path_str} does not exist")
         try:
