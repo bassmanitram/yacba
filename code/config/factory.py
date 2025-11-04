@@ -11,6 +11,9 @@ It handles:
 
 The orchestrator uses profile-config 1.1's flexible overrides feature to handle
 all configuration merging with proper precedence.
+
+dataclass-args now handles model_config and summarization_model_config as dict fields
+with automatic file loading and property overrides (--model-config file.json --mc key:value).
 """
 
 import sys
@@ -25,8 +28,7 @@ from utils.general_utils import clean_dict
 from yacba_types import ExitCode
 
 from utils.config_utils import discover_tool_configs
-from utils.file_utils import validate_file_path, get_file_size
-from utils.model_config_parser import parse_model_config
+from utils.file_utils import validate_file_path
 
 from .arguments import (ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS,
                         parse_args, validate_args)
@@ -35,19 +37,107 @@ from .dataclass import YacbaConfig
 PROFILE_CONFIG_NAME = ".yacba"  # Config file base name
 PROFILE_CONFIG_PROFILE_FILE_NAME = "config"  # Profile selection argument name
 
+def _normalize_cli_field_names(cli_args_dict):
+    """
+    Normalize CLI field names to match profile-config field names.
+    
+    CLI uses dataclass field names (e.g., model_string, session_name)
+    profile-config uses shorter names (e.g., model, session)
+    
+    This function creates a normalized dict with both naming conventions.
+    """
+    normalized = cli_args_dict.copy()
+    
+    # Add aliases for fields where CLI name differs from profile-config name
+    field_name_mappings = {
+        'model_string': 'model',
+        'session_name': 'session',
+        'conversation_manager_type': 'conversation_manager',
+        'sliding_window_size': 'window_size',
+        'preserve_recent_messages': 'preserve_recent',
+        'should_truncate_results': 'truncate_results',  # Also handle the negation
+    }
+    
+    for cli_name, config_name in field_name_mappings.items():
+        if cli_name in normalized:
+            normalized[config_name] = normalized[cli_name]
+            # Keep both for compatibility
+    
+    # Handle should_truncate_results -> no_truncate_results inversion
+    if 'should_truncate_results' in normalized:
+        # Invert: should_truncate=True -> no_truncate=False
+        normalized['no_truncate_results'] = not normalized['should_truncate_results']
+    
+    return normalized
+
+def _process_file_loadable_value(value, field_name):
+    """
+    Process file-loadable values (strings starting with '@').
+    
+    Args:
+        value: The value to process
+        field_name: Name of the field (for error messages)
+        
+    Returns:
+        Processed value (file content if @file syntax, otherwise unchanged)
+    """
+    if not isinstance(value, str):
+        return value
+    
+    if not value.startswith('@'):
+        return value
+    
+    # Extract file path (everything after '@')
+    file_path = value[1:]
+    
+    if not file_path:
+        logger.warning(f"Empty file path for field '{field_name}' (value: '{value}')")
+        return value
+    
+    try:
+        path_obj = Path(file_path).expanduser().resolve()
+        
+        if not path_obj.exists():
+            logger.warning(f"File not found for field '{field_name}': {file_path}")
+            return value
+        
+        if not path_obj.is_file():
+            logger.warning(f"Path is not a file for field '{field_name}': {file_path}")
+            return value
+        
+        with open(path_obj, 'r', encoding='utf-8') as f:
+            content = f.read()
+            logger.debug(f"Loaded {len(content)} characters from {file_path} for field '{field_name}'")
+            return content
+            
+    except Exception as e:
+        logger.warning(f"Failed to load file for field '{field_name}' from {file_path}: {e}")
+        return value
+
 def _filter_cli_overrides(cli_args_dict):
     """
     Filter CLI arguments to only include those explicitly set by the user.
+    Also processes file-loadable fields (@ syntax).
     
     Excludes:
     - None values (not provided)
     - False values for boolean flags (argparse defaults)
     - Empty lists (not provided)
+    - Empty dicts (not provided)
     - Internal/meta arguments (list_profiles, show_config, init_config, profile, config_file)
+    
+    Processes:
+    - File-loadable fields: system_prompt, initial_message, custom_summarization_prompt,
+      cli_prompt, response_prefix
     """
     # Arguments that are meta/control and shouldn't be in config
-    meta_args = {'list_profiles', 'show_config', 'init_config', 'profile', 'config_file', 
-                 'model_config', 'config_override', 'summarization_model_config', 'summarization_config_override'}
+    meta_args = {'list_profiles', 'show_config', 'init_config', 'profile', 'config_file'}
+    
+    # Fields that support @file syntax
+    file_loadable_fields = {
+        'system_prompt', 'initial_message', 'custom_summarization_prompt',
+        'cli_prompt', 'response_prefix'
+    }
     
     filtered = {}
     for key, value in cli_args_dict.items():
@@ -67,10 +157,19 @@ def _filter_cli_overrides(cli_args_dict):
         if isinstance(value, list) and len(value) == 0:
             continue
         
-        # Include everything else
+        # Skip empty dicts (dataclass-args defaults)
+        if isinstance(value, dict) and len(value) == 0:
+            continue
+        
+        # Process file-loadable fields
+        if key in file_loadable_fields:
+            value = _process_file_loadable_value(value, key)
+        
+        # Include the (possibly processed) value
         filtered[key] = value
     
-    return filtered
+    # Normalize field names for profile-config compatibility
+    return _normalize_cli_field_names(filtered)
 
 
 def parse_config() -> YacbaConfig:
@@ -84,9 +183,8 @@ def parse_config() -> YacbaConfig:
     4. --config-file (user-specified override file)
     5. CLI arguments (highest precedence)
     
-    Additionally handles:
-    - Model configuration files (--model-config)
-    - Tool discovery
+    dataclass-args handles dict fields (model_config, summarization_model_config) with
+    automatic file loading and property overrides.
     
     Returns:
         YacbaConfig: Fully validated configuration object
@@ -133,7 +231,11 @@ def parse_config() -> YacbaConfig:
                         'model': 'litellm:gemini/gemini-1.5-flash',
                         'system_prompt': 'You are a helpful development assistant with access to tools.',
                         'tool_configs_dir': '~/.yacba/tools/',
-                        'show_tool_use': True
+                        'show_tool_use': True,
+                        'model_config': {
+                            'temperature': 0.7,
+                            'max_tokens': 2000
+                        }
                     },
                     'production': {
                         'model': 'openai:gpt-4',
@@ -160,6 +262,9 @@ def parse_config() -> YacbaConfig:
             print("Recommended locations:")
             print("  - ./.yacba/config.yaml (project-specific)")
             print("  - ~/.yacba/config.yaml (user-wide)")
+            print("\nModel configuration can be specified inline or via file:")
+            print("  - Inline: model_config: { temperature: 0.7, max_tokens: 2000 }")
+            print("  - CLI override: --model-config params.json --mc temperature:0.8")
             sys.exit(0)
 
         # 2. Build overrides list for profile-config (precedence order)
@@ -174,7 +279,7 @@ def parse_config() -> YacbaConfig:
             overrides_list.append(ARGUMENTS_FROM_ENV_VARS)
             logger.debug(f"Added {len(ARGUMENTS_FROM_ENV_VARS)} environment variables to overrides")
         
-        # Add user-specified config file (NEW feature)
+        # Add user-specified config file
         if getattr(cli_args, 'config_file', None):
             overrides_list.append(cli_args.config_file)
             logger.info(f"Added config file override: {cli_args.config_file}")
@@ -183,7 +288,7 @@ def parse_config() -> YacbaConfig:
         cli_overrides = _filter_cli_overrides(vars(cli_args))
         if cli_overrides:
             overrides_list.append(cli_overrides)
-            logger.debug(f"Added {len(cli_overrides)} CLI arguments to overrides")
+            logger.debug(f"Added {len(cli_overrides)} CLI arguments to overrides: {list(cli_overrides.keys())}")
 
         # 3. Use profile-config with flexible overrides
         try:
@@ -193,14 +298,13 @@ def parse_config() -> YacbaConfig:
                 profile=cli_args.profile or "default",
                 extensions=["yaml", "yml"],
                 search_home=True,
-                overrides=overrides_list  # NEW: Use profile-config 1.1 flexible overrides
+                overrides=overrides_list
             )
             yacba_config = resolver.resolve()
             logger.info(f"Configuration resolved for profile '{cli_args.profile or 'default'}' with {len(overrides_list)} override sources")
         except ConfigNotFoundError:
             # No discovered files, but overrides still apply
             logger.debug("No configuration file found, using overrides only")
-            # Create a minimal resolver with just overrides
             resolver = ProfileConfigResolver(
                 config_name=PROFILE_CONFIG_NAME,
                 profile_filename=PROFILE_CONFIG_PROFILE_FILE_NAME,
@@ -228,32 +332,7 @@ def parse_config() -> YacbaConfig:
                 print(f"  {key}: {repr(value)}")
             sys.exit(0)
 
-        # 4. Parse model configuration if provided (separate from main config)
-        model_config = {}
-        model_config_file = getattr(cli_args, 'model_config', None)
-        config_overrides = getattr(cli_args, 'config_override', None) or []
-        
-        if model_config_file:
-            if not validate_file_path(model_config_file):
-                logger.error(f"Model config file not found: {model_config_file}")
-                sys.exit(ExitCode.CONFIG_ERROR)
-            
-            model_config_dict = parse_model_config(model_config_file, config_overrides)
-            model_config.update(model_config_dict)
-
-        # Parse summarization model configuration if provided (separate from main config)
-        summarization_model_config = {}
-        summarization_model_config_file = getattr(cli_args, 'summarization_model_config', None)
-        summarization_config_overrides = getattr(cli_args, 'summarization_config_override', None) or []
-
-        if summarization_model_config_file or summarization_config_overrides:
-            if summarization_model_config_file and not validate_file_path(summarization_model_config_file):
-                logger.error(f"Summarization model config file not found: {summarization_model_config_file}")
-                sys.exit(ExitCode.CONFIG_ERROR)
-
-            summarization_model_config_dict = parse_model_config(summarization_model_config_file, summarization_config_overrides)
-            summarization_model_config.update(summarization_model_config_dict)
-        # 5. Tool discovery and validation
+        # 4. Tool discovery and validation
         tool_configs = []
         tool_discovery_result = None
         
@@ -262,12 +341,12 @@ def parse_config() -> YacbaConfig:
                 yacba_config.get('tool_configs_dir')
             )
 
-        # 6. Process file uploads
+        # 5. Process file uploads
         files_to_upload = []
         if yacba_config.get('files'):
             files_to_upload = yacba_config['files']
 
-        # 7. Determine system prompt source for reporting
+        # 6. Determine system prompt source for reporting
         prompt_source = "default"
         if yacba_config.get('system_prompt') != ARGUMENT_DEFAULTS.get('system_prompt'):
             if cli_overrides.get('system_prompt'):
@@ -275,10 +354,10 @@ def parse_config() -> YacbaConfig:
             elif ARGUMENTS_FROM_ENV_VARS.get('system_prompt'):
                 prompt_source = "environment"
             else:
-                # Could be from discovered files or --config-file
                 prompt_source = "configuration file"
 
-        # 8. Create YacbaConfig from resolved configuration
+        # 7. Create YacbaConfig from resolved configuration
+        # Use 'model' from profile-config (normalized from 'model_string' in CLI)
         config = YacbaConfig(
             # Core required fields
             model_string=yacba_config.get('model'),
@@ -287,20 +366,20 @@ def parse_config() -> YacbaConfig:
             tool_config_paths=tool_configs,
             startup_files_content=None,  # Set later in lifecycle
 
-            # Model configuration
-            model_config=model_config,
-            summarization_model_config=summarization_model_config,
+            # Model configuration (dataclass-args handled file loading and property overrides)
+            model_config=yacba_config.get('model_config', {}),
+            summarization_model_config=yacba_config.get('summarization_model_config', {}),
             emulate_system_prompt=yacba_config.get('emulate_system_prompt', False),
 
             # File handling
             files_to_upload=files_to_upload,
             max_files=yacba_config.get('max_files', 20),
 
-            # Session management
+            # Session management - use 'session' from profile-config (normalized from 'session_name')
             session_name=yacba_config.get('session'),
             agent_id=yacba_config.get('agent_id'),
 
-            # Conversation management
+            # Conversation management - use short names from profile-config
             conversation_manager_type=yacba_config.get('conversation_manager', 'sliding_window'),
             sliding_window_size=yacba_config.get('window_size', 40),
             preserve_recent_messages=yacba_config.get('preserve_recent', 10),
@@ -323,7 +402,7 @@ def parse_config() -> YacbaConfig:
             tool_discovery_result=tool_discovery_result
         )
 
-        logger.debug("Configuration parsing completed using profile-config 1.1 flexible overrides")
+        logger.debug("Configuration parsing completed using dataclass-args + profile-config")
         return config
 
     except Exception as e:

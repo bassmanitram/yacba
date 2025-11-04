@@ -40,6 +40,7 @@ This directory contains comprehensive documentation for YACBA's architecture, AP
 ## Quick Links
 
 ### Getting Started
+- **[Completion System](COMPLETION_SYSTEM.md)** - Tab completion system details
 
 - [Installation](../README.md#installation)
 - [Basic Examples](../README.md#basic-examples)
@@ -108,10 +109,31 @@ YACBA uses **adapters** to bridge between packages:
 
 - **YacbaToStrandsConfigConverter** - Config conversion
 - **YacbaBackend** - Backend protocol implementation
-- **YacbaCompleter** - Tab completion
+- **YacbaCompleter** - Tab completion (with alphabetically sorted commands)
 - **YacbaActionRegistry** - Command system
 
 See [Adapter Pattern](ARCHITECTURE.md#adapter-pattern-implementation) for details.
+
+---
+
+## Available Commands
+
+YACBA provides these built-in commands (alphabetically sorted in tab completion):
+
+- `/clear` - Clear conversation history
+- `/conversation-manager` - Change conversation management strategy
+- `/conversation-stats` - Show conversation statistics
+- `/exit` - Exit the application
+- `/help` - Show available commands
+- `/history` - Show conversation history
+- `/info` - Show session information (alias for `/status`)
+- `/quit` - Exit the application
+- `/session` - Session management (save, load, list)
+- `/shell` - Execute shell commands
+- `/shortcuts` - Show keyboard shortcuts
+- `/stats` - Show session information (alias for `/status`)
+- `/status` - Show comprehensive session status
+- `/tools` - List available tools
 
 ---
 
@@ -162,7 +184,7 @@ sys.argv = ['test', '--model', 'gpt-4o']
 config = parse_config()
 converter = YacbaToStrandsConfigConverter(config)
 strands_config = converter.convert()
-print('✓ Conversion successful')
+print('Conversion successful')
 "
 ```
 
@@ -260,7 +282,7 @@ print('✓ Conversion successful')
 
 - **YACBA Version**: 2.0 (Refactored Architecture)
 - **Documentation Version**: 1.0
-- **Last Updated**: 2024-10-29
+- **Last Updated**: 2024-10-30
 
 ---
 
@@ -280,7 +302,3 @@ Found an issue with the documentation? Have a suggestion?
 ## License
 
 This documentation is part of the YACBA project and is licensed under the MIT License.
-
----
-
-**Happy coding with YACBA!** 🚀

@@ -1,108 +1,86 @@
 """
 Tab completion for YACBA CLI.
 
-Provides intelligent completion for meta-commands and file paths.
+Provides intelligent completion for file paths in file() syntax.
+Command completion is handled by repl_toolkit's PrefixCompleter.
+Shell expansion is handled by repl_toolkit's ShellExpansionCompleter.
 """
 
 import re
-from typing import List, Optional, Union
 
-from prompt_toolkit.completion import Completer, PathCompleter, Completion
+from prompt_toolkit.completion import Completer, PathCompleter
 from prompt_toolkit.document import Document
 
 
 class YacbaCompleter(Completer):
     """
-    A context-aware completer that switches between meta-command and path completion.
+    File path completer for file() syntax.
 
-    Provides intelligent tab completion for:
-    - Meta-commands (e.g., /help, /session)
-    - File paths in file() syntax
-    - Command arguments where appropriate
+    This completer handles only file path completion within file() function calls.
+    Meta-commands (/) are handled by repl_toolkit's PrefixCompleter.
+    Shell expansion (${VAR} and $(cmd)) is handled by repl_toolkit's ShellExpansionCompleter.
+
+    Example:
+        file("~/Doc<TAB>  ->  file("~/Documents/
+        file('/etc/pas<TAB>  ->  file('/etc/passwd
     """
 
-    def __init__(self, meta_commands: Optional[Union[List[str], dict]] = []):
-        """
-        Initialize the completer with path completion support.
-
-        Args:
-            meta_commands: List of meta-commands or command registry dict to complete.
-                          Uses default commands if None.
-        """
-        self.path_completer = PathCompleter()
-        self.meta_commands = meta_commands
+    def __init__(self):
+        """Initialize the file path completer."""
+        self.path_completer = PathCompleter(expanduser=True)
 
     def get_completions(self, document: Document, complete_event):
         """
-        Generate completions based on the current input context.
+        Generate file path completions for file() syntax.
 
         Args:
             document: Current document state
             complete_event: Completion event details
 
         Yields:
-            Completion objects for matching items
+            Completion objects for matching file paths
         """
         text = document.text_before_cursor
 
-        #  : Check for in-chat file upload syntax
+        # Only handle file() completion
         if self._is_file_completion_context(text):
             yield from self._get_file_completions(text, document, complete_event)
-            return
-
-        #  : Check for meta-command syntax
-        if self._is_command_completion_context(text):
-            yield from self._get_command_completions(text)
 
     def _is_file_completion_context(self, text: str) -> bool:
-        """Check if we're in a file() completion context."""
+        """
+        Check if we're in a file() completion context.
+
+        Args:
+            text: Text before cursor
+
+        Returns:
+            True if cursor is within file() function call
+        """
         return bool(re.search(r"file\((['\"])(.*?)$", text))
 
-    def _is_command_completion_context(self, text: str) -> bool:
-        """Check if we're in a command completion context."""
-        return text.startswith("/") and " " not in text
-
     def _get_file_completions(self, text: str, document: Document, complete_event):
-        """Generate file path completions."""
+        """
+        Generate file path completions within file() syntax.
+
+        Args:
+            text: Text before cursor
+            document: Current document
+            complete_event: Completion event
+
+        Yields:
+            Path completion objects
+        """
         file_match = re.search(r"file\((['\"])(.*?)$", text)
         if not file_match:
             return
 
+        quote_char = file_match.group(1)
         path_prefix = file_match.group(2)
-        #  : Avoid completing if quote is already in the path
-        if file_match.group(1) in path_prefix:
+
+        # Avoid completing if quote is already in the path
+        if quote_char in path_prefix:
             return
 
+        # Create a document with just the path portion
         path_doc = Document(text=path_prefix, cursor_position=len(path_prefix))
         yield from self.path_completer.get_completions(path_doc, complete_event)
-
-    def _get_command_completions(self, text: str):
-        """Generate meta-command completions."""
-        for command in self.meta_commands:
-            if command.startswith(text):
-                yield Completion(
-                    command,
-                    start_position=-len(text),
-                    display=command,
-                    display_meta="meta-command",
-                )
-
-    def add_command(self, command: str):
-        """
-        Add a new command to the completion list.
-
-        Args:
-            command: Command to add (should start with '/')
-        """
-        if command not in self.meta_commands:
-            self.meta_commands.append(command)
-
-    def remove_command(self, command: str):
-        """
-        Remove a command from the completion list.
-
-        Args:
-            command: Command to remove
-        """
-        if command in self.meta_commands:
-            self.meta_commands.remove(command)

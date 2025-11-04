@@ -80,6 +80,10 @@ yacba/
 │   │       ├── backend.py          # Backend protocol implementation
 │   │       ├── completer.py        # Tab completion
 │   │       └── actions/            # Command actions
+│   │           ├── registry.py     # Action registry
+│   │           ├── session_actions.py # Session commands
+│   │           ├── info_actions.py # Info commands
+│   │           └── status_action.py # Status command
 │   ├── utils/                      # Utility modules
 │   │   ├── config_utils.py         # Tool discovery
 │   │   ├── file_utils.py           # File operations
@@ -158,6 +162,7 @@ yacba/
 │  │  • Wrap AgentProxy                                           │   │
 │  │  • Implement handle_input()                                  │   │
 │  │  • Provide agent access for commands                         │   │
+│  │  • Store AgentFactoryConfig for status                       │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
@@ -168,8 +173,8 @@ yacba/
 │  │ AsyncREPL / HeadlessREPL                                     │   │
 │  │  • Interactive: prompt_toolkit UI                            │   │
 │  │  • Headless: direct message processing                       │   │
-│  │  • Command system (/help, /clear, etc.)                      │   │
-│  │  • Tab completion                                            │   │
+│  │  • Command system (/status, /clear, etc.)                    │   │
+│  │  • Tab completion (alphabetically sorted)                    │   │
 │  │  • History management                                        │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
@@ -268,6 +273,42 @@ User Input
     Terminal Output
 ```
 
+### Command Flow (/status example)
+
+```
+User Types "/status"
+         │
+         ▼
+┌─────────────────┐
+│ AsyncREPL       │
+│ parse_command() │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│YacbaActionRegistry│
+│ execute_action() │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ handle_status() │
+│ (status_action) │
+└────────┬────────┘
+         │
+         ├─▶ Get backend info
+         ├─▶ Get agent proxy
+         ├─▶ Get tool specs
+         ├─▶ Get conversation stats
+         └─▶ Format with rich
+         │
+         ▼
+┌─────────────────┐
+│ Rich Console    │
+│ Status Panel    │
+└─────────────────┘
+```
+
 ### Tool Discovery Flow
 
 ```
@@ -324,8 +365,9 @@ User Input
 ```python
 # YacbaBackend adapts AgentProxy to AsyncBackend protocol
 class YacbaBackend(AsyncBackend):
-    def __init__(self, agent_proxy: AgentProxy):
+    def __init__(self, agent_proxy: AgentProxy, config: Optional[AgentFactoryConfig] = None):
         self.agent_proxy = agent_proxy
+        self.config = config
     
     async def handle_input(self, user_input: str) -> bool:
         # Adapt repl-toolkit's interface to strands-agent-factory
@@ -396,6 +438,7 @@ class YacbaActionRegistry(ActionRegistry):
         super().__init__()
         register_session_actions(self)  # /session save, /session load
         register_info_actions(self)     # /info, /tools
+        register_status_actions(self)   # /status, /stats, /info aliases
 ```
 
 **Benefits**:
@@ -412,8 +455,8 @@ class YacbaActionRegistry(ActionRegistry):
 **Implementation**:
 
 ```python
-# Backend receives agent proxy via constructor
-backend = YacbaBackend(agent_proxy)
+# Backend receives agent proxy and config via constructor
+backend = YacbaBackend(agent_proxy, strands_config)
 
 # REPL receives backend via run()
 await repl.run(backend=backend)
@@ -434,7 +477,7 @@ await repl.run(backend=backend)
 config/
 ├── arguments.py          # CLI argument definitions
 │   ├── ArgumentDefinition (dataclass)
-│   ├── ARGUMENT_DEFINITIONS (list of 30 args)
+│   ├── ARGUMENT_DEFINITIONS (list of all args)
 │   ├── ARGUMENT_DEFAULTS (default values)
 │   ├── ARGUMENTS_FROM_ENV_VARS (env var mapping)
 │   ├── parse_args() → Namespace
@@ -486,7 +529,7 @@ adapters/
 └── repl_toolkit/
     ├── backend.py
     │   └── YacbaBackend (AsyncBackend)
-    │       ├── __init__(agent_proxy)
+    │       ├── __init__(agent_proxy, config)
     │       ├── handle_input(user_input) → bool
     │       ├── get_agent_proxy() → AgentProxy
     │       ├── clear_conversation() → bool
@@ -495,8 +538,10 @@ adapters/
     │
     ├── completer.py
     │   └── YacbaCompleter (Completer)
-    │       ├── __init__(meta_commands)
-    │       └── get_completions(document, event)
+    │       ├── __init__(meta_commands) [sorts alphabetically]
+    │       ├── get_completions(document, event)
+    │       ├── add_command(command) [maintains sort]
+    │       └── remove_command(command)
     │
     └── actions/
         ├── registry.py
@@ -508,11 +553,16 @@ adapters/
         │       ├── /session save <name>
         │       └── /session load <name>
         │
-        └── info_actions.py
-            └── register_info_actions(registry)
-                ├── /info
-                ├── /tools
-                └── /clear
+        ├── info_actions.py
+        │   └── register_info_actions(registry)
+        │       ├── /tools
+        │       └── /clear
+        │
+        └── status_action.py
+            └── register_status_actions(registry)
+                ├── /status (main command)
+                ├── /info (alias)
+                └── /stats (alias)
 ```
 
 **Responsibilities**:
@@ -520,6 +570,7 @@ adapters/
 - Bridge YACBA ↔ repl-toolkit
 - Implement protocols
 - Provide command system
+- Status reporting with rich formatting
 
 ---
 
@@ -567,7 +618,7 @@ Priority  Source                          Example
 ────────  ──────────────────────────────  ─────────────────────────
 1 (Low)   Default values                  ARGUMENT_DEFAULTS
 2         Environment variables           YACBA_MODEL_ID=gpt-4o
-3         Discovered config files         ~/.yacba/yacba-config.yaml ...
+3         Discovered config files         ~/.yacba/config.yaml
 4         User-specified config file      --config-file custom.yaml
 5 (High)  CLI arguments                   --model gpt-4o
 ```
@@ -601,7 +652,7 @@ return YacbaConfig(**config)
 ### Profile System
 
 ```yaml
-# ~/.yacba/yacb-config.yaml
+# ~/.yacba/config.yaml
 default_profile: development
 
 defaults:
@@ -647,6 +698,7 @@ class YacbaToStrandsConfigConverter:
             system_prompt=self.yacba_config.system_prompt,
             tool_config_paths=self._convert_tool_configs(),
             file_paths=self._convert_file_uploads(),
+            output_printer=create_auto_printer(),  # Auto-format responses
             # ... more mappings
         )
 ```
@@ -674,6 +726,10 @@ class YacbaBackend(AsyncBackend):
     Adapts AgentProxy to AsyncBackend protocol.
     """
     
+    def __init__(self, agent_proxy: AgentProxy, config: Optional[AgentFactoryConfig] = None):
+        self.agent_proxy = agent_proxy
+        self.config = config  # Store for status reporting
+    
     async def handle_input(self, user_input: str) -> bool:
         # Translate repl-toolkit's interface to strands-agent-factory
         return await self.agent_proxy.send_message_to_agent(
@@ -689,7 +745,7 @@ class YacbaBackend(AsyncBackend):
 | `handle_input(str)` | `agent_proxy.send_message_to_agent()` | Process user input |
 | `is_ready` | Check agent_proxy existence | Readiness check |
 | `clear_conversation()` | `agent_proxy.clear_messages()` | Clear history |
-| `get_tool_names()` | `agent_proxy.tools` | List tools |
+| `get_tool_names()` | `agent_proxy.tool_specs` | List tools (extracts names) |
 | `get_conversation_stats()` | Access agent messages | Get stats |
 
 ---
@@ -741,6 +797,8 @@ class YacbaActionRegistry(ActionRegistry):
         register_my_actions(self)  # Add this line
 ```
 
+**Commands are automatically sorted alphabetically in tab completion.**
+
 ---
 
 ### 3. Adding New Conversation Strategies
@@ -787,6 +845,12 @@ YACBA delegates tool management to strands-agent-factory. To add new tool types:
 - **Conversation Strategies**: Automatic context window management
 - **Tool Result Truncation**: Large results truncated to fit context
 - **Session Persistence**: Efficient file-based storage
+
+### Tab Completion
+
+- **Alphabetical Sorting**: Commands sorted once at initialization
+- **Efficient Lookup**: O(n) prefix matching for command completion
+- **Context Awareness**: File completion in file() syntax
 
 ---
 

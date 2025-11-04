@@ -1,6 +1,6 @@
-# New dependencies for refactored architecture
-strands-agent-factory
-repl-toolkit
-profile-config
-loguru
+profile-config>=1.1.0
+dataclass-args>=1.0.1
 pyyaml
+loguru
+repl-toolkit>=1.1.0
+strands-agent-factory @ git+https://github.com/JBarmentlo/strands-agent-factory.git@v1.1.0

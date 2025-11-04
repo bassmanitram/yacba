@@ -5,8 +5,6 @@ Provides a comprehensive status summary of the current YACBA session.
 """
 
 from repl_toolkit import Action, ActionContext, ActionRegistry
-from rich.console import Console
-from rich.panel import Panel
 
 
 def handle_status(context: ActionContext) -> None:
@@ -78,76 +76,72 @@ def _gather_status_info(backend) -> dict:
 
 def _display_status(status: dict) -> None:
     """Display formatted status information."""
-    console = Console()
-    
-    # Create main content
     content = _build_status_content(status)
-    
-    # Display in a panel
-    panel = Panel(
-        content,
-        title="🤖 YACBA Status",
-        title_align="left",
-        border_style="blue",
-        padding=(1, 2)
-    )
-    
-    console.print(panel)
+    print(content)
 
 
 def _build_status_content(status: dict) -> str:
     """Build the formatted status content."""
     lines = []
     
+    # Header
+    lines.append("YACBA Status")
+    lines.append("=" * 60)
+    lines.append("")
+    
     # Session information
     session = status['session']
-    lines.append(f"🤖 Model: {session['model']}")
+    lines.append("Session:")
+    lines.append(f"  Model: {session['model']}")
     
     if session['system_prompt_enabled']:
-        lines.append(f"📝 System Prompt: Enabled ({session['system_prompt_length']:,} chars)")
+        lines.append(f"  System Prompt: Enabled ({session['system_prompt_length']:,} chars)")
     else:
-        lines.append("📝 System Prompt: Disabled")
+        lines.append("  System Prompt: Disabled")
     
     if session['has_session']:
-        lines.append(f"💾 Session: {session['session_id']} (persistent)")
+        lines.append(f"  Session: {session['session_id']} (persistent)")
     else:
-        lines.append("💾 Session: None (ephemeral)")
+        lines.append("  Session: None (ephemeral)")
     
-    lines.append("")  # Blank line
+    lines.append("")
     
     # Conversation information
     conv = status['conversation']
-    lines.append("💬 Conversation:")
-    lines.append(f"   Messages: {conv['total_messages']}")
-    lines.append(f"   Manager: {conv['manager_type']}")
+    lines.append("Conversation:")
+    lines.append(f"  Messages: {conv['total_messages']}")
+    lines.append(f"  Manager: {conv['manager_type']}")
     
     if conv['manager_type'] == 'sliding_window':
-        lines.append(f"   Window size: {conv['sliding_window_size']}")
-        lines.append(f"   Recent preserved: {conv['preserve_recent']}")
+        lines.append(f"  Window size: {conv['sliding_window_size']}")
+        lines.append(f"  Recent preserved: {conv['preserve_recent']}")
     
-    lines.append("")  # Blank line
+    lines.append("")
     
     # Tool information
     tools = status['tools']
-    lines.append("🛠️  Tools:")
-    lines.append(f"   Available: {tools['available_count']} tools")
+    lines.append("Tools:")
+    lines.append(f"  Available: {tools['available_count']} tools")
     
     if tools['tool_names']:
         # Show first few tool names
         tool_preview = tools['tool_names'][:5]
         if len(tools['tool_names']) > 5:
             tool_preview.append(f"... and {len(tools['tool_names']) - 5} more")
-        lines.append(f"   Tools: {', '.join(tool_preview)}")
+        lines.append(f"  Tools: {', '.join(tool_preview)}")
     
-    lines.append("")  # Blank line
+    lines.append("")
     
     # Configuration
     config = status['config']
-    lines.append("⚙️  Configuration:")
-    lines.append(f"   Show tool use: {'Enabled' if config['show_tool_use'] else 'Disabled'}")
-    lines.append(f"   Response prefix: {config['response_prefix'] or 'None'}")
-    lines.append(f"   Result truncation: {'Enabled' if config['should_truncate_results'] else 'Disabled'}")
-    lines.append(f"   Emulate system prompt: {'Enabled' if config['emulate_system_prompt'] else 'Disabled'}")
+    lines.append("Configuration:")
+    lines.append(f"  Show tool use: {'Enabled' if config['show_tool_use'] else 'Disabled'}")
+    lines.append(f"  Response prefix: {config['response_prefix'] or 'None'}")
+    lines.append(f"  Result truncation: {'Enabled' if config['should_truncate_results'] else 'Disabled'}")
+    lines.append(f"  Emulate system prompt: {'Enabled' if config['emulate_system_prompt'] else 'Disabled'}")
+    
+    lines.append("")
+    lines.append("=" * 60)
     
     return "\n".join(lines)
 

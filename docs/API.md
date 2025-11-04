@@ -1,249 +1,180 @@
 # YACBA API Documentation
 
-## Overview
-
-This document provides comprehensive API documentation for YACBA's core modules, classes, and functions.
-
----
+Complete API reference for YACBA's internal modules and adapters.
 
 ## Table of Contents
 
 1. [Configuration System](#configuration-system)
 2. [Adapters](#adapters)
+   - [strands_factory Adapter](#strandsfactory-adapter)
+   - [repl_toolkit Adapters](#repltoolkit-adapters)
 3. [Utilities](#utilities)
 4. [Type Definitions](#type-definitions)
-5. [Main Entry Point](#main-entry-point)
+5. [Constants](#constants)
 
 ---
 
 ## Configuration System
 
-### Module: `config.arguments`
+### Module: `config`
 
-#### `ArgumentDefinition`
-
-**Dataclass** for defining CLI arguments.
-
-```python
-@dataclass
-class ArgumentDefinition:
-    names: List[str]              # Argument names (e.g., ["-m", "--model"])
-    argname: str                  # Destination name in parsed args
-    help: str                     # Help text
-    argtype: Optional[type]       # Argument type
-    action: Optional[str]         # Argparse action (e.g., "append", "store_true")
-    choices: Optional[List[str]]  # Valid choices
-    nargs: Optional[Union[str, int]]  # Number of arguments
-    validator: Optional[Callable] # Validation function
-    default: Optional[Any]        # Default value
-```
-
-**Example**:
-```python
-ArgumentDefinition(
-    names=["-m", "--model"],
-    help="The model to use",
-    argname="model",
-)
-```
-
----
-
-#### `parse_args() -> Namespace`
-
-Parse command-line arguments.
-
-**Returns**: `argparse.Namespace` with parsed arguments
-
-**Example**:
-```python
-from config.arguments import parse_args
-args = parse_args()
-print(args.model)  # Access parsed model argument
-```
-
----
-
-#### `validate_args(config: Dict[str, Any]) -> Dict[str, Any]`
-
-Validate and convert argument values using their validators.
-
-**Parameters**:
-- `config`: Dictionary of configuration values
-
-**Returns**: Validated configuration dictionary
-
-**Raises**: `ValueError` if validation fails
-
-**Example**:
-```python
-from config.arguments import validate_args
-config = {"model": "gpt-4o", "max_files": "10"}
-validated = validate_args(config)
-# validated["max_files"] is now int(10)
-```
-
----
-
-#### Constants
-
-**`ARGUMENT_DEFINITIONS`**: List of all CLI argument definitions (30 arguments)
-
-**`ARGUMENT_DEFAULTS`**: Default values for arguments
-```python
-{
-    "model": "litellm:gemini/gemini-2.5-flash",
-    "system_prompt": "You are a general assistant...",
-    "max_files": "10",
-    "conversation_manager": "sliding_window",
-    "window_size": "40",
-    # ... more defaults
-}
-```
-
-**`ARGUMENTS_FROM_ENV_VARS`**: Arguments loaded from environment variables
-```python
-{
-    "model": os.environ.get("YACBA_MODEL_ID"),
-    "system_prompt": os.environ.get("YACBA_SYSTEM_PROMPT"),
-    "session": os.environ.get("YACBA_SESSION_NAME"),
-}
-```
-
----
-
-### Module: `config.dataclass`
+The configuration module provides dataclass-based configuration management with multi-source precedence and validation.
 
 #### `YacbaConfig`
 
-**Dataclass** representing YACBA's complete configuration.
+Main configuration dataclass containing all YACBA settings.
 
 ```python
 @dataclass
 class YacbaConfig:
-    # Core configuration
-    model_string: str
-    system_prompt: str
-    prompt_source: str
-    tool_config_paths: List[PathLike]
-    startup_files_content: Optional[List[Message]]
+    # Core settings
+    model_string: Optional[str]
+    system_prompt: Optional[str]
+    emulate_system_prompt: bool
+    headless: bool
+    initial_message: Optional[str]
     
-    # Optional configuration with defaults
-    headless: bool = False
-    model_config: dict = field(default_factory=dict)
-    summarization_model_config: dict = field(default_factory=dict)
-    session_name: Optional[str] = None
-    agent_id: Optional[str] = None
-    emulate_system_prompt: bool = False
-    show_tool_use: bool = False
-    cli_prompt: Optional[str] = None
-    response_prefix: Optional[str] = None
-    initial_message: Optional[str] = None
-    max_files: int = 20
-    files_to_upload: List[FileUpload] = field(default_factory=list)
-    tool_discovery_result: Optional[ToolDiscoveryResult] = None
+    # Tool configuration
+    tool_configs_dir: Optional[str]
+    files_to_upload: List[Tuple[str, str]]
+    max_files: int
+    
+    # Model configuration
+    model_config: Optional[str]
+    config_overrides: List[str]
+    summarization_model_config: Optional[str]
+    summarization_config_overrides: List[str]
+    
+    # Session management
+    session_name: Optional[str]
+    agent_id: Optional[str]
     
     # Conversation management
-    conversation_manager_type: ConversationManagerType = "sliding_window"
-    sliding_window_size: int = 40
-    preserve_recent_messages: int = 10
-    summary_ratio: float = 0.3
-    summarization_model: Optional[str] = None
-    custom_summarization_prompt: Optional[str] = None
-    should_truncate_results: bool = True
+    conversation_manager_type: str
+    window_size: int
+    preserve_recent_messages: int
+    summary_ratio: float
+    summarization_model: Optional[str]
+    custom_summarization_prompt: Optional[str]
+    truncate_tool_results: bool
+    
+    # UI configuration
+    cli_prompt: Optional[str]
+    response_prefix: Optional[str]
+    show_tool_use: bool
+    
+    # Configuration file management
+    profile: Optional[str]
+    config_file: Optional[str]
+    list_profiles: bool
+    show_config: bool
+    init_config: Optional[str]
 ```
 
-**Properties**:
-
-- `has_startup_files: bool` - Check if startup files are configured
-- `has_tool_configs: bool` - Check if tool configs are configured
-- `framework_name: str` - Extract framework name from model string
-- `model_name: str` - Extract model name from model string
-- `is_interactive: bool` - Check if running in interactive mode
-- `has_session: bool` - Check if session persistence is enabled
-- `uses_conversation_manager: bool` - Check if conversation management is enabled
-- `uses_sliding_window: bool` - Check if using sliding window
-- `uses_summarizing: bool` - Check if using summarizing
-
-**Example**:
-```python
-from config.dataclass import YacbaConfig
-
-config = YacbaConfig(
-    model_string="gpt-4o",
-    system_prompt="You are a helpful assistant",
-    prompt_source="cli",
-    tool_config_paths=[],
-    startup_files_content=None
-)
-
-print(config.framework_name)  # "litellm" (default)
-print(config.is_interactive)  # True (headless=False)
-```
+**Key Properties**:
+- Immutable after creation (frozen dataclass)
+- Validated on instantiation
+- Supports environment variable expansion
+- Profile-based configuration support
 
 ---
 
-### Module: `config.factory`
-
 #### `parse_config() -> YacbaConfig`
 
-Main configuration parsing entry point. Coordinates all configuration sources with proper precedence.
+Parse configuration from multiple sources with precedence.
 
-**Configuration Precedence** (lowest to highest):
-1. Default values
-2. Environment variables
-3. Discovered config files (`./.yacba/config.yaml`, `~/.yacba/config.yaml`)
-4. `--config-file` (user-specified override)
-5. CLI arguments
+**Returns**: Fully resolved `YacbaConfig` instance
 
-**Returns**: Fully validated `YacbaConfig` object
-
-**Raises**: `SystemExit` on configuration errors
+**Precedence** (highest to lowest):
+1. CLI arguments
+2. User-specified config file (`--config-file`)
+3. Discovered config files (`~/.yacba/config.yaml`, `./yacba.yaml`)
+4. Environment variables
+5. Default values
 
 **Example**:
 ```python
-from config.factory import parse_config
+from config import parse_config
 
-# Parse configuration from all sources
+# Parse from CLI args (uses sys.argv)
 config = parse_config()
 
 # Access configuration
 print(config.model_string)
-print(config.tool_config_paths)
+print(config.conversation_manager_type)
+```
+
+---
+
+#### `ArgumentDefinition`
+
+Defines a CLI argument with all its properties.
+
+```python
+@dataclass
+class ArgumentDefinition:
+    names: List[str]              # e.g., ['-m', '--model']
+    dest: str                     # Config attribute name
+    help: str                     # Help text
+    type: Optional[type]          # Argument type
+    default: Any                  # Default value
+    action: Optional[str]         # Action (store_true, append, etc.)
+    choices: Optional[List[Any]]  # Valid choices
+    nargs: Optional[str]          # Number of arguments
+```
+
+**Usage**:
+```python
+ArgumentDefinition(
+    names=['-m', '--model'],
+    dest='model_string',
+    help='AI model to use',
+    type=str,
+    required=True
+)
 ```
 
 ---
 
 ## Adapters
 
-### Module: `adapters.strands_factory.config_converter`
+### strands_factory Adapter
 
-#### `YacbaToStrandsConfigConverter`
+#### Module: `adapters.strands_factory.config_converter`
 
-Converts YACBA configuration to strands_agent_factory configuration.
+##### `YacbaToStrandsConfigConverter`
+
+Converts YACBA configuration to strands_agent_factory configuration format.
 
 ```python
 class YacbaToStrandsConfigConverter:
     def __init__(self, yacba_config: YacbaConfig)
-    def convert(self) -> AgentFactoryConfig
+    def convert() -> Dict[str, Any]
 ```
 
 **Methods**:
 
-##### `__init__(yacba_config: YacbaConfig)`
+###### `__init__(yacba_config: YacbaConfig)`
 
-Initialize the converter.
+Initialize converter with YACBA configuration.
 
 **Parameters**:
-- `yacba_config`: The parsed YACBA configuration object
+- `yacba_config`: The YACBA configuration to convert
 
 ---
 
-##### `convert() -> AgentFactoryConfig`
+###### `convert() -> Dict[str, Any]`
 
-Convert YACBA configuration to AgentFactoryConfig.
+Convert YACBA config to strands_agent_factory format.
 
-**Returns**: `AgentFactoryConfig` for strands_agent_factory
+**Returns**: Dictionary compatible with strands_agent_factory's `AgentFactory` configuration
+
+**Conversion Mapping**:
+- `model_string` → `model.name`
+- `system_prompt` → `agent.system_prompt`
+- `conversation_manager_type` → `conversation_manager.type`
+- Tool configurations → `tools.configs`
+- Model parameters → `model.parameters`
 
 **Example**:
 ```python
@@ -261,234 +192,317 @@ factory = AgentFactory(config=strands_config)
 
 ---
 
-### Module: `adapters.repl_toolkit.backend`
+### repl_toolkit Adapters
 
-#### `YacbaBackend`
+#### Module: `adapters.repl_toolkit.backend`
 
-Adapter that wraps strands_agent_factory AgentProxy to implement repl_toolkit's AsyncBackend protocol.
+##### `YacbaBackend`
+
+Backend adapter that implements repl_toolkit's backend protocol.
 
 ```python
-class YacbaBackend(AsyncBackend):
-    def __init__(self, agent_proxy: AgentProxy)
-    async def handle_input(self, user_input: str) -> bool
-    def get_agent_proxy(self) -> AgentProxy
-    def clear_conversation(self) -> bool
-    def get_tool_names(self) -> list[str]
-    def get_conversation_stats(self) -> dict
+class YacbaBackend(Backend):
+    def __init__(self, agent: AgentProxy, config: Dict[str, Any])
+    async def send_message(self, message: str) -> AsyncIterator[Dict[str, Any]]
+    async def cancel(self)
 ```
 
 **Methods**:
 
-##### `__init__(agent_proxy: AgentProxy)`
+###### `__init__(agent: AgentProxy, config: Dict[str, Any])`
 
-Initialize the backend adapter.
+Initialize backend with agent and configuration.
 
 **Parameters**:
-- `agent_proxy`: The strands_agent_factory AgentProxy instance
+- `agent`: strands_agent_factory AgentProxy instance
+- `config`: Converted configuration dictionary
 
 ---
 
-##### `async handle_input(user_input: str) -> bool`
+###### `async send_message(message: str) -> AsyncIterator[Dict[str, Any]]`
 
-Handle user input by processing it through the agent.
+Send a message and stream responses.
 
 **Parameters**:
-- `user_input`: The input string from the user
+- `message`: User message text
 
-**Returns**: `True` if processing was successful, `False` otherwise
+**Returns**: Async iterator of response events
+
+**Event Types**:
+- `{'type': 'text', 'content': str}` - Text response chunk
+- `{'type': 'tool_use', 'name': str, 'input': dict}` - Tool execution
+- `{'type': 'tool_result', 'result': Any}` - Tool result
+- `{'type': 'error', 'error': str}` - Error message
 
 **Example**:
 ```python
-backend = YacbaBackend(agent_proxy)
-success = await backend.handle_input("Hello, how are you?")
+async for event in backend.send_message("Hello"):
+    if event['type'] == 'text':
+        print(event['content'], end='')
 ```
 
 ---
 
-##### `get_agent_proxy() -> AgentProxy`
+###### `async cancel()`
 
-Get the underlying AgentProxy instance.
+Cancel the current operation.
 
-**Returns**: The wrapped agent proxy instance
-
----
-
-##### `clear_conversation() -> bool`
-
-Clear the conversation history.
-
-**Returns**: `True` if successful, `False` otherwise
-
----
-
-##### `get_tool_names() -> list[str]`
-
-Get list of available tool names.
-
-**Returns**: List of tool names
-
----
-
-##### `get_conversation_stats() -> dict`
-
-Get conversation statistics.
-
-**Returns**: Dictionary with statistics:
+**Example**:
 ```python
-{
-    "message_count": int,
-    "tool_count": int
-}
+await backend.cancel()  # Cancels running message processing
 ```
 
 ---
 
-### Module: `adapters.repl_toolkit.completer`
+#### Module: `adapters.repl_toolkit.completer`
 
-#### `YacbaCompleter`
+##### `YacbaCompleter`
 
-Tab completion adapter for YACBA commands.
+File path completion for `file()` syntax. Command and shell expansion are handled by repl_toolkit's built-in completers.
 
 ```python
 class YacbaCompleter(Completer):
-    def __init__(self, meta_commands: List[str])
+    def __init__()
     def get_completions(self, document, complete_event) -> Iterable[Completion]
 ```
 
 **Methods**:
 
-##### `__init__(meta_commands: List[str])`
+###### `__init__()`
 
-Initialize the completer.
+Initialize the file path completer.
 
-**Parameters**:
-- `meta_commands`: List of available meta commands (e.g., `["/help", "/clear"]`)
+**Note**: The YacbaCompleter only handles `file()` path completion. Command completion is handled by repl_toolkit's `PrefixCompleter`, and shell expansion is handled by `ShellExpansionCompleter`.
 
 ---
 
-##### `get_completions(document, complete_event) -> Iterable[Completion]`
+###### `get_completions(document, complete_event) -> Iterable[Completion]`
 
-Get completions for the current input.
+Get file path completions for `file()` syntax.
 
 **Parameters**:
 - `document`: The current document
 - `complete_event`: The completion event
 
-**Returns**: Iterable of `Completion` objects
+**Returns**: Iterable of `Completion` objects for file paths
+
+**Completion Context**:
+- Triggered inside `file("...")` or `file('...')` syntax
+- Supports tilde expansion (`~/`)
+- Supports absolute and relative paths
+
+**Example**:
+```python
+# In interactive mode:
+file("/tmp/<Tab>     # Completes to files in /tmp
+file("~/Doc<Tab>     # Completes to ~/Documents
+```
 
 ---
 
-### Module: `adapters.repl_toolkit.actions.registry`
+#### Module: `adapters.repl_toolkit.actions.registry`
 
-#### `YacbaActionRegistry`
+##### `YacbaActionRegistry`
 
 Action registry that integrates YACBA-specific actions with repl-toolkit.
 
 ```python
 class YacbaActionRegistry(ActionRegistry):
-    def __init__(self)
+    def __init__()
+    def list_commands() -> List[str]
 ```
 
+**Methods**:
+
+###### `__init__()`
+
+Initialize registry with YACBA-specific actions.
+
 **Registered Actions**:
-- `/help` - Show available commands
-- `/clear` - Clear conversation history
-- `/info` - Show session information
-- `/session save <name>` - Save session
-- `/session load <name>` - Load session
-- `/tools` - List available tools
-- `/quit`, `/exit` - Exit application
+- Status and information commands
+- Session management commands
+- Conversation management commands
+
+---
+
+###### `list_commands() -> List[str]`
+
+Get list of all available command names.
+
+**Returns**: List of command strings (e.g., `["/help", "/exit", "/status"]`)
+
+**Note**: Commands are returned unsorted. The caller should sort them for display purposes.
 
 **Example**:
 ```python
-from adapters.repl_toolkit import YacbaActionRegistry
-
 registry = YacbaActionRegistry()
-commands = registry.list_commands()
-print(commands)  # ['/help', '/clear', '/info', ...]
+commands = sorted(registry.list_commands())  # Sort for display
+print(commands)
+# ['/clear', '/conversation-manager', '/exit', '/help', ...]
+```
+
+---
+
+#### Module: `adapters.repl_toolkit.actions.status_action`
+
+##### `StatusAction`
+
+Action for displaying comprehensive session status.
+
+```python
+class StatusAction(Action):
+    async def execute(self, backend: Backend, args: Optional[str]) -> str
+```
+
+**Methods**:
+
+###### `async execute(backend: Backend, args: Optional[str]) -> str`
+
+Execute status display action.
+
+**Parameters**:
+- `backend`: The backend instance
+- `args`: Optional arguments (not used)
+
+**Returns**: Formatted status string
+
+**Status Information**:
+- Model configuration
+- System prompt
+- Conversation manager settings
+- Session information
+- Tool count
+- Message count
+
+**Example**:
+```python
+# In interactive mode:
+/status
+# Shows comprehensive session status
+```
+
+---
+
+#### Module: `adapters.repl_toolkit.actions.info_actions`
+
+Contains utility actions for displaying information.
+
+##### `ToolsAction`
+
+Display available tools.
+
+```python
+class ToolsAction(Action):
+    async def execute(self, backend: Backend, args: Optional[str]) -> str
+```
+
+---
+
+##### `ConversationStatsAction`
+
+Display conversation statistics.
+
+```python
+class ConversationStatsAction(Action):
+    async def execute(self, backend: Backend, args: Optional[str]) -> str
+```
+
+---
+
+#### Module: `adapters.repl_toolkit.actions.session_actions`
+
+Contains session management actions.
+
+##### `SessionAction`
+
+Session save/load/list operations.
+
+```python
+class SessionAction(Action):
+    async def execute(self, backend: Backend, args: Optional[str]) -> str
+```
+
+**Subcommands**:
+- `save [name]` - Save current session
+- `load <name>` - Load saved session
+- `list` - List saved sessions
+
+**Example**:
+```python
+# In interactive mode:
+/session save my-session    # Save session
+/session load my-session    # Load session
+/session list               # List all sessions
+```
+
+---
+
+##### `ConversationManagerAction`
+
+Change conversation management strategy.
+
+```python
+class ConversationManagerAction(Action):
+    async def execute(self, backend: Backend, args: Optional[str]) -> str
+```
+
+**Arguments**:
+- `null` - Disable conversation management
+- `sliding_window` - Use sliding window strategy
+- `summarizing` - Use summarization strategy
+
+**Example**:
+```python
+# In interactive mode:
+/conversation-manager sliding_window
+/conversation-manager summarizing
 ```
 
 ---
 
 ## Utilities
 
-### Module: `utils.config_utils`
-
-#### `discover_tool_configs(tool_configs_dir: str) -> Tuple[List[Path], ToolDiscoveryResult]`
-
-Discover tool configuration files in a directory.
-
-**Parameters**:
-- `tool_configs_dir`: Path to directory containing tool configs
-
-**Returns**: Tuple of:
-- List of discovered tool config file paths
-- `ToolDiscoveryResult` with discovery statistics
-
-**Example**:
-```python
-from utils.config_utils import discover_tool_configs
-
-tool_paths, result = discover_tool_configs("./tools")
-print(f"Found {len(tool_paths)} tool configs")
-print(f"Errors: {result.errors}")
-```
-
----
-
 ### Module: `utils.file_utils`
 
-#### `validate_file_path(path: str) -> bool`
+#### `discover_tool_configs(directory: str) -> List[Dict[str, Any]]`
 
-Validate that a file path exists and is accessible.
-
-**Parameters**:
-- `path`: File path to validate
-
-**Returns**: `True` if valid, `False` otherwise
-
----
-
-#### `load_file_content(path: Path, content_type: str) -> str`
-
-Load file content with appropriate handling for content type.
+Discover and parse tool configuration files in a directory.
 
 **Parameters**:
-- `path`: Path to file
-- `content_type`: Type of content ('text', 'json', 'yaml', etc.)
+- `directory`: Path to directory containing tool configs
 
-**Returns**: File content as string
+**Returns**: List of parsed tool configuration dictionaries
 
-**Raises**: `IOError` if file cannot be read
-
----
-
-#### `resolve_glob(pattern: str) -> List[str]`
-
-Resolve a glob pattern to list of file paths.
-
-**Parameters**:
-- `pattern`: Glob pattern (e.g., `"*.py"`, `"data/*.json"`)
-
-**Returns**: List of matching file paths
+**Supported Formats**:
+- `.json` - JSON configuration files
+- `.yaml`, `.yml` - YAML configuration files
 
 **Example**:
 ```python
-from utils.file_utils import resolve_glob
+from utils.file_utils import discover_tool_configs
 
-files = resolve_glob("*.py")
-print(f"Found {len(files)} Python files")
+configs = discover_tool_configs("./tools")
+for config in configs:
+    print(config['tools'])
 ```
 
 ---
 
-#### `get_file_size(path: Path) -> int`
+#### `load_file_content(path: str, mimetype: str) -> Dict[str, Any]`
 
-Get file size in bytes.
+Load file content with appropriate processing based on mimetype.
 
 **Parameters**:
-- `path`: Path to file
+- `path`: File path (supports globs)
+- `mimetype`: MIME type of the file
 
-**Returns**: File size in bytes
+**Returns**: Dictionary with file content and metadata
+
+**Supported Types**:
+- Text files: `text/plain`, `text/markdown`, etc.
+- PDF: `application/pdf`
+- Images: `image/png`, `image/jpeg`, etc.
+- Documents: `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
 
 ---
 
@@ -496,135 +510,129 @@ Get file size in bytes.
 
 #### `ModelConfigParser`
 
-Parser for model configuration files and command-line overrides.
+Parser for model configuration files with JSON-like syntax.
 
 ```python
 class ModelConfigParser:
     @staticmethod
-    def load_config_file(file_path: Union[str, Path]) -> Dict[str, Any]
+    def parse_file(path: str) -> Dict[str, Any]
     
     @staticmethod
-    def parse_property_override(property_override: str) -> tuple[str, Any]
-    
-    @staticmethod
-    def apply_property_override(config: Dict[str, Any], property_path: str, value: Any) -> None
-    
-    @staticmethod
-    def merge_configs(base_config: Dict[str, Any], overrides: List[str]) -> Dict[str, Any]
-    
-    @staticmethod
-    def validate_model_config(config: Dict[str, Any]) -> None
+    def parse_string(content: str) -> Dict[str, Any]
 ```
 
 **Methods**:
 
-##### `load_config_file(file_path: Union[str, Path]) -> Dict[str, Any]`
+##### `parse_file(path: str) -> Dict[str, Any]`
 
-Load model configuration from a YAML file.
-
-**Parameters**:
-- `file_path`: Path to YAML configuration file
-
-**Returns**: Dictionary containing the configuration
-
-**Raises**: `ModelConfigError` if file cannot be loaded or parsed
-
----
-
-##### `parse_property_override(property_override: str) -> tuple[str, Any]`
-
-Parse a property override string in format "path:value".
+Parse model configuration from file.
 
 **Parameters**:
-- `property_override`: String in format "property.path:value"
+- `path`: Path to configuration file
 
-**Returns**: Tuple of (property_path, parsed_value)
+**Returns**: Parsed configuration dictionary
 
-**Raises**: `ModelConfigError` if format is invalid
+**Supported Syntax**:
+- JSON format
+- Comments: `//` and `/* */`
+- Trailing commas
+- Environment variable expansion: `${VAR}`
 
 **Example**:
 ```python
 from utils.model_config_parser import ModelConfigParser
 
-path, value = ModelConfigParser.parse_property_override("temperature:0.7")
-# path = "temperature", value = 0.7 (float)
-
-path, value = ModelConfigParser.parse_property_override("response_format.type:json_object")
-# path = "response_format.type", value = "json_object" (str)
+config = ModelConfigParser.parse_file("model.json")
+print(config['temperature'])
 ```
 
 ---
 
-##### `apply_property_override(config: Dict[str, Any], property_path: str, value: Any) -> None`
+##### `parse_string(content: str) -> Dict[str, Any]`
 
-Apply a property override to a configuration dictionary using dot notation and array indexing.
+Parse model configuration from string.
 
 **Parameters**:
-- `config`: Configuration dictionary to modify
-- `property_path`: Property path (e.g., "response_format.type" or "safety_settings[0].category")
-- `value`: Value to set
+- `content`: Configuration string
 
-**Raises**: `ModelConfigError` if property path is invalid
-
-**Example**:
-```python
-config = {}
-ModelConfigParser.apply_property_override(config, "temperature", 0.7)
-# config = {"temperature": 0.7}
-
-ModelConfigParser.apply_property_override(config, "response_format.type", "json_object")
-# config = {"temperature": 0.7, "response_format": {"type": "json_object"}}
-```
+**Returns**: Parsed configuration dictionary
 
 ---
 
-##### `merge_configs(base_config: Dict[str, Any], overrides: List[str]) -> Dict[str, Any]`
+#### `parse_model_config(path: str, overrides: List[str]) -> Dict[str, Any]`
 
-Merge a base configuration with a list of property overrides.
+Parse model configuration with CLI overrides.
 
 **Parameters**:
-- `base_config`: Base configuration dictionary
-- `overrides`: List of property override strings
+- `path`: Configuration file path
+- `overrides`: List of override strings (e.g., `["temperature:0.7", "max_tokens:1000"]`)
 
 **Returns**: Merged configuration dictionary
 
-**Raises**: `ModelConfigError` if any override is invalid
-
-**Example**:
-```python
-base = {"temperature": 0.5, "max_tokens": 1000}
-overrides = ["temperature:0.7", "top_p:0.9"]
-merged = ModelConfigParser.merge_configs(base, overrides)
-# merged = {"temperature": 0.7, "max_tokens": 1000, "top_p": 0.9}
-```
-
----
-
-#### `parse_model_config(config_file: Optional[str], overrides: Optional[List[str]]) -> Dict[str, Any]`
-
-Parse model configuration from file and/or command-line overrides.
-
-**Parameters**:
-- `config_file`: Optional path to YAML configuration file
-- `overrides`: Optional list of property override strings
-
-**Returns**: Parsed and merged configuration dictionary
-
-**Raises**: `ModelConfigError` if configuration is invalid
+**Override Format**:
+- Simple: `key:value`
+- Nested: `key.nested:value`
+- Type conversion: Automatic (string, int, float, bool)
 
 **Example**:
 ```python
 from utils.model_config_parser import parse_model_config
 
-# From file only
-config = parse_model_config("model_config.yaml", None)
-
-# From overrides only
-config = parse_model_config(None, ["temperature:0.7", "max_tokens:2000"])
-
-# From both (overrides take precedence)
-config = parse_model_config("model_config.yaml", ["temperature:0.7"])
+config = parse_model_config(
+    "model.json",
+    ["temperature:0.7", "max_tokens:2000"]
+)
 ```
+
+---
+
+### Module: `utils.config_utils`
+
+#### `discover_config_files() -> List[str]`
+
+Discover configuration files in standard locations.
+
+**Returns**: List of found configuration file paths
+
+**Search Locations**:
+1. `~/.yacba/config.yaml`
+2. `~/.yacba/config.yml`
+3. `~/.yacba/config.json`
+4. `./yacba.yaml`
+5. `./yacba.yml`
+6. `./yacba.json`
+
+---
+
+#### `load_config_file(path: str) -> Dict[str, Any]`
+
+Load and parse configuration file.
+
+**Parameters**:
+- `path`: Configuration file path
+
+**Returns**: Parsed configuration dictionary
+
+**Supported Formats**:
+- YAML (`.yaml`, `.yml`)
+- JSON (`.json`)
+
+---
+
+#### `merge_configs(base: Dict, override: Dict) -> Dict`
+
+Deep merge two configuration dictionaries.
+
+**Parameters**:
+- `base`: Base configuration
+- `override`: Override configuration
+
+**Returns**: Merged configuration
+
+**Behavior**:
+- Nested dictionaries are recursively merged
+- Lists are replaced (not merged)
+- Override values take precedence
 
 ---
 
@@ -632,15 +640,15 @@ config = parse_model_config("model_config.yaml", ["temperature:0.7"])
 
 #### `print_startup_info(...)`
 
-Print startup information to console.
+Print formatted startup information.
 
 **Parameters**:
-- `model_id: str` - Model identifier
-- `system_prompt: str` - System prompt text
-- `prompt_source: str` - Source of system prompt
-- `tools: List` - List of available tools
-- `startup_files: List` - List of startup files
-- `conversation_manager_info: str` - Conversation manager info
+- `model_id`: Model identifier
+- `system_prompt`: System prompt text
+- `prompt_source`: Source of the prompt
+- `tools`: List of available tools
+- `startup_files`: Files loaded at startup
+- `conversation_manager_info`: Conversation manager details
 
 **Example**:
 ```python
@@ -649,10 +657,10 @@ from utils.startup_messages import print_startup_info
 print_startup_info(
     model_id="gpt-4o",
     system_prompt="You are a helpful assistant",
-    prompt_source="cli",
-    tools=[],
-    startup_files=[],
-    conversation_manager_info="Conversation Manager: sliding_window"
+    prompt_source="CLI argument",
+    tools=agent.tool_specs,
+    startup_files=config.files_to_upload,
+    conversation_manager_info="Sliding Window (size=40)"
 )
 ```
 
@@ -660,263 +668,214 @@ print_startup_info(
 
 #### `print_welcome_message()`
 
-Print welcome message to console.
-
-**Example**:
-```python
-from utils.startup_messages import print_welcome_message
-
-print_welcome_message()
-# Prints:
-# Welcome to Yet Another ChatBot Agent!
-# Type 'exit' or 'quit' to end. Type /help for a list of commands.
-# ...
-```
+Print ASCII art welcome message.
 
 ---
 
 ## Type Definitions
 
-### Module: `yacba_types.base`
-
-#### `PathLike`
-
-Type alias for path-like objects.
-
-```python
-PathLike = Union[str, Path]
-```
-
----
+### Module: `yacba_types`
 
 #### `ExitCode`
 
-Enum for exit codes.
+Exit code enumeration.
 
 ```python
 class ExitCode(IntEnum):
     SUCCESS = 0
-    USER_INTERRUPT = 1
-    CONFIG_ERROR = 2
-    RUNTIME_ERROR = 3
-    FATAL_ERROR = 4
+    USER_INTERRUPT = 130
+    CONFIGURATION_ERROR = 1
+    RUNTIME_ERROR = 2
+    FATAL_ERROR = 3
 ```
 
 ---
 
-### Module: `yacba_types.config`
+#### `ContentType`
 
-#### `FileUpload`
-
-Type alias for file upload specifications.
+Content type enumeration for file uploads.
 
 ```python
-FileUpload = Union[
-    Tuple[str, str],           # (path, mimetype)
-    Tuple[str, Optional[str]], # (path, optional mimetype)
-    Dict[str, Any]             # {"path": str, "mimetype": str}
-]
+class ContentType(str, Enum):
+    TEXT = "text"
+    IMAGE = "image"
+    DOCUMENT = "document"
 ```
 
 ---
 
-#### `ToolDiscoveryResult`
+## Constants
 
-Dataclass for tool discovery results.
+### Module: `config.constants`
+
+#### Environment Variables
+
+- `YACBA_CONFIG`: Path to configuration file
+- `YACBA_PROFILE`: Profile to use
+- `LOGURU_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+
+#### Configuration Defaults
 
 ```python
-@dataclass
-class ToolDiscoveryResult:
-    discovered_count: int
-    loaded_count: int
-    errors: List[str]
+DEFAULT_WINDOW_SIZE = 40
+DEFAULT_PRESERVE_RECENT = 10
+DEFAULT_SUMMARY_RATIO = 0.3
+DEFAULT_MAX_FILES = 10
+DEFAULT_CLI_PROMPT = "User: "
+DEFAULT_RESPONSE_PREFIX = "Assistant: "
 ```
 
 ---
 
-### Module: `yacba_types.content`
+## Completion System
 
-#### `Message`
+### Overview
 
-Type alias for message content.
+YACBA uses a modular completion system with three types of completers:
+
+1. **PrefixCompleter** (from repl_toolkit)
+   - Handles `/` command completion
+   - Commands are alphabetically sorted
+   - Configured with `YacbaActionRegistry.list_commands()`
+
+2. **ShellExpansionCompleter** (from repl_toolkit)
+   - Handles `${VAR}` environment variable expansion
+   - Handles `$(cmd)` shell command expansion
+   - Executes on Tab press with 2-second timeout
+   - Supports multi-line output (max 30 lines)
+
+3. **YacbaCompleter** (YACBA-specific)
+   - Handles `file()` path completion
+   - Supports tilde expansion
+   - Completes relative and absolute paths
+
+### Integration
+
+Completers are merged in `yacba.py`:
 
 ```python
-Message = Dict[str, Any]
+from prompt_toolkit.completion import merge_completers
+from repl_toolkit.completion import PrefixCompleter, ShellExpansionCompleter
+from adapters.repl_toolkit.completer import YacbaCompleter
+
+# Create individual completers
+command_completer = PrefixCompleter(
+    words=sorted(action_registry.list_commands()),
+    prefix='/',
+    ignore_case=True
+)
+
+shell_completer = ShellExpansionCompleter(
+    timeout=2.0,
+    multiline_all=True,
+    max_lines=30
+)
+
+file_completer = YacbaCompleter()
+
+# Merge for unified completion
+completer = merge_completers([
+    command_completer,
+    shell_completer,
+    file_completer
+])
 ```
 
----
+### Completion Examples
 
-## Main Entry Point
-
-### Module: `yacba`
-
-#### `main() -> NoReturn`
-
-Synchronous main entry point. Configures logging and runs the async application.
-
-**Raises**: `SystemExit` with appropriate exit code
-
-**Example**:
-```python
-if __name__ == "__main__":
-    main()
+**Command Completion**:
+```
+/he<Tab> → /help
+/co<Tab> → /clear, /conversation-manager, /conversation-stats
 ```
 
----
+**File Path Completion**:
+```
+file("/tmp/<Tab> → /tmp/.ICE-unix, /tmp/.Test-unix, ...
+file("~/Doc<Tab> → ~/Documents/
+```
 
-#### `async _run_agent_lifecycle(config: YacbaConfig) -> None`
+**Shell Variable Expansion**:
+```
+${HOME}<Tab> → /home/username
+${XDG_CONFIG_HOME}<Tab> → /home/username/.config
+```
 
-Main agent lifecycle: configure, create agent, and run interface.
-
-**Parameters**:
-- `config`: Validated YACBA configuration
-
-**Raises**: `Exception` on any error during agent lifecycle
-
----
-
-#### `async _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig) -> None`
-
-Run in interactive mode using repl_toolkit.
-
-**Parameters**:
-- `agent`: The agent proxy
-- `action_registry`: The action registry
-- `config`: YACBA configuration
-
----
-
-#### `async _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig) -> None`
-
-Run in headless mode using repl_toolkit.
-
-**Parameters**:
-- `agent`: The agent proxy
-- `action_registry`: The action registry
-- `config`: YACBA configuration
+**Shell Command Expansion**:
+```
+$(whoami)<Tab> → jbartle9
+$(date)<Tab> → Mon Jan  6 15:23:45 PST 2025
+```
 
 ---
 
 ## Error Handling
 
-### Exception Hierarchy
+### Configuration Errors
 
-```
-Exception
-├── ModelConfigError (utils.model_config_parser)
-│   └── Raised for model configuration parsing errors
-├── ConfigurationError (strands_agent_factory)
-│   └── Raised for invalid configuration
-└── SystemExit (built-in)
-    └── Used for clean exits with exit codes
+Raised when configuration is invalid:
+```python
+raise ConfigurationError("Invalid model string: must specify provider")
 ```
 
-### Exit Codes
+### Runtime Errors
 
-- `0` - Success
-- `1` - User interrupt (Ctrl+C)
-- `2` - Configuration error
-- `3` - Runtime error
-- `4` - Fatal error
+Raised during execution:
+```python
+raise RuntimeError("Failed to initialize agent factory")
+```
+
+### Tool Loading Errors
+
+Raised when tool configurations are invalid:
+```python
+raise ToolLoadingError("Invalid tool configuration: missing 'type' field")
+```
 
 ---
 
-## Usage Examples
+## Testing
 
-### Basic Usage
+### Unit Tests
 
-```python
+Test individual components:
+```bash
+PYTHONPATH=code python -c "
 from config import parse_config
 from adapters.strands_factory import YacbaToStrandsConfigConverter
-from strands_agent_factory import AgentFactory
+# Test configuration parsing
+"
+```
 
-# Parse configuration
-config = parse_config()
+### Integration Tests
 
-# Convert to strands format
-converter = YacbaToStrandsConfigConverter(config)
-strands_config = converter.convert()
+Test component interaction:
+```bash
+python test_refactored_yacba.py
+```
 
-# Create agent
-factory = AgentFactory(config=strands_config)
-await factory.initialize()
-agent = factory.create_agent()
+### Manual Testing
 
-# Use agent
-with agent as agent_context:
-    await agent_context.send_message_to_agent("Hello!")
+```bash
+# Test completion
+python code/yacba.py --model gpt-4o
+# Then press Tab in different contexts
+
+# Test configuration
+python code/yacba.py --show-config --profile development
 ```
 
 ---
 
-### Custom Configuration
+## Version History
 
-```python
-from config.dataclass import YacbaConfig
-
-config = YacbaConfig(
-    model_string="gpt-4o",
-    system_prompt="You are a helpful assistant",
-    prompt_source="api",
-    tool_config_paths=[],
-    startup_files_content=None,
-    conversation_manager_type="sliding_window",
-    sliding_window_size=50,
-    show_tool_use=True
-)
-```
-
----
-
-### Model Configuration
-
-```python
-from utils.model_config_parser import parse_model_config
-
-# From file
-config = parse_model_config("model_config.yaml", None)
-
-# From CLI overrides
-config = parse_model_config(None, [
-    "temperature:0.7",
-    "max_tokens:2000",
-    "response_format.type:json_object"
-])
-
-# Combined
-config = parse_model_config("model_config.yaml", ["temperature:0.8"])
-```
-
----
-
-## Best Practices
-
-### Configuration
-
-1. **Use profiles** for different environments (dev, prod, research)
-2. **Validate early** - use `--show-config` to verify configuration
-3. **Use environment variables** for sensitive data (API keys)
-4. **Document custom prompts** in separate files with `@file.txt` syntax
-
-### Error Handling
-
-1. **Check return values** from async functions
-2. **Use try-except** around agent operations
-3. **Log errors** with appropriate log levels
-4. **Provide context** in error messages
-
-### Performance
-
-1. **Use sliding window** for long conversations
-2. **Choose appropriate models** (cheaper for summarization)
-3. **Limit file uploads** with `--max-files`
-4. **Enable truncation** for large tool results
+- **v2.0**: Refactored architecture with modular completers
+- **v1.0**: Initial release
 
 ---
 
 ## See Also
 
-- [Architecture Documentation](ARCHITECTURE.md)
-- [Troubleshooting Guide](TROUBLESHOOTING.md)
-- [Configuration Guide](../README.CONFIG.md)
-- [Model Configuration Guide](../README.MODEL_CONFIG.md)
+- [Architecture Documentation](ARCHITECTURE.md) - System design
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - Problem solving
+- [Main README](../README.md) - Feature overview

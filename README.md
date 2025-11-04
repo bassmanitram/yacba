@@ -20,6 +20,9 @@ This separation of concerns provides:
 
 ### Installation
 
+
+> **⚠️ Important**: `strands-agent-factory` is **not available on PyPI** and must be installed from GitHub due to copyright considerations. The `requirements.txt` file already includes the correct GitHub installation URL. See [README_INSTALLATION_NOTE.md](README_INSTALLATION_NOTE.md) for details.
+
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/yacba.git
@@ -73,10 +76,14 @@ python yacba.py --conversation-manager sliding_window --window-size 50
 
 ### Interactive Experience
 - Prompt Toolkit: Full-featured readline with history, completion
-- Command System: Built-in `/` commands for session management
+- Command System: Built-in commands for session management
 - Cancellation Support: Cancel long-running operations with Alt+C
 - Multi-line Input: Alt+Enter to send, Enter for new line
-- Tab Completion: Context-aware completion for commands and inputs
+- Intelligent Tab Completion:
+  - **Command Completion**: `/he<Tab>` → `/help` (alphabetically sorted)
+  - **File Path Completion**: `file("/tmp/<Tab>` → complete paths in `file()` syntax
+  - **Shell Variable Expansion**: `${HOME}<Tab>` → `/home/user` (expands environment variables)
+  - **Shell Command Expansion**: `$(whoami)<Tab>` → `username` (executes and expands shell commands)
 
 ### Session Persistence
 - Named Sessions: Resume conversations by name
@@ -85,7 +92,7 @@ python yacba.py --conversation-manager sliding_window --window-size 50
 - History Management: Configurable history retention
 
 ### File Processing
-- Multi-format Support: PDF, DOC, CSV, JSON, Markdown, images
+- Multi-modal Support: PDF, DOC, CSV, JSON, Markdown, images
 - Batch Upload: Upload multiple files simultaneously  
 - Content Extraction: Automatic content parsing and preparation
 - Mimetype Detection: Automatic or manual mimetype specification
@@ -222,9 +229,62 @@ python yacba.py --tool-configs-dir ./tools/
 
 YACBA will automatically discover and load all `*.json` and `*.yaml` files in the directory.
 
-## User Interface Customization
+## Interactive Mode Features
 
-### Interactive Mode Customization
+### Tab Completion
+
+YACBA provides intelligent, context-aware tab completion:
+
+#### 1. Command Completion
+Commands are alphabetically sorted for easy discovery:
+```
+User: /he<Tab>
+→ /help
+
+User: /co<Tab>
+→ /clear
+  /conversation-manager
+  /conversation-stats
+```
+
+#### 2. File Path Completion
+Autocomplete paths within `file()` function calls:
+```
+User: file("/etc/pas<Tab>
+→ file("/etc/passwd
+  file("/etc/password
+
+User: file("~/Doc<Tab>
+→ file("~/Documents/
+```
+
+#### 3. Shell Variable Expansion (NEW!)
+Expand environment variables on Tab:
+```
+User: My home is ${HOME}<Tab>
+→ My home is /home/username
+
+User: Config at ${XDG_CONFIG_HOME}<Tab>
+→ Config at /home/username/.config
+```
+
+#### 4. Shell Command Expansion (NEW!)
+Execute and expand shell commands on Tab:
+```
+User: Current user is $(whoami)<Tab>
+→ Current user is jbartle9
+
+User: Today: $(date)<Tab>
+→ Today: Mon Jan  6 15:23:45 PST 2025
+```
+
+**Notes**:
+- Shell expansions execute with 2-second timeout
+- Multi-line command output shows individual lines as options
+- Maximum 30 lines displayed in completion menu
+- Expansions are **on-demand** (only when Tab is pressed)
+
+### User Interface Customization
 ```bash
 # Custom prompts with HTML formatting
 python yacba.py \
@@ -236,15 +296,22 @@ python yacba.py --show-tool-use
 ```
 
 ### Built-in Commands
-In interactive mode, use these commands:
+In interactive mode, use these commands (tab completion available, alphabetically sorted):
 
-- `/help` - Show available commands
 - `/clear` - Clear conversation history
-- `/info` - Show current session information
-- `/session save <name>` - Save current session
-- `/session load <name>` - Load saved session
+- `/conversation-manager` - Change conversation management strategy
+- `/conversation-stats` - Show conversation statistics
+- `/exit` - Exit the application
+- `/help` - Show available commands
+- `/history` - Show conversation history
+- `/info` - Show current session information (alias for `/status`)
+- `/quit` - Exit the application
+- `/session` - Session management (save, load, list)
+- `/shell` - Execute shell commands
+- `/shortcuts` - Show keyboard shortcuts
+- `/stats` - Show current session information (alias for `/status`)
+- `/status` - Show comprehensive session status
 - `/tools` - List available tools
-- `/quit`, `/exit` - Exit the application
 
 ## Architecture Details
 
@@ -271,9 +338,12 @@ In interactive mode, use these commands:
 The refactored architecture uses adapters to bridge between packages:
 
 1. **YacbaToStrandsConfigConverter**: Converts YACBA configuration to strands_agent_factory format
-2. **YacbaStrandsBackend**: Implements repl_toolkit protocols using strands_agent_factory agents
-3. **YacbaCommandAdapter**: Bridges YACBA command system with repl_toolkit command handler
-4. **YacbaCompleterAdapter**: Adapts YACBA completion system to repl_toolkit completer protocol
+2. **YacbaBackend**: Implements repl_toolkit protocols using strands_agent_factory agents
+3. **YacbaActionRegistry**: Registers YACBA-specific commands with repl_toolkit
+4. **Completion System**: Modular completers for different contexts
+   - **PrefixCompleter**: Alphabetically sorted `/` commands from repl_toolkit
+   - **ShellExpansionCompleter**: `${VAR}` and `$(cmd)` expansion from repl_toolkit
+   - **YacbaCompleter**: `file()` path completion (YACBA-specific)
 
 ## Performance & Scalability
 

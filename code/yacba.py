@@ -14,6 +14,9 @@ from typing import NoReturn
 # Configure logging early
 from loguru import logger
 
+# Completion imports
+from prompt_toolkit.completion import merge_completers
+
 # YACBA core functionality - configuration and startup
 from adapters.repl_toolkit.completer import YacbaCompleter
 from config import parse_config, YacbaConfig
@@ -27,6 +30,7 @@ from adapters.strands_factory import YacbaToStrandsConfigConverter
 
 # repl_toolkit integration
 from repl_toolkit import AsyncREPL, HeadlessREPL
+from repl_toolkit.completion import PrefixCompleter, ShellExpansionCompleter
 from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry
 
 
@@ -137,8 +141,27 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
     """
     logger.info("Starting interactive mode...")
     
-    # Create the custom completer
-    completer = YacbaCompleter(meta_commands=action_registry.list_commands())
+    # Create individual completers
+    command_completer = PrefixCompleter(
+        words=sorted(action_registry.list_commands()),  # Sort for better tab completion UX
+        prefix='/',
+        ignore_case=True
+    )
+    
+    shell_completer = ShellExpansionCompleter(
+        timeout=2.0,
+        multiline_all=True,
+        max_lines=30
+    )
+    
+    file_completer = YacbaCompleter()
+    
+    # Merge completers: commands first, then shell expansion, then file paths
+    completer = merge_completers([
+        command_completer,
+        shell_completer,
+        file_completer
+    ])
     
     # Prepare history path
     if config.session_name:
@@ -162,6 +185,9 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
         backend = YacbaBackend(agent_context, strands_config)
 
         # Print startup information
+        # Print welcome message for interactive mode
+        print_welcome_message()
+        
         _print_startup_info(config, agent_context)
         
         # Run the async REPL
@@ -178,7 +204,7 @@ def main() -> NoReturn:
     or exits with an error code.
     """
     try:
-        print_welcome_message()
+        # Welcome message printed after config parsing (if not headless)
         
         # Parse configuration
         config = parse_config()
