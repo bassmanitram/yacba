@@ -2,13 +2,14 @@
 
 ## Overview
 
-YACBA (Yet Another ChatBot Agent) is built on a **modular, adapter-based architecture** that separates concerns across three specialized packages:
+YACBA is a **CLI wrapper** built on top of [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory), which itself is built on [strands-agents](https://github.com/pydantic/strands-agents).
 
-1. **YACBA Core** - Configuration, CLI, orchestration
-2. **strands-agent-factory** - Agent lifecycle, tools, AI integration
-3. **repl-toolkit** - Interactive/headless UI
+**YACBA's Role**: Provide command-line interface, configuration management, and interactive REPL on top of strands-agent-factory's core agent functionality.
 
-This document provides comprehensive architectural documentation including diagrams, design patterns, and component interactions.
+**Core Functionality** (LLM integration, tool execution, conversation management, A2A support) comes from strands-agent-factory.
+
+> **Note**: This documents YACBA's wrapper architecture only. For core agent architecture,  
+> see [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory).
 
 ---
 
@@ -22,42 +23,74 @@ This document provides comprehensive architectural documentation including diagr
 6. [Configuration System](#configuration-system)
 7. [Adapter Pattern Implementation](#adapter-pattern-implementation)
 8. [Extension Points](#extension-points)
+9. [Performance Considerations](#performance-considerations)
 
 ---
 
 ## High-Level Architecture
 
-### System Context
+### System Layering
+
+YACBA sits atop strands-agent-factory as a thin wrapper:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         YACBA System                            │
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
-│  │  YACBA Core  │───▶│   strands-   │───▶│     repl-    │       │
-│  │              │    │    agent-    │    │    toolkit   │       │
-│  │ • Config     │    │   factory    │    │              │       │
-│  │ • CLI        │    │              │    │ • Interactive│       │
-│  │ • Files      │    │ • Agent      │    │ • Headless   │       │
-│  │ • Orchestr.  │    │ • Tools      │    │ • Commands   │       │
-│  └──────────────┘    │ • AI Provs   │    └──────────────┘       │
-│                      └──────────────┘                           │
-│                                                                 │
-│  External Dependencies:                                         │
-│  • strands-agents (AI framework)                                │
-│  • LiteLLM (100+ AI providers)                                  │
-│  • prompt_toolkit (terminal UI)                                 │
-│  • profile-config (configuration management)                    │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                  strands-agents                      │
+│            (Core AI Agent Framework)                 │
+│                                                      │
+│  • LLM abstractions    • Message handling            │
+│  • Tool protocols      • Streaming responses         │
+└────────────────────┬─────────────────────────────────┘
+                     │
+                     │ builds on
+                     ▼
+┌──────────────────────────────────────────────────────┐
+│            strands-agent-factory                     │
+│         (Agent Lifecycle & Management)               │
+│                                                      │
+│  • AgentFactory        • Tool loading (Py/MCP/A2A)   │
+│  • AgentProxy          • Conversation management     │
+│  • Provider adapters   • Session persistence         │
+│  • Tool types          • File handling               │
+└────────────────────┬─────────────────────────────────┘
+                     │
+                     │ wrapped by
+                     ▼
+┌──────────────────────────────────────────────────────┐
+│                    YACBA                             │
+│              (CLI Wrapper Layer)                     │
+│                                                      │
+│  • CLI parsing (dataclass-args)                      │
+│  • Profile system (profile-config)                   │
+│  • Interactive REPL (repl-toolkit)                   │
+│  • Configuration conversion                          │
+│  • File glob processing                              │
+│  • Headless mode                                     │
+└──────────────────────────────────────────────────────┘
 ```
 
-### Key Principles
+### What Each Layer Provides
 
-1. **Separation of Concerns** - Each package handles its domain
-2. **Adapter Pattern** - Clean interfaces between components
-3. **Dependency Inversion** - Depend on abstractions, not implementations
-4. **Single Responsibility** - Each module has one clear purpose
-5. **Open/Closed** - Open for extension, closed for modification
+**strands-agents** (Foundation):
+- LLM provider abstractions
+- Tool execution protocols
+- Message streaming
+- Response handling
+
+**strands-agent-factory** (Core Functionality):
+- Agent creation and lifecycle
+- Tool loading (Python functions, MCP servers, A2A)
+- Conversation management strategies
+- Session persistence
+- Provider configuration
+
+**YACBA** (Wrapper Layer):
+- Command-line interface
+- Configuration profiles
+- Interactive REPL with completion
+- Headless automation mode
+- Configuration file discovery
+- Glob pattern file loading
 
 ---
 
@@ -68,116 +101,88 @@ This document provides comprehensive architectural documentation including diagr
 ```
 yacba/
 ├── code/
-│   ├── yacba.py                    # Main entry point
+│   ├── yacba.py                    # Main entry point, orchestration
 │   ├── config/                     # Configuration system
 │   │   ├── arguments.py            # CLI argument definitions
 │   │   ├── dataclass.py            # YacbaConfig dataclass
-│   │   └── factory.py              # Configuration orchestration
+│   │   └── factory.py              # Configuration parsing/merging
 │   ├── adapters/                   # Adapter implementations
 │   │   ├── strands_factory/        # strands-agent-factory adapters
-│   │   │   └── config_converter.py # Config conversion
+│   │   │   └── config_converter.py # YACBA config → strands config
 │   │   └── repl_toolkit/           # repl-toolkit adapters
 │   │       ├── backend.py          # Backend protocol implementation
-│   │       ├── completer.py        # Tab completion
-│   │       └── actions/            # Command actions
-│   │           ├── registry.py     # Action registry
-│   │           ├── session_actions.py # Session commands
-│   │           ├── info_actions.py # Info commands
-│   │           └── status_action.py # Status command
+│   │       ├── completer.py        # File path completion
+│   │       └── actions/            # Interactive commands
+│   │           ├── registry.py     # Command registry
+│   │           ├── status_action.py
+│   │           ├── session_actions.py
+│   │           └── info_actions.py
 │   ├── utils/                      # Utility modules
-│   │   ├── config_utils.py         # Tool discovery
-│   │   ├── file_utils.py           # File operations
+│   │   ├── file_utils.py           # File/tool config discovery
+│   │   ├── config_utils.py         # Config file loading
 │   │   ├── model_config_parser.py  # Model config parsing
-│   │   └── startup_messages.py     # Startup display
+│   │   └── startup_messages.py     # Welcome/info display
 │   └── yacba_types/                # Type definitions
-│       ├── base.py                 # Base types
+│       ├── base.py                 # Exit codes
 │       ├── config.py               # Config types
 │       └── content.py              # Content types
-└── docs/                           # Documentation
+├── sample-tool-configs/            # Example tool configurations
+│   ├── strands.tools.json          # Python function tools
+│   ├── aws-cli.tools.json          # MCP server tools
+│   └── a2a-example.tools.json      # A2A (Agent-to-Agent) tools
+└── sample-model-configs/           # Example model configurations
+    ├── openai-gpt4.json
+    ├── anthropic-claude.json
+    └── litellm-gemini.json
 ```
 
----
-
-### Component Interaction Diagram
+### Component Interaction Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          User Interface                             │
-│                     (Terminal / Script)                             │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         yacba.py (Main)                             │
-│  • Parse CLI arguments                                              │
-│  • Initialize configuration                                         │
-│  • Create agent lifecycle                                           │
-│  • Select mode (interactive/headless)                               │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Configuration System                             │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ config.factory.parse_config()                                │   │
-│  │  1. Parse CLI args (config.arguments)                        │   │
-│  │  2. Load env vars                                            │   │
-│  │  3. Discover config files (./.yacba, ~/.yacba)               │   │
-│  │  4. Merge with precedence (profile-config)                   │   │
-│  │  5. Validate (config.dataclass)                              │   │
-│  │  6. Return YacbaConfig                                       │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Config Conversion                              │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ YacbaToStrandsConfigConverter                                │   │
-│  │  • Convert YacbaConfig → AgentFactoryConfig                  │   │
-│  │  • Map tool paths                                            │   │
-│  │  • Map file uploads                                          │   │
-│  │  • Map conversation settings                                 │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    strands-agent-factory                            │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ AgentFactory                                                 │   │
-│  │  • Initialize with AgentFactoryConfig                        │   │
-│  │  • Load tools (Python functions, MCP servers)                │   │
-│  │  • Create AI model connection                                │   │
-│  │  • Setup conversation manager                                │   │
-│  │  • Return AgentProxy                                         │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Backend Adapter                                │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ YacbaBackend (implements AsyncBackend)                       │   │
-│  │  • Wrap AgentProxy                                           │   │
-│  │  • Implement handle_input()                                  │   │
-│  │  • Provide agent access for commands                         │   │
-│  │  • Store AgentFactoryConfig for status                       │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                        repl-toolkit                                 │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ AsyncREPL / HeadlessREPL                                     │   │
-│  │  • Interactive: prompt_toolkit UI                            │   │
-│  │  • Headless: direct message processing                       │   │
-│  │  • Command system (/status, /clear, etc.)                    │   │
-│  │  • Tab completion (alphabetically sorted)                    │   │
-│  │  • History management                                        │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────┐
+│   User      │
+└──────┬──────┘
+       │ CLI args
+       ▼
+┌─────────────────┐
+│  yacba.py       │
+│  (Main)         │
+└──────┬──────────┘
+       │ parse_config()
+       ▼
+┌─────────────────┐
+│  config/        │
+│  (YacbaConfig)  │
+└──────┬──────────┘
+       │ YacbaConfig
+       ▼
+┌─────────────────────────┐
+│  YacbaToStrands         │
+│  ConfigConverter        │
+└──────┬──────────────────┘
+       │ strands config dict
+       ▼
+┌─────────────────────────┐
+│  strands_agent_factory  │
+│  AgentFactory           │
+└──────┬──────────────────┘
+       │ AgentProxy
+       ▼
+┌─────────────────────────┐
+│  YacbaBackend           │
+│  (adapter)              │
+└──────┬──────────────────┘
+       │ Backend protocol
+       ▼
+┌─────────────────────────┐
+│  repl_toolkit           │
+│  AsyncREPL/HeadlessREPL │
+└──────┬──────────────────┘
+       │ user interaction
+       ▼
+┌─────────────┐
+│   User      │
+└─────────────┘
 ```
 
 ---
@@ -186,41 +191,40 @@ yacba/
 
 ### Configuration Flow
 
+Configuration precedence (highest to lowest):
+
 ```
-CLI Arguments
-    │
-    ├─▶ parse_args() ──────────────────────┐
-    │                                      │
-Environment Variables                      │
-    │                                      │
-    └─▶ ARGUMENTS_FROM_ENV_VARS ───────────┤
-                                           │
-Discovered Config Files                    │
-    │                                      │
-    ├─▶ ./.yacba/config.yaml ──────────────┤
-    └─▶ ~/.yacba/config.yaml ──────────────┤
-                                           │
-User Config File                           │
-    │                                      │
-    └─▶ --config-file ─────────────────────┤
-                                           │
-                                           ▼
-                                    ┌───────────────┐
-                                    │ profile-config│
-                                    │   resolver    │
-                                    │  (precedence) │
-                                    └───────┬───────┘
-                                            │
-                                            ▼
-                                    ┌───────────────┐
-                                    │  validate_args│
-                                    └───────┬───────┘
-                                            │
-                                            ▼
-                                    ┌───────────────┐
-                                    │  YacbaConfig  │
-                                    └───────────────┘
+┌─────────────────┐
+│  CLI Arguments  │  ← Highest priority
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  --config-file  │  ← User-specified config
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Discovered     │  ← ~/.yacba/config.yaml, ./yacba.yaml
+│  Config Files   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Environment    │  ← YACBA_CONFIG, YACBA_PROFILE
+│  Variables      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Default Values │  ← Lowest priority
+└─────────────────┘
 ```
+
+**Implementation**:
+- CLI parsing via dataclass-args (auto-generated from YacbaConfig)
+- Profile loading via profile-config
+- Merging via config/factory.py
 
 ### Message Flow (Interactive Mode)
 
@@ -228,128 +232,50 @@ User Config File                           │
 User Input
     │
     ▼
-┌─────────────────┐
-│ prompt_toolkit  │
-│   (AsyncREPL)   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ YacbaBackend    │
-│ handle_input()  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  AgentProxy     │
-│ send_message()  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ strands-agents  │
-│   Agent.run()   │
-└────────┬────────┘
-         │
-         ├─▶ AI Provider (OpenAI, Anthropic, etc.)
-         │       │
-         │       ▼
-         │   Response
-         │       │
-         ├─▶ Tool Execution (if needed)
-         │       │
-         │       ▼
-         │   Tool Results
-         │       │
-         └───────┘
-         │
-         ▼
-┌─────────────────┐
-│ Callback Handler│
-│  (auto-printer) │
-└────────┬────────┘
-         │
-         ▼
-    Terminal Output
-```
-
-### Command Flow (/status example)
-
-```
-User Types "/status"
-         │
-         ▼
-┌─────────────────┐
-│ AsyncREPL       │
-│ parse_command() │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│YacbaActionRegistry│
-│ execute_action() │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ handle_status() │
-│ (status_action) │
-└────────┬────────┘
-         │
-         ├─▶ Get backend info
-         ├─▶ Get agent proxy
-         ├─▶ Get tool specs
-         ├─▶ Get conversation stats
-         └─▶ Format with rich
-         │
-         ▼
-┌─────────────────┐
-│ Rich Console    │
-│ Status Panel    │
-└─────────────────┘
-```
-
-### Tool Discovery Flow
-
-```
---tool-configs-dir <dir>
-         │
-         ▼
-┌─────────────────────────┐
-│ discover_tool_configs() │
-└────────┬────────────────┘
-         │
-         ├─▶ Scan directory for *.json, *.yaml
-         │
-         ├─▶ Validate each file
-         │
-         └─▶ Return (paths, ToolDiscoveryResult)
-         │
-         ▼
-┌─────────────────────────┐
-│  YacbaConfig            │
-│  tool_config_paths      │
-└────────┬────────────────┘
-         │
-         ▼
-┌─────────────────────────┐
-│ YacbaToStrandsConfig    │
-│ Converter               │
-└────────┬────────────────┘
-         │
-         ▼
-┌─────────────────────────┐
-│ AgentFactoryConfig      │
-│ tool_config_paths       │
-└────────┬────────────────┘
-         │
-         ▼
-┌─────────────────────────┐
-│ AgentFactory            │
-│ • Load Python functions │
-│ • Start MCP servers     │
-│ • Register tools        │
-└─────────────────────────┘
+┌─────────────────────┐
+│  AsyncREPL          │  (repl-toolkit)
+│  • Input capture    │
+│  • Tab completion   │
+│  • History          │
+└──────────┬──────────┘
+           │
+           ▼ /command or message?
+           │
+    ┌──────┴──────┐
+    │             │
+    ▼ command     ▼ message
+┌─────────┐   ┌──────────────┐
+│ Action  │   │ YacbaBackend │
+│ Handler │   └──────┬───────┘
+└─────────┘          │
+                     ▼
+           ┌──────────────────┐
+           │  AgentProxy      │  (strands-agent-factory)
+           │  • send_message  │
+           └────────┬─────────┘
+                    │
+                    ▼
+           ┌──────────────────┐
+           │  strands-agents  │
+           │  • LLM calls     │
+           │  • Tool exec     │
+           │  • Streaming     │
+           └────────┬─────────┘
+                    │
+                    ▼ response stream
+           ┌──────────────────┐
+           │  YacbaBackend    │
+           │  (async iterator)│
+           └────────┬─────────┘
+                    │
+                    ▼
+           ┌──────────────────┐
+           │  AsyncREPL       │
+           │  (display)       │
+           └────────┬─────────┘
+                    │
+                    ▼
+                User sees output
 ```
 
 ---
@@ -358,471 +284,276 @@ User Types "/status"
 
 ### 1. Adapter Pattern
 
-**Purpose**: Bridge between incompatible interfaces
+YACBA uses adapters to bridge between different abstractions:
 
-**Implementation**:
+**YacbaToStrandsConfigConverter**:
+- Converts YacbaConfig (YACBA's format) → strands-agent-factory config dict
+- Handles field name mapping, type conversion, defaults
+
+**YacbaBackend**:
+- Implements repl_toolkit's Backend protocol
+- Delegates to strands-agent-factory AgentProxy
+- Converts between repl_toolkit events and strands response streams
+
+**YacbaActionRegistry**:
+- Implements repl_toolkit's ActionRegistry
+- Provides YACBA-specific commands (/status, /tools, etc.)
+
+### 2. Protocol-Based Design
+
+Uses protocols (interfaces) for loose coupling:
 
 ```python
-# YacbaBackend adapts AgentProxy to AsyncBackend protocol
-class YacbaBackend(AsyncBackend):
-    def __init__(self, agent_proxy: AgentProxy, config: Optional[AgentFactoryConfig] = None):
-        self.agent_proxy = agent_proxy
-        self.config = config
-    
-    async def handle_input(self, user_input: str) -> bool:
-        # Adapt repl-toolkit's interface to strands-agent-factory
-        return await self.agent_proxy.send_message_to_agent(user_input)
+# repl_toolkit defines protocols
+class Backend(Protocol):
+    async def send_message(self, message: str) -> AsyncIterator[Dict]: ...
+    async def cancel(self): ...
+
+# YACBA implements protocol
+class YacbaBackend(Backend):
+    def __init__(self, agent: AgentProxy, config: Dict):
+        self.agent = agent  # strands-agent-factory agent
+        ...
 ```
 
-**Benefits**:
-- Clean separation between packages
-- Easy to swap implementations
-- Testable in isolation
+Benefits:
+- YACBA doesn't depend on repl_toolkit internals
+- strands-agent-factory doesn't know about YACBA
+- Easy to test with mock implementations
 
----
+### 3. Dependency Injection
 
-### 2. Factory Pattern
-
-**Purpose**: Centralize object creation
-
-**Implementation**:
+Configuration and dependencies injected at runtime:
 
 ```python
-# AgentFactory creates configured agents
-factory = AgentFactory(config=strands_config)
-await factory.initialize()
+# yacba.py
+config = parse_config()  # YacbaConfig
+converter = YacbaToStrandsConfigConverter(config)
+strands_config = converter.convert()
+
+factory = AgentFactory(config=strands_config)  # Inject config
 agent = factory.create_agent()
+
+backend = YacbaBackend(agent, strands_config)  # Inject agent
+repl = AsyncREPL(backend=backend, ...)  # Inject backend
 ```
 
-**Benefits**:
-- Encapsulates complex initialization
-- Consistent agent creation
-- Easy to extend with new agent types
+### 4. Strategy Pattern
 
----
-
-### 3. Strategy Pattern
-
-**Purpose**: Select algorithm at runtime
-
-**Implementation**:
+Conversation management uses strategy pattern (in strands-agent-factory):
 
 ```python
-# Conversation management strategies
-conversation_manager_type: Literal["null", "sliding_window", "summarizing"]
+# User selects strategy via YACBA config
+config.conversation_manager_type = "sliding_window"  # or "summarizing", "null"
 
-# Selected at runtime based on configuration
-if config.conversation_manager_type == "sliding_window":
-    # Use sliding window strategy
-elif config.conversation_manager_type == "summarizing":
-    # Use summarizing strategy
+# strands-agent-factory applies strategy
+# YACBA just passes the configuration through
 ```
-
-**Benefits**:
-- Flexible conversation management
-- Easy to add new strategies
-- Runtime selection
-
----
-
-### 4. Command Pattern
-
-**Purpose**: Encapsulate requests as objects
-
-**Implementation**:
-
-```python
-# Action registry with command objects
-class YacbaActionRegistry(ActionRegistry):
-    def __init__(self):
-        super().__init__()
-        register_session_actions(self)  # /session save, /session load
-        register_info_actions(self)     # /info, /tools
-        register_status_actions(self)   # /status, /stats, /info aliases
-```
-
-**Benefits**:
-- Extensible command system
-- Easy to add new commands
-- Decoupled from UI
-
----
-
-### 5. Dependency Injection
-
-**Purpose**: Invert control of dependencies
-
-**Implementation**:
-
-```python
-# Backend receives agent proxy and config via constructor
-backend = YacbaBackend(agent_proxy, strands_config)
-
-# REPL receives backend via run()
-await repl.run(backend=backend)
-```
-
-**Benefits**:
-- Testable components
-- Flexible configuration
-- Loose coupling
 
 ---
 
 ## Module Structure
 
-### Configuration System
+### Core Entry Point
 
-```
-config/
-├── arguments.py          # CLI argument definitions
-│   ├── ArgumentDefinition (dataclass)
-│   ├── ARGUMENT_DEFINITIONS (list of all args)
-│   ├── ARGUMENT_DEFAULTS (default values)
-│   ├── ARGUMENTS_FROM_ENV_VARS (env var mapping)
-│   ├── parse_args() → Namespace
-│   └── validate_args(config) → Dict
-│
-├── dataclass.py          # Configuration dataclass
-│   ├── YacbaConfig (dataclass)
-│   │   ├── Core fields (model, prompt, tools, files)
-│   │   ├── Optional fields (session, conversation mgmt)
-│   │   ├── Properties (has_session, is_interactive, etc.)
-│   │   └── Validation (__post_init__)
-│   └── ConversationManagerType (Literal)
-│
-└── factory.py            # Configuration orchestration
-    ├── parse_config() → YacbaConfig
-    │   ├── Parse CLI args
-    │   ├── Load env vars
-    │   ├── Discover config files
-    │   ├── Merge with profile-config
-    │   ├── Parse model configs
-    │   ├── Discover tools
-    │   └── Create YacbaConfig
-    └── _filter_cli_overrides(args) → Dict
+**yacba.py** - Main orchestration:
+```python
+def main():
+    config = parse_config()  # Parse CLI + files
+    asyncio.run(_run_agent_lifecycle(config))
+
+async def _run_agent_lifecycle(config):
+    # Convert config
+    strands_config = YacbaToStrandsConfigConverter(config).convert()
+    
+    # Create agent (via strands-agent-factory)
+    factory = AgentFactory(config=strands_config)
+    await factory.initialize()
+    agent = factory.create_agent()
+    
+    # Run appropriate mode
+    if config.headless:
+        await _run_headless_mode(agent, ...)
+    else:
+        await _run_interactive_mode(agent, ...)
 ```
 
-**Responsibilities**:
-- Parse all configuration sources
-- Merge with proper precedence
-- Validate configuration
-- Provide typed configuration object
+### Configuration Module
 
----
+**config/** - Configuration management:
+- **dataclass.py**: YacbaConfig dataclass (CLI auto-generated via dataclass-args)
+- **factory.py**: parse_config() - Merge CLI + files + env + defaults
+- Uses profile-config for profile management
 
-### Adapters
+### Adapters Module
 
-```
-adapters/
-├── strands_factory/
-│   └── config_converter.py
-│       └── YacbaToStrandsConfigConverter
-│           ├── __init__(yacba_config)
-│           ├── convert() → AgentFactoryConfig
-│           ├── _convert_tool_configs()
-│           ├── _convert_file_uploads()
-│           ├── _get_sessions_home()
-│           ├── _build_initial_message()
-│           └── _convert_conversation_manager_type()
-│
-└── repl_toolkit/
-    ├── backend.py
-    │   └── YacbaBackend (AsyncBackend)
-    │       ├── __init__(agent_proxy, config)
-    │       ├── handle_input(user_input) → bool
-    │       ├── get_agent_proxy() → AgentProxy
-    │       ├── clear_conversation() → bool
-    │       ├── get_tool_names() → list[str]
-    │       └── get_conversation_stats() → dict
-    │
-    ├── completer.py
-    │   └── YacbaCompleter (Completer)
-    │       ├── __init__(meta_commands) [sorts alphabetically]
-    │       ├── get_completions(document, event)
-    │       ├── add_command(command) [maintains sort]
-    │       └── remove_command(command)
-    │
-    └── actions/
-        ├── registry.py
-        │   └── YacbaActionRegistry (ActionRegistry)
-        │       └── __init__()
-        │
-        ├── session_actions.py
-        │   └── register_session_actions(registry)
-        │       ├── /session save <name>
-        │       └── /session load <name>
-        │
-        ├── info_actions.py
-        │   └── register_info_actions(registry)
-        │       ├── /tools
-        │       └── /clear
-        │
-        └── status_action.py
-            └── register_status_actions(registry)
-                ├── /status (main command)
-                ├── /info (alias)
-                └── /stats (alias)
-```
+**adapters/strands_factory/** - strands-agent-factory integration:
+- **config_converter.py**: YacbaConfig → strands config dict
 
-**Responsibilities**:
-- Bridge YACBA ↔ strands-agent-factory
-- Bridge YACBA ↔ repl-toolkit
-- Implement protocols
-- Provide command system
-- Status reporting with rich formatting
+**adapters/repl_toolkit/** - repl-toolkit integration:
+- **backend.py**: Backend protocol implementation
+- **completer.py**: File path completion (commands via PrefixCompleter)
+- **actions/**: Interactive commands
 
----
+### Utilities Module
 
-### Utilities
-
-```
-utils/
-├── config_utils.py
-│   └── discover_tool_configs(dir) → (paths, result)
-│
-├── file_utils.py
-│   ├── validate_file_path(path) → bool
-│   ├── load_file_content(path, type) → str
-│   ├── resolve_glob(pattern) → list[str]
-│   └── get_file_size(path) → int
-│
-├── model_config_parser.py
-│   ├── ModelConfigParser
-│   │   ├── load_config_file(path) → dict
-│   │   ├── parse_property_override(override) → (path, value)
-│   │   ├── apply_property_override(config, path, value)
-│   │   ├── merge_configs(base, overrides) → dict
-│   │   └── validate_model_config(config)
-│   └── parse_model_config(file, overrides) → dict
-│
-└── startup_messages.py
-    ├── print_startup_info(...)
-    └── print_welcome_message()
-```
-
-**Responsibilities**:
-- Tool discovery
-- File operations
-- Model config parsing
-- Startup display
+**utils/** - Helper functions:
+- **file_utils.py**: Tool config discovery, file loading
+- **config_utils.py**: Config file discovery/loading
+- **model_config_parser.py**: Model config parsing with overrides
+- **startup_messages.py**: Welcome messages, status display
 
 ---
 
 ## Configuration System
 
-### Configuration Precedence
+### YacbaConfig Dataclass
 
-```
-Priority  Source                          Example
-────────  ──────────────────────────────  ─────────────────────────
-1 (Low)   Default values                  ARGUMENT_DEFAULTS
-2         Environment variables           YACBA_MODEL_ID=gpt-4o
-3         Discovered config files         ~/.yacba/config.yaml
-4         User-specified config file      --config-file custom.yaml
-5 (High)  CLI arguments                   --model gpt-4o
-```
-
-### Configuration Resolution
+All YACBA configuration in one place:
 
 ```python
-# 1. Start with defaults
-config = ARGUMENT_DEFAULTS.copy()
-
-# 2. Apply environment variables
-config.update(ARGUMENTS_FROM_ENV_VARS)
-
-# 3. Apply discovered config files (via profile-config)
-config.update(discovered_config)
-
-# 4. Apply user-specified config file
-if cli_args.config_file:
-    config.update(load_config(cli_args.config_file))
-
-# 5. Apply CLI arguments (highest priority)
-config.update(cli_overrides)
-
-# 6. Validate
-config = validate_args(config)
-
-# 7. Create YacbaConfig
-return YacbaConfig(**config)
+@dataclass
+class YacbaConfig:
+    # Model
+    model_string: Optional[str]
+    model_config: Optional[str]
+    
+    # System
+    system_prompt: Optional[str]
+    emulate_system_prompt: bool
+    
+    # Tools & Files
+    tool_configs_dir: Optional[str]
+    files_to_upload: List[Tuple[str, str]]
+    
+    # Conversation
+    conversation_manager_type: str
+    sliding_window_size: int
+    preserve_recent_messages: int
+    summary_ratio: float
+    summarization_model: Optional[str]
+    
+    # Session
+    session_name: Optional[str]
+    agent_id: Optional[str]
+    
+    # UI
+    headless: bool
+    cli_prompt: Optional[str]
+    response_prefix: Optional[str]
+    show_tool_use: bool
+    
+    # Config Management
+    profile: Optional[str]
+    config_file: Optional[str]
 ```
 
-### Profile System
+CLI arguments **auto-generated** via dataclass-args from this dataclass.
 
-```yaml
-# ~/.yacba/config.yaml
-default_profile: development
+### Configuration Precedence
 
-defaults:
-  conversation_manager: sliding_window
-  window_size: 40
+Implemented in `config/factory.py`:
 
-profiles:
-  development:
-    model: "litellm:gemini/gemini-2.5-flash"
-    tool_configs_dir: "./dev-tools"
-    show_tool_use: true
-  
-  production:
-    inherits: development  # Inherit from development
-    model: "anthropic:claude-3-5-sonnet"
-    show_tool_use: false
-```
-
-**Usage**:
-```bash
-yacba --profile production
-```
+1. **parse_config()** orchestrates precedence
+2. **profile-config** handles profile loading
+3. **dataclass-args** handles CLI parsing
+4. Explicit merging for environment variables
 
 ---
 
 ## Adapter Pattern Implementation
 
-### Config Converter Adapter
+### Config Conversion Adapter
 
-**Purpose**: Convert YacbaConfig → AgentFactoryConfig
+**Purpose**: Convert YACBA configuration → strands-agent-factory configuration
 
 ```python
 class YacbaToStrandsConfigConverter:
-    """
-    Converts YACBA's rich configuration to strands-agent-factory's
-    simpler AgentFactoryConfig format.
-    """
-    
-    def convert(self) -> AgentFactoryConfig:
-        return AgentFactoryConfig(
-            # Map YACBA fields to strands-agent-factory fields
-            model=self.yacba_config.model_string,
-            system_prompt=self.yacba_config.system_prompt,
-            tool_config_paths=self._convert_tool_configs(),
-            file_paths=self._convert_file_uploads(),
-            output_printer=create_auto_printer(),  # Auto-format responses
-            # ... more mappings
-        )
+    def convert(self) -> Dict[str, Any]:
+        return {
+            'model': self.config.model_string,
+            'system_prompt': self.config.system_prompt,
+            'conversation_manager_type': self.config.conversation_manager_type,
+            'tool_config_paths': self._get_tool_paths(),
+            'file_paths': self.config.files_to_upload,
+            # ... etc
+        }
 ```
 
-**Mapping Table**:
-
-| YacbaConfig Field | AgentFactoryConfig Field | Transformation |
-|-------------------|--------------------------|----------------|
-| `model_string` | `model` | Direct |
-| `system_prompt` | `system_prompt` | Direct |
-| `tool_config_paths` | `tool_config_paths` | Convert to Path objects |
-| `files_to_upload` | `file_paths` | Convert to (Path, mimetype) tuples |
-| `session_name` | `session_id` | Direct |
-| `conversation_manager_type` | `conversation_manager_type` | Direct |
-
----
+**Mapping**:
+- YACBA field names → strands-agent-factory field names
+- Handle defaults, conversions, nested structures
 
 ### Backend Adapter
 
-**Purpose**: Implement repl-toolkit's AsyncBackend protocol using strands-agent-factory's AgentProxy
+**Purpose**: Implement repl_toolkit Backend protocol using strands-agent-factory AgentProxy
 
 ```python
-class YacbaBackend(AsyncBackend):
-    """
-    Adapts AgentProxy to AsyncBackend protocol.
-    """
+class YacbaBackend(Backend):
+    async def send_message(self, message: str):
+        async for event in self.agent.send_message_to_agent(message):
+            # Convert strands event → repl_toolkit event
+            yield self._convert_event(event)
     
-    def __init__(self, agent_proxy: AgentProxy, config: Optional[AgentFactoryConfig] = None):
-        self.agent_proxy = agent_proxy
-        self.config = config  # Store for status reporting
-    
-    async def handle_input(self, user_input: str) -> bool:
-        # Translate repl-toolkit's interface to strands-agent-factory
-        return await self.agent_proxy.send_message_to_agent(
-            user_input,
-            show_user_input=False
-        )
+    async def cancel(self):
+        # Delegate to agent
+        await self.agent.cancel()
 ```
-
-**Protocol Implementation**:
-
-| AsyncBackend Method | Implementation | Purpose |
-|---------------------|----------------|---------|
-| `handle_input(str)` | `agent_proxy.send_message_to_agent()` | Process user input |
-| `is_ready` | Check agent_proxy existence | Readiness check |
-| `clear_conversation()` | `agent_proxy.clear_messages()` | Clear history |
-| `get_tool_names()` | `agent_proxy.tool_specs` | List tools (extracts names) |
-| `get_conversation_stats()` | Access agent messages | Get stats |
 
 ---
 
 ## Extension Points
 
-### 1. Adding New CLI Arguments
+### Adding New Configuration Options
 
-**Location**: `code/config/arguments.py`
+1. Add field to `YacbaConfig` dataclass
+2. CLI argument auto-generated via dataclass-args
+3. Add to `YacbaToStrandsConfigConverter.convert()` if needed
+4. Update defaults in `config/dataclass.py`
 
+### Adding New Commands
+
+1. Create Action class in `adapters/repl_toolkit/actions/`
+2. Register in `YacbaActionRegistry`
+3. Command automatically available in interactive mode
+
+Example:
 ```python
-# Add to ARGUMENT_DEFINITIONS list
-ArgumentDefinition(
-    names=["--my-new-arg"],
-    help="Description of new argument",
-    argname="my_new_arg",
-    validator=_validate_my_arg,  # Optional
-)
-
-# Add to ARGUMENT_DEFAULTS if needed
-ARGUMENT_DEFAULTS["my_new_arg"] = "default_value"
+class MyAction(Action):
+    name = "/mycommand"
+    help_text = "Do something custom"
+    
+    async def execute(self, backend, args):
+        return "Custom action result"
 ```
 
-**Update**:
-1. Add to `YacbaConfig` dataclass in `config/dataclass.py`
-2. Add to `AgentFactoryConfig` mapping in `adapters/strands_factory/config_converter.py`
+### Adding New Completers
 
----
-
-### 2. Adding New Commands
-
-**Location**: `code/adapters/repl_toolkit/actions/`
+1. Create Completer class
+2. Add to merged completer in `yacba.py`
 
 ```python
-# Create new action file: my_actions.py
-def register_my_actions(registry: ActionRegistry):
-    @registry.register_action("/mycommand")
-    async def my_command(backend: AsyncBackend, args: str):
-        """My custom command"""
-        # Implementation
-        return True
-
-# Register in registry.py
-from .my_actions import register_my_actions
-
-class YacbaActionRegistry(ActionRegistry):
-    def __init__(self):
-        super().__init__()
-        register_my_actions(self)  # Add this line
+my_completer = MyCustomCompleter()
+completer = merge_completers([
+    command_completer,
+    shell_completer,
+    file_completer,
+    my_completer  # Add here
+])
 ```
 
-**Commands are automatically sorted alphabetically in tab completion.**
+### Extending Tool Support
 
----
+**Note**: Tool types are defined by strands-agent-factory, not YACBA.
 
-### 3. Adding New Conversation Strategies
-
-**Location**: strands-agent-factory (external package)
-
-YACBA delegates conversation management to strands-agent-factory. To add new strategies:
-
+To add new tool types:
 1. Implement in strands-agent-factory
-2. Add to `ConversationManagerType` literal in YACBA
-3. Update converter to handle new type
+2. YACBA automatically supports them (just passes config through)
 
----
-
-### 4. Adding New Tool Types
-
-**Location**: strands-agent-factory (external package)
-
-YACBA delegates tool management to strands-agent-factory. To add new tool types:
-
-1. Implement in strands-agent-factory
-2. Create tool configuration format
-3. Place config files in tool directory
-4. YACBA will auto-discover via `discover_tool_configs()`
+Current tool types (from strands-agent-factory):
+- `python` - Python function tools
+- `mcp` - MCP server tools
+- `a2a` - Agent-to-Agent tools
 
 ---
 
@@ -830,27 +561,28 @@ YACBA delegates tool management to strands-agent-factory. To add new tool types:
 
 ### Configuration Loading
 
-- **Lazy Loading**: Config files loaded only when needed
-- **Caching**: profile-config caches resolved configurations
-- **Validation**: Early validation prevents runtime errors
+- **Lazy loading**: Tool configs loaded on demand
+- **Caching**: Config files cached after first load
+- **Profile-config**: Efficient YAML parsing
 
-### Message Processing
+### Completion System
 
-- **Async I/O**: All I/O operations are async
-- **Streaming**: Responses streamed to terminal
-- **Cancellation**: Support for Alt+C to cancel operations
+- **Alphabetical sorting**: Commands sorted once at initialization
+- **Lazy file listing**: Path completion computed on-demand
+- **Shell timeout**: 2-second timeout prevents hanging
 
 ### Memory Management
 
-- **Conversation Strategies**: Automatic context window management
-- **Tool Result Truncation**: Large results truncated to fit context
-- **Session Persistence**: Efficient file-based storage
+**YACBA Layer**:
+- Minimal memory footprint (thin wrapper)
+- Config stored as dataclass (efficient)
 
-### Tab Completion
+**strands-agent-factory Layer**:
+- Conversation management (sliding window, summarization)
+- Tool result truncation
+- Session persistence to disk
 
-- **Alphabetical Sorting**: Commands sorted once at initialization
-- **Efficient Lookup**: O(n) prefix matching for command completion
-- **Context Awareness**: File completion in file() syntax
+See [strands-agent-factory performance docs](https://github.com/JBarmentlo/strands-agent-factory) for details.
 
 ---
 
@@ -858,21 +590,29 @@ YACBA delegates tool management to strands-agent-factory. To add new tool types:
 
 ### Input Validation
 
-- CLI arguments validated via validators
-- File paths validated before access
-- Model config validated before use
+**YACBA Layer**:
+- CLI argument validation (dataclass-args)
+- Path traversal protection in file loading
+- Environment variable expansion sanitization
 
-### Environment Variables
+**strands-agent-factory Layer**:
+- Tool input validation
+- LLM response sanitization
 
-- Sensitive data (API keys) via environment variables
-- Not logged or displayed
-- Passed securely to AI providers
+### Shell Expansion
 
-### File Access
+**Risk**: `$(command)` expansion executes shell commands
 
-- File paths resolved and validated
-- Glob patterns restricted to specified directories
-- Mimetype validation for uploads
+**Mitigation**:
+- Only executes on explicit Tab press
+- 2-second timeout
+- User fully controls execution
+
+### Configuration Files
+
+- YAML/JSON parsing with schema validation
+- Environment variable expansion with sanitization
+- Profile inheritance checked for cycles
 
 ---
 
@@ -880,63 +620,147 @@ YACBA delegates tool management to strands-agent-factory. To add new tool types:
 
 ### Unit Tests
 
-- Test each module in isolation
-- Mock external dependencies
-- Focus on business logic
+Test individual components in isolation:
+- Config parsing
+- Config conversion
+- Adapter methods
 
 ### Integration Tests
 
-- Test adapter interactions
-- Test configuration flow
-- Test command system
+Test component interaction:
+- Config → strands config conversion
+- Backend → agent communication
+- Complete message flow
 
-### End-to-End Tests
+### Manual Testing
 
-- Test full CLI workflows
-- Test interactive mode
-- Test headless mode
+Interactive testing:
+```bash
+python code/yacba.py -m "gpt-4o"  # Interactive mode
+python code/yacba.py --show-config  # Config display
+python code/yacba.py -H -i "test"  # Headless mode
+```
 
 ---
 
 ## Deployment Architecture
 
-### Local Development
+### Standalone CLI
 
+Most common deployment:
 ```
-Developer Machine
-├── Python 3.10+
-├── Virtual Environment
-│   ├── YACBA
-│   ├── strands-agent-factory
-│   ├── repl-toolkit
-│   └── Dependencies
-└── Configuration
-    ├── ./.yacba/config.yaml
-    └── ~/.yacba/config.yaml
+user@machine:~$ python yacba.py -m "gpt-4o"
 ```
 
-### Production Deployment
+**Requirements**:
+- Python 3.8+
+- pip install -r requirements.txt
+- API keys in environment
 
+### Container Deployment
+
+Docker example:
+```dockerfile
+FROM python:3.11
+WORKDIR /app
+COPY code/requirements.txt .
+RUN pip install -r requirements.txt
+COPY code/ .
+ENV OPENAI_API_KEY="..."
+CMD ["python", "yacba.py", "-H", "-i", "..."]
 ```
-Production Server
-├── Container (Docker)
-│   ├── Python Runtime
-│   ├── YACBA + Dependencies
-│   └── Configuration
-├── Environment Variables
-│   ├── YACBA_MODEL_ID
-│   ├── API Keys
-│   └── Session Storage
-└── Monitoring
-    ├── Logs (loguru)
-    └── Metrics
+
+### CI/CD Integration
+
+Headless mode for automation:
+```bash
+# In CI pipeline
+python code/yacba.py \
+  -m "gpt-4o" \
+  -H \
+  -i "Analyze code changes" \
+  -f "*.py" "text/plain"
 ```
 
 ---
 
-## See Also
+## Monitoring and Observability
 
-- [API Documentation](API.md)
-- [Troubleshooting Guide](TROUBLESHOOTING.md)
-- [Configuration Guide](../README.CONFIG.md)
-- [Model Configuration Guide](../README.MODEL_CONFIG.md)
+### Logging
+
+Uses loguru for structured logging:
+```bash
+export LOGURU_LEVEL=DEBUG  # DEBUG, INFO, WARNING, ERROR
+python code/yacba.py -m "gpt-4o"
+```
+
+**Log Levels**:
+- **DEBUG**: Configuration details, adapter calls
+- **INFO**: Major operations (agent creation, session load)
+- **WARNING**: Recoverable issues
+- **ERROR**: Fatal errors
+
+### Debugging
+
+Enable trace logging:
+```bash
+export LOGURU_LEVEL=TRACE
+python code/yacba.py --show-config
+```
+
+Shows:
+- Config precedence resolution
+- Adapter conversions
+- repl_toolkit events
+- strands-agent-factory calls
+
+---
+
+## Related Documentation
+
+### Internal
+- [API Documentation](API.md) - YACBA's wrapper APIs
+- [Completion System](COMPLETION_SYSTEM.md) - Tab completion architecture
+- [Troubleshooting](TROUBLESHOOTING.md) - Problem solving
+- [Main README](../README.md) - Feature overview
+
+### External
+- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)** - Core architecture
+  - Agent lifecycle and management
+  - Tool system architecture
+  - Conversation management design
+  - Provider adapter pattern
+- **[strands-agents](https://github.com/pydantic/strands-agents)** - Foundation architecture
+- **[repl-toolkit](https://github.com/your-org/repl-toolkit)** - REPL architecture
+- **[dataclass-args](https://pypi.org/project/dataclass-args/)** - CLI generation
+- **[profile-config](https://pypi.org/project/profile-config/)** - Configuration management
+
+---
+
+## Version History
+
+- **v2.0**: Wrapper architecture (current)
+  - YACBA as thin CLI wrapper
+  - strands-agent-factory integration
+  - Modular completion system
+  
+- **v1.0**: Monolithic architecture
+  - All functionality in YACBA
+  - Direct strands-agents integration
+
+---
+
+## Glossary
+
+- **AgentProxy**: strands-agent-factory's agent interface
+- **AgentFactory**: strands-agent-factory's agent creator
+- **Backend**: repl_toolkit protocol for message handling
+- **YacbaConfig**: YACBA's configuration dataclass
+- **Adapter**: Bridge between different abstractions
+- **A2A**: Agent-to-Agent (AI agents as tools)
+- **MCP**: Model Context Protocol (tool servers)
+
+---
+
+Last Updated: 2025-01-06  
+Architecture Version: 2.0

@@ -2,7 +2,29 @@
 
 ## Overview
 
-This guide provides solutions to common issues, debugging techniques, and best practices for troubleshooting YACBA.
+This guide provides solutions to **YACBA-specific issues** - problems with the CLI wrapper, configuration management, and REPL interface.
+
+> **Note**: YACBA is built on [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory).  
+> For **core agent issues** (LLM connections, tool execution, conversation management), see  
+> [strands-agent-factory troubleshooting](https://github.com/JBarmentlo/strands-agent-factory#troubleshooting).
+
+### When to Use This Guide vs strands-agent-factory Docs
+
+**Use this guide for**:
+- CLI argument parsing issues
+- Configuration file problems
+- Profile loading errors
+- Interactive REPL issues
+- Tab completion problems
+- File glob/MIME detection issues
+
+**Use strands-agent-factory docs for**:
+- LLM API connection errors
+- Tool loading/execution failures
+- Conversation management issues
+- A2A (Agent-to-Agent) setup problems
+- Session persistence errors
+- Model response issues
 
 ---
 
@@ -31,10 +53,10 @@ python --version
 
 # Check YACBA can be imported
 cd /path/to/yacba
-PYTHONPATH=code python -c "from config import parse_config; print('✓ YACBA imports OK')"
+PYTHONPATH=code python -c "from config import parse_config; print('YACBA imports OK')"
 
 # Verify dependencies
-pip list | grep -E "strands-agent-factory|repl-toolkit|profile-config|loguru"
+pip list | grep -E "strands-agent-factory|repl-toolkit|profile-config|dataclass-args"
 ```
 
 ### Verify Configuration
@@ -47,7 +69,8 @@ python code/yacba.py --show-config
 python code/yacba.py --list-profiles
 
 # Test with minimal config
-python code/yacba.py --model gpt-4o --headless --initial-message "test"
+python code/yacba.py -m "gpt-4o" -H -i "test"
+```
 ```
 
 ### Enable Debug Logging
@@ -394,6 +417,10 @@ unset YACBA_SESSION_NAME
 
 ## Tool Loading Issues
 
+> **Note**: Tool loading is handled by strands-agent-factory. Most tool issues should be reported there.  
+> See [strands-agent-factory tool troubleshooting](https://github.com/JBarmentlo/strands-agent-factory#tools) for tool-specific issues.
+
+
 ### Issue: Tools not loading
 
 **Symptoms**:
@@ -559,6 +586,10 @@ python code/yacba.py --tool-configs-dir /path/to/tools
 ---
 
 ## Model Connection Problems
+
+> **Note**: LLM provider connections are handled by strands-agent-factory.  
+> See [strands-agent-factory provider docs](https://github.com/JBarmentlo/strands-agent-factory#providers) for connection issues.
+
 
 ### Issue: Connection timeout
 
@@ -1196,3 +1227,69 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 - [Architecture Documentation](ARCHITECTURE.md)
 - [Configuration Guide](../README.CONFIG.md)
 - [Model Configuration Guide](../README.MODEL_CONFIG.md)
+
+---
+
+## Getting Help
+
+### Where to Report Issues
+
+**YACBA Issues** ([GitHub Issues](https://github.com/your-username/yacba/issues)):
+- CLI argument parsing problems
+- Configuration file loading errors  
+- Profile system issues
+- Interactive REPL bugs
+- Tab completion not working
+- File glob processing errors
+
+**strands-agent-factory Issues** ([GitHub Issues](https://github.com/JBarmentlo/strands-agent-factory/issues)):
+- LLM provider connection errors
+- Tool loading/execution failures
+- Tool configuration format issues
+- A2A (Agent-to-Agent) setup problems
+- Conversation management bugs
+- Session persistence errors
+
+**Not sure which?**
+- If it's about the CLI/config → YACBA
+- If it's about agents/tools/LLMs → strands-agent-factory
+
+### Before Reporting
+
+1. **Check existing issues** in the appropriate repository
+2. **Enable debug logging**: `export LOGURU_LEVEL=DEBUG`
+3. **Test with minimal config**: Remove customizations
+4. **Verify versions**: Check strands-agent-factory and repl-toolkit versions
+
+### Include in Bug Reports
+
+**For YACBA issues**:
+- Python version
+- YACBA version (git commit hash)
+- Full command that failed
+- Output of `--show-config`
+- Debug logs (`LOGURU_LEVEL=DEBUG`)
+- Operating system
+
+**For strands-agent-factory issues**:
+- See [strands-agent-factory contributing guide](https://github.com/JBarmentlo/strands-agent-factory/blob/main/CONTRIBUTING.md)
+
+### Community Support
+
+- **Discussions**: GitHub Discussions for questions
+- **Documentation**: Check all relevant docs first
+- **Examples**: Look at sample configs in the repository
+
+---
+
+## Related Documentation
+
+- [Main README](../README.md) - Feature overview
+- [API Documentation](API.md) - YACBA wrapper APIs
+- [Architecture](ARCHITECTURE.md) - System design
+- [Completion System](COMPLETION_SYSTEM.md) - Tab completion
+- **[strands-agent-factory Docs](https://github.com/JBarmentlo/strands-agent-factory)** - Core agent features
+
+---
+
+Last Updated: 2025-01-06

@@ -1,6 +1,27 @@
 # YACBA API Documentation
 
-Complete API reference for YACBA's internal modules and adapters.
+Complete API reference for YACBA's wrapper layer - the CLI, configuration, and adapter components.
+
+> **Note**: This documents **YACBA's wrapper APIs only**. For strands-agent-factory APIs  
+> (agent creation, tool development, conversation management, A2A tools), see the  
+> [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory).
+
+---
+
+## What YACBA Provides
+
+YACBA is a thin wrapper that adds:
+
+- **Configuration Management** - YacbaConfig dataclass with precedence system
+- **CLI Parsing** - Auto-generated via dataclass-args
+- **Interactive REPL** - Via repl-toolkit with completion
+- **Configuration Profiles** - Via profile-config
+- **Adapters** - Bridge YACBA config → strands-agent-factory config
+
+**Core agent functionality** (LLM integration, tool execution, conversation management) is in  
+[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory).
+
+---
 
 ## Table of Contents
 
@@ -11,6 +32,7 @@ Complete API reference for YACBA's internal modules and adapters.
 3. [Utilities](#utilities)
 4. [Type Definitions](#type-definitions)
 5. [Constants](#constants)
+6. [Completion System](#completion-system)
 
 ---
 
@@ -76,6 +98,7 @@ class YacbaConfig:
 - Validated on instantiation
 - Supports environment variable expansion
 - Profile-based configuration support
+- CLI arguments auto-generated via dataclass-args
 
 ---
 
@@ -104,35 +127,8 @@ print(config.model_string)
 print(config.conversation_manager_type)
 ```
 
----
-
-#### `ArgumentDefinition`
-
-Defines a CLI argument with all its properties.
-
-```python
-@dataclass
-class ArgumentDefinition:
-    names: List[str]              # e.g., ['-m', '--model']
-    dest: str                     # Config attribute name
-    help: str                     # Help text
-    type: Optional[type]          # Argument type
-    default: Any                  # Default value
-    action: Optional[str]         # Action (store_true, append, etc.)
-    choices: Optional[List[Any]]  # Valid choices
-    nargs: Optional[str]          # Number of arguments
-```
-
-**Usage**:
-```python
-ArgumentDefinition(
-    names=['-m', '--model'],
-    dest='model_string',
-    help='AI model to use',
-    type=str,
-    required=True
-)
-```
+**Note**: CLI arguments are automatically generated from the YacbaConfig dataclass using  
+[dataclass-args](https://pypi.org/project/dataclass-args/).
 
 ---
 
@@ -144,7 +140,7 @@ ArgumentDefinition(
 
 ##### `YacbaToStrandsConfigConverter`
 
-Converts YACBA configuration to strands_agent_factory configuration format.
+Converts YACBA configuration to strands-agent-factory configuration format.
 
 ```python
 class YacbaToStrandsConfigConverter:
@@ -165,16 +161,18 @@ Initialize converter with YACBA configuration.
 
 ###### `convert() -> Dict[str, Any]`
 
-Convert YACBA config to strands_agent_factory format.
+Convert YACBA config to strands-agent-factory format.
 
-**Returns**: Dictionary compatible with strands_agent_factory's `AgentFactory` configuration
+**Returns**: Dictionary compatible with `strands_agent_factory.AgentFactory` configuration
 
 **Conversion Mapping**:
-- `model_string` → `model.name`
-- `system_prompt` → `agent.system_prompt`
-- `conversation_manager_type` → `conversation_manager.type`
-- Tool configurations → `tools.configs`
-- Model parameters → `model.parameters`
+- `model_string` → `model`
+- `system_prompt` → `system_prompt`
+- `conversation_manager_type` → `conversation_manager_type`
+- `tool_configs_dir` → `tool_config_paths`
+- `files_to_upload` → `file_paths`
+- Model parameters → `model_config`
+- Summarization config → `summarization_model_config`
 
 **Example**:
 ```python
@@ -190,6 +188,8 @@ from strands_agent_factory import AgentFactory
 factory = AgentFactory(config=strands_config)
 ```
 
+**See Also**: [strands-agent-factory AgentFactory docs](https://github.com/JBarmentlo/strands-agent-factory)
+
 ---
 
 ### repl_toolkit Adapters
@@ -198,20 +198,20 @@ factory = AgentFactory(config=strands_config)
 
 ##### `YacbaBackend`
 
-Backend adapter that implements repl_toolkit's backend protocol.
+Backend adapter that implements repl_toolkit's backend protocol using strands-agent-factory agents.
 
 ```python
 class YacbaBackend(Backend):
     def __init__(self, agent: AgentProxy, config: Dict[str, Any])
     async def send_message(self, message: str) -> AsyncIterator[Dict[str, Any]]
-    async def cancel(self)
+    async def cancel()
 ```
 
 **Methods**:
 
 ###### `__init__(agent: AgentProxy, config: Dict[str, Any])`
 
-Initialize backend with agent and configuration.
+Initialize backend with strands-agent-factory agent and configuration.
 
 **Parameters**:
 - `agent`: strands_agent_factory AgentProxy instance
@@ -221,7 +221,7 @@ Initialize backend with agent and configuration.
 
 ###### `async send_message(message: str) -> AsyncIterator[Dict[str, Any]]`
 
-Send a message and stream responses.
+Send a message and stream responses from the agent.
 
 **Parameters**:
 - `message`: User message text
@@ -272,7 +272,10 @@ class YacbaCompleter(Completer):
 
 Initialize the file path completer.
 
-**Note**: The YacbaCompleter only handles `file()` path completion. Command completion is handled by repl_toolkit's `PrefixCompleter`, and shell expansion is handled by `ShellExpansionCompleter`.
+**Note**: YacbaCompleter only handles `file()` path completion:
+- **Command completion** (`/help`, `/status`) → repl_toolkit's `PrefixCompleter`
+- **Shell expansion** (`${VAR}`, `$(cmd)`) → repl_toolkit's `ShellExpansionCompleter`
+- **File paths** (`file("path")`) → `YacbaCompleter` (this class)
 
 ---
 
@@ -298,6 +301,8 @@ file("/tmp/<Tab>     # Completes to files in /tmp
 file("~/Doc<Tab>     # Completes to ~/Documents
 ```
 
+**See Also**: [Completion System](#completion-system) for full completion architecture
+
 ---
 
 #### Module: `adapters.repl_toolkit.actions.registry`
@@ -319,9 +324,11 @@ class YacbaActionRegistry(ActionRegistry):
 Initialize registry with YACBA-specific actions.
 
 **Registered Actions**:
-- Status and information commands
-- Session management commands
-- Conversation management commands
+- Status and information commands (`/status`, `/info`, `/stats`)
+- Session management commands (`/session`)
+- Conversation management commands (`/conversation-manager`, `/conversation-stats`)
+- Tool commands (`/tools`)
+- History commands (`/history`, `/clear`)
 
 ---
 
@@ -331,7 +338,8 @@ Get list of all available command names.
 
 **Returns**: List of command strings (e.g., `["/help", "/exit", "/status"]`)
 
-**Note**: Commands are returned unsorted. The caller should sort them for display purposes.
+**Note**: Commands are returned **unsorted**. The caller should sort them for display purposes  
+(YACBA sorts them alphabetically in the PrefixCompleter for better UX).
 
 **Example**:
 ```python
@@ -396,6 +404,8 @@ class ToolsAction(Action):
     async def execute(self, backend: Backend, args: Optional[str]) -> str
 ```
 
+**Note**: Tools are managed by strands-agent-factory. See [strands-agent-factory tool docs](https://github.com/JBarmentlo/strands-agent-factory#tools).
+
 ---
 
 ##### `ConversationStatsAction`
@@ -435,6 +445,8 @@ class SessionAction(Action):
 /session list               # List all sessions
 ```
 
+**Note**: Session persistence is handled by strands-agent-factory.
+
 ---
 
 ##### `ConversationManagerAction`
@@ -458,6 +470,9 @@ class ConversationManagerAction(Action):
 /conversation-manager summarizing
 ```
 
+**Note**: Conversation management is implemented by strands-agent-factory. See  
+[strands-agent-factory conversation management docs](https://github.com/JBarmentlo/strands-agent-factory).
+
 ---
 
 ## Utilities
@@ -477,14 +492,23 @@ Discover and parse tool configuration files in a directory.
 - `.json` - JSON configuration files
 - `.yaml`, `.yml` - YAML configuration files
 
+**Tool Configuration Format**: Defined by strands-agent-factory. Supports:
+- `type: "python"` - Python function tools
+- `type: "mcp"` - MCP server tools
+- `type: "a2a"` - Agent-to-Agent tools
+
 **Example**:
 ```python
 from utils.file_utils import discover_tool_configs
 
-configs = discover_tool_configs("./tools")
+configs = discover_tool_configs("./sample-tool-configs")
 for config in configs:
     print(config['tools'])
 ```
+
+**See Also**:
+- [strands-agent-factory tool configuration](https://github.com/JBarmentlo/strands-agent-factory#tools)
+- Sample configs in `sample-tool-configs/` directory
 
 ---
 
@@ -542,7 +566,7 @@ Parse model configuration from file.
 ```python
 from utils.model_config_parser import ModelConfigParser
 
-config = ModelConfigParser.parse_file("model.json")
+config = ModelConfigParser.parse_file("sample-model-configs/openai-gpt4.json")
 print(config['temperature'])
 ```
 
@@ -579,9 +603,14 @@ Parse model configuration with CLI overrides.
 from utils.model_config_parser import parse_model_config
 
 config = parse_model_config(
-    "model.json",
+    "sample-model-configs/openai-gpt4.json",
     ["temperature:0.7", "max_tokens:2000"]
 )
+```
+
+**CLI Usage**:
+```bash
+python yacba.py -m "gpt-4o" --model-config config.json --mc temperature:0.9
 ```
 
 ---
@@ -601,6 +630,8 @@ Discover configuration files in standard locations.
 4. `./yacba.yaml`
 5. `./yacba.yml`
 6. `./yacba.json`
+
+**Note**: Uses profile-config for configuration management.
 
 ---
 
@@ -731,23 +762,11 @@ DEFAULT_RESPONSE_PREFIX = "Assistant: "
 
 ### Overview
 
-YACBA uses a modular completion system with three types of completers:
+YACBA uses a modular completion system with three types of completers merged together:
 
-1. **PrefixCompleter** (from repl_toolkit)
-   - Handles `/` command completion
-   - Commands are alphabetically sorted
-   - Configured with `YacbaActionRegistry.list_commands()`
-
-2. **ShellExpansionCompleter** (from repl_toolkit)
-   - Handles `${VAR}` environment variable expansion
-   - Handles `$(cmd)` shell command expansion
-   - Executes on Tab press with 2-second timeout
-   - Supports multi-line output (max 30 lines)
-
-3. **YacbaCompleter** (YACBA-specific)
-   - Handles `file()` path completion
-   - Supports tilde expansion
-   - Completes relative and absolute paths
+1. **PrefixCompleter** (from repl-toolkit) - Command completion
+2. **ShellExpansionCompleter** (from repl-toolkit) - Variable/command expansion
+3. **YacbaCompleter** (YACBA-specific) - File path completion
 
 ### Integration
 
@@ -807,6 +826,8 @@ $(whoami)<Tab> → jbartle9
 $(date)<Tab> → Mon Jan  6 15:23:45 PST 2025
 ```
 
+**See Also**: [Completion System Documentation](COMPLETION_SYSTEM.md) for detailed architecture
+
 ---
 
 ## Error Handling
@@ -832,6 +853,9 @@ Raised when tool configurations are invalid:
 raise ToolLoadingError("Invalid tool configuration: missing 'type' field")
 ```
 
+**Note**: Tool loading is handled by strands-agent-factory. See  
+[strands-agent-factory error handling](https://github.com/JBarmentlo/strands-agent-factory).
+
 ---
 
 ## Testing
@@ -851,14 +875,14 @@ from adapters.strands_factory import YacbaToStrandsConfigConverter
 
 Test component interaction:
 ```bash
-python test_refactored_yacba.py
+python -m pytest code/tests/
 ```
 
 ### Manual Testing
 
 ```bash
 # Test completion
-python code/yacba.py --model gpt-4o
+python code/yacba.py -m "gpt-4o"
 # Then press Tab in different contexts
 
 # Test configuration
@@ -867,10 +891,35 @@ python code/yacba.py --show-config --profile development
 
 ---
 
-## Version History
+## Related Documentation
 
-- **v2.0**: Refactored architecture with modular completers
-- **v1.0**: Initial release
+### Internal
+- [Main README](../README.md) - Feature overview and quick start
+- [Architecture](ARCHITECTURE.md) - System design and patterns
+- [Completion System](COMPLETION_SYSTEM.md) - Tab completion details
+- [Troubleshooting](TROUBLESHOOTING.md) - Problem solving
+
+### External
+- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)** - Core agent APIs
+  - Agent creation and lifecycle
+  - Tool development (Python, MCP, A2A)
+  - Conversation management strategies
+  - Provider configuration
+- **[strands-agents](https://github.com/pydantic/strands-agents)** - Underlying framework
+- **[repl-toolkit](https://github.com/your-org/repl-toolkit)** - REPL framework APIs
+- **[dataclass-args](https://pypi.org/project/dataclass-args/)** - CLI parsing
+- **[profile-config](https://pypi.org/project/profile-config/)** - Configuration management
+
+---
+
+## Version Information
+
+- **YACBA Version**: 2.0+ (Wrapper Architecture)
+- **strands-agent-factory Version**: 1.1.1+
+- **repl-toolkit Version**: 1.2.0+
+- **dataclass-args Version**: 1.1.0+
+- **API Documentation Version**: 2.0
+- **Last Updated**: 2025-01-06
 
 ---
 
@@ -879,3 +928,4 @@ python code/yacba.py --show-config --profile development
 - [Architecture Documentation](ARCHITECTURE.md) - System design
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Problem solving
 - [Main README](../README.md) - Feature overview
+- [strands-agent-factory Documentation](https://github.com/JBarmentlo/strands-agent-factory) - Core agent features
