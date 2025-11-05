@@ -273,11 +273,23 @@ class TestConfigConversionIntegration:
         assert result.model == "gpt-4o"
         assert result.conversation_manager_type == "sliding_window"
     
-    def test_conversion_with_tools(self, minimal_yacba_config):
+    def test_conversion_with_tools(self, minimal_yacba_config, tmp_path):
         """Test conversion with tool configuration."""
         from adapters.strands_factory import YacbaToStrandsConfigConverter
+        import json
         
-        minimal_yacba_config.tool_config_paths = ["./tools", "./more_tools"]
+        # Create actual tool config files
+        tools_dir = tmp_path / "tools"
+        tools_dir.mkdir()
+        tool1 = tools_dir / "tool1.json"
+        tool1.write_text(json.dumps({"type": "python", "id": "test"}))
+        
+        more_tools_dir = tmp_path / "more_tools"
+        more_tools_dir.mkdir()
+        tool2 = more_tools_dir / "tool2.json"
+        tool2.write_text(json.dumps({"type": "mcp", "id": "test2"}))
+        
+        minimal_yacba_config.tool_config_paths = [str(tool1), str(tool2)]
         converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
         result = converter.convert()
         
