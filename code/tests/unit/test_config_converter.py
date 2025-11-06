@@ -295,3 +295,24 @@ class TestConfigConversionIntegration:
         
         assert len(result.tool_config_paths) == 2
         assert all(isinstance(p, Path) for p in result.tool_config_paths)
+    def test_output_printer_interactive_mode(self, minimal_yacba_config):
+        """Test that output_printer uses auto_printer in interactive mode."""
+        from adapters.strands_factory import YacbaToStrandsConfigConverter
+        
+        minimal_yacba_config.headless = False
+        converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
+        result = converter.convert()
+        
+        # Should use auto_printer (not the plain print function)
+        assert result.output_printer != print
+    
+    def test_output_printer_headless_mode(self, minimal_yacba_config):
+        """Test that output_printer uses plain print in headless mode."""
+        from adapters.strands_factory import YacbaToStrandsConfigConverter
+        
+        minimal_yacba_config.headless = True
+        converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
+        result = converter.convert()
+        
+        # Should use plain print function in headless mode
+        assert result.output_printer == print

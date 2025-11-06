@@ -91,7 +91,7 @@ class YacbaToStrandsConfigConverter:
             # UI customization
             show_tool_use=self.yacba_config.show_tool_use,
             response_prefix=self.yacba_config.response_prefix,
-            output_printer=create_auto_printer(),  # Auto-format HTML/ANSI in response_prefix
+            output_printer=create_auto_printer() if not self.yacba_config.headless else print,  # Auto-format HTML/ANSI in interactive mode
         )
         
         logger.debug(f"Converted config with {len(tool_config_paths)} tool configs and {len(file_paths)} files")

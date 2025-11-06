@@ -34,6 +34,15 @@ from repl_toolkit.completion import PrefixCompleter, ShellExpansionCompleter
 from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry
 
 
+
+def _create_stdout_printer():
+    """Create a simple stdout printer for headless mode."""
+    import sys
+    def printer(text: str) -> None:
+        print(text, file=sys.stdout, flush=True)
+    return printer
+
+
 async def _run_agent_lifecycle(config: YacbaConfig) -> None:
     """
     Main agent lifecycle: configure, create agent, and run interface.
@@ -57,7 +66,9 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         agent = factory.create_agent()  # This should be synchronous after initialization
         
         # Create action registry with backend
-        action_registry = YacbaActionRegistry()
+        # Create action registry with appropriate printer
+        printer = _create_stdout_printer() if config.headless else print
+        action_registry = YacbaActionRegistry(printer=printer)
         
         # Run in appropriate mode
         if config.headless:

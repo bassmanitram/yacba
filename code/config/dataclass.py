@@ -169,7 +169,7 @@ class YacbaConfig:
     
     headless: bool = combine_annotations(
         cli_short('H'),
-        cli_help("Run in headless mode (non-interactive, exit after initial message)"),
+        cli_help("Run in headless mode (reads from stdin, no interactive prompt)"),
         default=False
     )
     
