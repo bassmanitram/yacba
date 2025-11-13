@@ -1,223 +1,120 @@
 """
-Argument definitions for YACBA using dataclass-args.
+Default values and environment variable mappings for YACBA.
 
-This module provides CLI argument parsing using dataclass-args for automatic
-argument generation from the YacbaConfig dataclass, with manual handling for:
-- Complex custom Actions (FilesSpec)
-- Meta-commands (list-profiles, show-config, init-config)
-- Arguments requiring short aliases not in dataclass (tool-configs-dir)
+This module provides:
+- ARGUMENT_DEFAULTS: Fallback values for all configuration fields
+- ARGUMENTS_FROM_ENV_VARS: Environment variable integration (YACBA_* prefix)
 
-Everything else is auto-generated from YacbaConfig with dataclass-args annotations:
-- Type inference (str, int, bool, dict, Path, etc.)
-- Help text from cli_help()
-- Short aliases from cli_short()
-- File loading from cli_file_loadable()
-- Choices validation from cli_choices()
-- Boolean --flag/--no-flag pairs
-- Dict file loading and property overrides (--mc, --smc)
+All CLI argument parsing is handled automatically by dataclass-args via
+the YacbaConfig dataclass annotations. This module only provides defaults
+and environment variable mappings that feed into the configuration resolution.
 """
 
-import sys
-from argparse import Action, ArgumentParser, Namespace
-from pathlib import Path
-from typing import Dict, Any
+from os import environ
+from typing import Dict, Any, Optional
 
-from dataclass_args import GenericConfigBuilder
-
-from .dataclass import YacbaConfig
 
 # ============================================================================
-# Argument Defaults
+# Default Values (Fallback Only)
 # ============================================================================
 
-ARGUMENT_DEFAULTS = {
-    'model': 'litellm:gemini/gemini-2.5-flash',
+ARGUMENT_DEFAULTS: Dict[str, Any] = {
+    # Core
+    'model_string': 'litellm:gemini/gemini-2.5-flash',
     'system_prompt': (
         "You are a highly capable AI assistant with access to various tools "
         "and the ability to read and analyze files. Provide helpful, accurate, "
         "and contextual responses."
     ),
-    'conversation_manager': 'sliding_window',
-    'window_size': 40,
-    'preserve_recent': 10,
-    'summary_ratio': 0.3,
-    'max_files': 20,
+    
+    # Model configuration
+    'model_config': {},
+    'summarization_model_config': {},
     'emulate_system_prompt': False,
-    'show_tool_use': False,
+    'disable_context_repair': False,
+    
+    # File handling
+    'max_files': 20,
+    'tool_configs_dir': None,
+    
+    # Session management
+    'session_name': None,
+    'agent_id': None,
+    
+    # Conversation management
+    'conversation_manager_type': 'sliding_window',
+    'sliding_window_size': 40,
+    'preserve_recent_messages': 10,
+    'summary_ratio': 0.3,
+    'summarization_model': None,
+    'custom_summarization_prompt': None,
+    'should_truncate_results': True,
+    
+    # Execution mode
     'headless': False,
-    'no_truncate_results': False,
+    'initial_message': None,
+    
+    # Output control
+    'show_tool_use': False,
+    
+    # UI customization
+    'cli_prompt': None,
+    'response_prefix': None,
 }
 
-# ============================================================================
-# Environment Variables
-# ============================================================================
-
-ARGUMENTS_FROM_ENV_VARS: Dict[str, Any] = {}
-
 
 # ============================================================================
-# Custom Actions
+# Environment Variable Integration
 # ============================================================================
 
-class FilesSpec(Action):
+def _get_env_var(key: str) -> Optional[str]:
     """
-    Custom argparse Action for handling file specifications with optional mimetypes.
-    
-    This action supports complex file upload specifications beyond what dataclass-args
-    provides automatically.
-    
-    Format: FILE_GLOB [MIMETYPE]
-    - Can be invoked multiple times
-    - Accepts 1-2 arguments per invocation
-    - Stores results as list of tuples: [(file_glob, mimetype_or_None), ...]
-    
-    Examples:
-        -f file.txt
-        -f "*.py"
-        -f "data.bin" "application/octet-stream"
-        -f file1.txt -f file2.pdf -f "*.md"
-    """
-    def __call__(self, parser, namespace, values, option_string=None):
-        if not isinstance(values, list):
-            values = [values]
-        
-        # Get existing list or create new one
-        items = getattr(namespace, self.dest, None)
-        if items is None:
-            items = []
-        
-        # Parse the values (1-2 arguments: file_glob, optional mimetype)
-        if len(values) == 1:
-            items.append((values[0], None))
-        elif len(values) == 2:
-            items.append((values[0], values[1]))
-        else:
-            parser.error(f"{option_string} requires 1-2 arguments: FILE_GLOB [MIMETYPE]")
-        
-        setattr(namespace, self.dest, items)
-
-
-# ============================================================================
-# Argument Parsing
-# ============================================================================
-
-def parse_args(args=None) -> Namespace:
-    """
-    Parse command-line arguments using dataclass-args for automatic generation.
-    
-    Manual handling for:
-    - FilesSpec custom Action (-f/--files)
-    - Meta-commands (--profile, --list-profiles, --show-config, --init-config)
-    - tool-configs-dir (needs -t short alias, excluded from dataclass)
-    
-    Returns:
-        Namespace with all parsed arguments
-    """
-    parser = ArgumentParser(
-        description="YACBA - Yet Another ChatBot Agent",
-        epilog="Use -H for headless mode, -i for initial message"
-    )
-    
-    # 1. Meta-commands (not in YacbaConfig - profile-config coordination)
-    parser.add_argument(
-        '--profile',
-        type=str,
-        help="Configuration profile to use"
-    )
-    parser.add_argument(
-        '--config-file',
-        type=str,
-        help="Path to configuration file (overrides discovered config)"
-    )
-    parser.add_argument(
-        '--list-profiles',
-        action='store_true',
-        help="List available configuration profiles and exit"
-    )
-    parser.add_argument(
-        '--show-config',
-        action='store_true',
-        help="Display resolved configuration and exit"
-    )
-    parser.add_argument(
-        '--init-config',
-        type=str,
-        metavar='PATH',
-        help="Create sample configuration file at PATH and exit"
-    )
-    
-    # 2. Complex custom Action (FilesSpec) - dataclass-args can't handle this
-    parser.add_argument(
-        '-f', '--files',
-        nargs='+',  # Accept 1-2 arguments per invocation
-        action=FilesSpec,
-        metavar=('FILE_GLOB', 'MIMETYPE'),
-        dest='files',
-        help="File(s) to upload: FILE_GLOB [MIMETYPE] (repeatable)"
-    )
-    
-    # 3. Excluded field needing short alias
-    parser.add_argument(
-        '-t', '--tool-configs-dir',
-        type=str,
-        dest='tool_configs_dir',
-        help="Directory containing tool configuration files"
-    )
-    
-    # 4. Let dataclass-args handle everything else from YacbaConfig annotations
-    builder = GenericConfigBuilder(
-        YacbaConfig
-    )
-    
-    # Add all dataclass-args generated arguments
-    builder.add_arguments(parser)
-    
-    # Parse and return
-    return parser.parse_args(args)
-
-
-def validate_args(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Validate the resolved configuration.
+    Get environment variable with YACBA_ prefix.
     
     Args:
-        config: Merged configuration dictionary
+        key: Configuration key name
         
     Returns:
-        Validated configuration dictionary
-        
-    Raises:
-        SystemExit: On validation errors
+        Environment variable value or None
     """
-    # Validate conversation manager settings
-    if config.get('conversation_manager') == 'sliding_window':
-        window_size = config.get('window_size', 40)
-        preserve_recent = config.get('preserve_recent', 10)
-        
-        if window_size <= 0:
-            print(f"Error: window_size must be positive, got {window_size}")
-            sys.exit(1)
-            
-        if preserve_recent < 0:
-            print(f"Error: preserve_recent cannot be negative, got {preserve_recent}")
-            sys.exit(1)
-            
-        if preserve_recent > window_size:
-            print(f"Warning: preserve_recent ({preserve_recent}) > window_size ({window_size})")
-            print(f"Setting preserve_recent = window_size")
-            config['preserve_recent'] = window_size
+    env_key = f'YACBA_{key.upper()}'
+    return environ.get(env_key)
+
+
+def _build_env_vars() -> Dict[str, Any]:
+    """
+    Build dictionary of environment variable overrides.
     
-    elif config.get('conversation_manager') == 'summarizing':
-        summary_ratio = config.get('summary_ratio', 0.3)
-        
-        if not 0 < summary_ratio < 1:
-            print(f"Error: summary_ratio must be between 0 and 1, got {summary_ratio}")
-            sys.exit(1)
+    Checks for YACBA_* environment variables for each default key.
+    Only includes variables that are actually set.
     
-    # Validate max_files
-    max_files = config.get('max_files', 20)
-    if max_files <= 0:
-        print(f"Error: max_files must be positive, got {max_files}")
-        sys.exit(1)
+    Returns:
+        Dictionary of environment variable overrides
+    """
+    env_vars = {}
     
-    return config
+    for key in ARGUMENT_DEFAULTS.keys():
+        value = _get_env_var(key)
+        if value is not None:
+            # Type conversion for known types
+            if key in ['max_files', 'sliding_window_size', 'preserve_recent_messages']:
+                try:
+                    env_vars[key] = int(value)
+                except ValueError:
+                    pass  # Skip invalid values
+            elif key in ['summary_ratio']:
+                try:
+                    env_vars[key] = float(value)
+                except ValueError:
+                    pass
+            elif key in ['headless', 'show_tool_use', 'emulate_system_prompt', 'should_truncate_results', 'disable_context_repair']:
+                # Boolean conversion
+                env_vars[key] = value.lower() in ('true', '1', 'yes', 'on')
+            else:
+                env_vars[key] = value
+    
+    return env_vars
+
+
+# Build on module load
+ARGUMENTS_FROM_ENV_VARS: Dict[str, Any] = _build_env_vars()

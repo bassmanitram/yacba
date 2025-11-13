@@ -75,6 +75,11 @@ class YacbaConfig:
         default=False
     )
     
+    disable_context_repair: bool = combine_annotations(
+        cli_help("Disable automatic context repair when token limits are exceeded"),
+        default=False
+    )
+    
     # ========================================================================
     # Model Configuration
     # ========================================================================

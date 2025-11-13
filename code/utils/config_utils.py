@@ -1,3 +1,10 @@
+"""
+Utility functions for configuration discovery and management.
+
+Provides tool configuration discovery from *.tools.json files with
+proper path expansion and error handling.
+"""
+
 import glob
 from pathlib import Path
 from typing import List, Union, Tuple
@@ -69,7 +76,9 @@ def _discover_single_directory(directory: PathLike) -> Tuple[List[str], List[dic
     Returns:
         Tuple of (file_paths, failed_configs, files_scanned)
     """
-    dir_path = Path(directory)
+    # Expand ~ and resolve path
+    dir_path = Path(directory).expanduser().resolve()
+    
     if not dir_path.exists():
         logger.warning(f"Tools directory not found: '{directory}'. Skipping tool discovery.")
         return [], [], 0

@@ -10,7 +10,9 @@ from loguru import logger
 
 from strands_agent_factory.core.agent import AgentProxy
 from strands_agent_factory import AgentFactoryConfig
+from repl_toolkit import iter_content_parts
 from repl_toolkit.ptypes import AsyncBackend
+import base64
 
 
 class YacbaBackend(AsyncBackend):
@@ -34,7 +36,7 @@ class YacbaBackend(AsyncBackend):
         self.config = config
         logger.debug("Initialized YacbaBackend with AgentProxy")
     
-    async def handle_input(self, user_input: str) -> bool:
+    async def handle_input(self, user_input: str, images = None) -> bool:
         """
         Handle user input by processing it through the agent.
         
@@ -43,6 +45,7 @@ class YacbaBackend(AsyncBackend):
         
         Args:
             user_input: The input string from the user
+            images: Optional list of images associated with the input
             
         Returns:
             bool: True if processing was successful, False otherwise
@@ -54,7 +57,14 @@ class YacbaBackend(AsyncBackend):
         logger.debug(f"Processing user input: {user_input[:100]}{'...' if len(user_input) > 100 else ''}")
         
         try:
-
+            if images:
+                user_input = ''.join(
+                    f" image('{base64.b64encode(image.data).decode('ascii')}') " if image
+                    else content
+                    for content, image in iter_content_parts(user_input, images)
+                    if image or content
+                )
+        
             success = await self.agent_proxy.send_message_to_agent(user_input,show_user_input=False)           
             if success:
                 logger.debug("Input processed successfully")

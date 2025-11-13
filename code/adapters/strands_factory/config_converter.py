@@ -66,6 +66,7 @@ class YacbaToStrandsConfigConverter:
             system_prompt=self.yacba_config.system_prompt,
             model_config=self.yacba_config.model_config,
             emulate_system_prompt=self.yacba_config.emulate_system_prompt,
+            disable_context_repair=self.yacba_config.disable_context_repair,
             
             # Initial message and files
             initial_message=self._build_initial_message(),
