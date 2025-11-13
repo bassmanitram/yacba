@@ -9,8 +9,11 @@ import yaml
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional
-from loguru import logger
+
+from utils.logging import get_logger
 from utils.file_utils import load_structured_file
+
+logger = get_logger(__name__)
 
 
 class ModelConfigError(Exception):
@@ -56,7 +59,7 @@ class ModelConfigParser:
             if not isinstance(config, dict):
                 raise ModelConfigError(f"Model config file must contain a YAML object, got {type(config).__name__}")
 
-            logger.debug(f"Loaded model config from {file_path}: {len(config)} properties")
+            logger.debug("model_config_loaded", file_path=str(file_path), property_count=len(config))
             return config
 
         except yaml.YAMLError as e:
@@ -95,7 +98,10 @@ class ModelConfigParser:
         # Parse and infer type of the value
         try:
             parsed_value = ModelConfigParser._infer_type(value_str)
-            logger.debug(f"Parsed override: {path} = {parsed_value} ({type(parsed_value).__name__})")
+            logger.debug("property_override_parsed", 
+                        path=path, 
+                        value=parsed_value, 
+                        value_type=type(parsed_value).__name__)
             return path, parsed_value
         except Exception as e:
             raise ModelConfigError(f"Error parsing value '{value_str}' for property '{path}': {e}")
@@ -275,7 +281,7 @@ class ModelConfigParser:
             property_path, value = ModelConfigParser.parse_property_override(override)
             ModelConfigParser.apply_property_override(merged_config, property_path, value)
 
-        logger.debug(f"Merged config with {len(overrides)} overrides")
+        logger.debug("config_merged", override_count=len(overrides))
         return merged_config
 
     @staticmethod
@@ -298,7 +304,7 @@ class ModelConfigParser:
         except yaml.YAMLError as e:
             raise ModelConfigError(f"Model configuration contains non-serializable values: {e}")
 
-        logger.debug(f"Validated model config with {len(config)} properties")
+        logger.debug("model_config_validated", property_count=len(config))
 
 
 def parse_model_config(config_file: Optional[str] = None,

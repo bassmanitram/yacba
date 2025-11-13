@@ -6,13 +6,16 @@ and the repl_toolkit AsyncBackend protocol
 """
 
 from typing import Optional
-from loguru import logger
+
+from utils.logging import get_logger, log_error
 
 from strands_agent_factory.core.agent import AgentProxy
 from strands_agent_factory import AgentFactoryConfig
 from repl_toolkit import iter_content_parts
 from repl_toolkit.ptypes import AsyncBackend
 import base64
+
+logger = get_logger(__name__)
 
 
 class YacbaBackend(AsyncBackend):
@@ -34,7 +37,7 @@ class YacbaBackend(AsyncBackend):
         """
         self.agent_proxy = agent_proxy
         self.config = config
-        logger.debug("Initialized YacbaBackend with AgentProxy")
+        logger.debug("yacba_backend_initialized")
     
     async def handle_input(self, user_input: str, images = None) -> bool:
         """
@@ -51,10 +54,10 @@ class YacbaBackend(AsyncBackend):
             bool: True if processing was successful, False otherwise
         """
         if not user_input.strip():
-            logger.debug("Received empty input, ignoring")
+            logger.debug("empty_input_received")
             return True
         
-        logger.debug(f"Processing user input: {user_input[:100]}{'...' if len(user_input) > 100 else ''}")
+        logger.debug("processing_user_input", preview=user_input[:100])
         
         try:
             if images:
@@ -67,14 +70,14 @@ class YacbaBackend(AsyncBackend):
         
             success = await self.agent_proxy.send_message_to_agent(user_input,show_user_input=False)           
             if success:
-                logger.debug("Input processed successfully")
+                logger.debug("input_processed_successfully")
             else:
-                logger.warning("Input processing returned False")
+                logger.warning("input_processing_returned_false")
                 
             return success
             
         except Exception as e:
-            logger.error(f"Error processing input: {e}")
+            log_error(logger, "error_processing_input", error=str(e))
             return False
     
     def get_agent_proxy(self) -> AgentProxy:
@@ -110,10 +113,10 @@ class YacbaBackend(AsyncBackend):
         try:
             # Access the underlying agent and clear messages using synchronous context manager
             self.agent_proxy.clear_messages()
-            logger.debug("Conversation history cleared")
+            logger.debug("conversation_history_cleared")
             return True
         except Exception as e:
-            logger.error(f"Error clearing conversation: {e}")
+            logger.error("error_clearing_conversation", error=str(e))
             return False
     
     def get_tool_names(self) -> list[str]:
@@ -144,7 +147,7 @@ class YacbaBackend(AsyncBackend):
             
             return tool_names
         except Exception as e:
-            logger.error(f"Error getting tool names: {e}")
+            logger.error("error_getting_tool_names", error=str(e))
             return []
     
     def get_conversation_stats(self) -> dict:
@@ -166,7 +169,7 @@ class YacbaBackend(AsyncBackend):
                     messages = getattr(agent, 'messages', [])
                     message_count = len(messages)
             except Exception as e:
-                logger.debug(f"Could not access messages through context manager: {e}")
+                logger.debug("could_not_access_messages_through_context", error=str(e))
                 # Try alternative access methods
                 try:
                     messages = getattr(self.agent_proxy, 'messages', [])
@@ -179,5 +182,5 @@ class YacbaBackend(AsyncBackend):
                 "tool_count": tool_count
             }
         except Exception as e:
-            logger.error(f"Error getting conversation stats: {e}")
+            logger.error("error_getting_conversation_stats", error=str(e))
             return {"message_count": 0, "tool_count": 0}

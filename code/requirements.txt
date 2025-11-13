@@ -1,6 +1,6 @@
 profile-config>=1.1.0
 dataclass-args>=1.1.0
 pyyaml>=6.0
-loguru>=0.7.0
+structlog>=24.1.0
 repl-toolkit>=1.2.0
 strands-agent-factory @ git+https://github.com/JBarmentlo/strands-agent-factory.git@v1.1.1

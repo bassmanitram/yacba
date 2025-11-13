@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import NoReturn
 
 # Configure logging early
-from loguru import logger
+from utils.logging import get_logger, log_error
+
+logger = get_logger(__name__)
 
 # Completion imports
 from prompt_toolkit.completion import merge_completers
@@ -77,7 +79,7 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
             await _run_interactive_mode(agent, action_registry, config, strands_config)
                 
     except Exception as e:
-        logger.error(f"Fatal error in agent lifecycle: {e}")
+        log_error(logger, "fatal_error_in_agent_lifecycle", error=str(e))
         sys.exit(ExitCode.FATAL_ERROR)
 
 def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
@@ -105,7 +107,7 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
         )
             
     except Exception as e:
-        logger.error(f"Error printing startup info: {e}")
+        logger.error("error_printing_startup_info", error=str(e))
 
 
 async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig, strands_config) -> None:
@@ -118,7 +120,7 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
         config: YACBA configuration
         strands_config: Converted strands_agent_factory configuration
     """
-    logger.info("Starting headless mode...")
+    logger.info("starting_headless_mode")
 
     repl = HeadlessREPL(        
         action_registry=action_registry,
@@ -136,7 +138,7 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
         )
 
     if not success:
-        logger.error("Headless mode completed with errors")
+        logger.error("headless_mode_completed_with_errors")
         sys.exit(ExitCode.RUNTIME_ERROR)
 
 
@@ -150,7 +152,7 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
         config: YACBA configuration
         strands_config: Converted strands_agent_factory configuration
     """
-    logger.info("Starting interactive mode...")
+    logger.info("starting_interactive_mode")
     
     # Create individual completers
     command_completer = PrefixCompleter(
@@ -224,10 +226,10 @@ def main() -> NoReturn:
         asyncio.run(_run_agent_lifecycle(config))
         
     except KeyboardInterrupt:
-        logger.info("Application interrupted by user")
+        logger.info("application_interrupted_by_user")
         sys.exit(ExitCode.USER_INTERRUPT)
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        log_error(logger, "fatal_error", error=str(e))
         sys.exit(ExitCode.FATAL_ERROR)
 
 

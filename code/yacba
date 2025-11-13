@@ -15,7 +15,7 @@ elif [[ -f "$MYDIR/../.venv/bin/activate" ]]; then
 fi
 
 ## Logging is through Loguru - by default don't display anything except errors
-export LOGURU_LEVEL=${LOGURU_LEVEL:-ERROR}
+export YACBA_LOG_LEVEL=${YACBA_LOG_LEVEL:-ERROR}
 
 ##
 ## LiteLLM has a bug whereby in certain circumstances it doesn't

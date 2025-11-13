@@ -7,10 +7,13 @@ system into the simpler AgentFactoryConfig format required by strands_agent_fact
 
 from pathlib import Path
 from typing import List, Tuple, Optional, Any, Dict, Literal
-from loguru import logger
+
+from utils.logging import get_logger
 
 from strands_agent_factory import AgentFactoryConfig
 from config.dataclass import YacbaConfig
+
+logger = get_logger(__name__)
 
 # Import create_auto_printer - available in project virtual environment
 try:
@@ -39,7 +42,7 @@ class YacbaToStrandsConfigConverter:
             yacba_config: The parsed YACBA configuration object
         """
         self.yacba_config = yacba_config
-        logger.debug(f"Initialized config converter for model: {yacba_config.model_string}")
+        logger.debug("config_converter_initialized", model=yacba_config.model_string)
     
     def convert(self) -> AgentFactoryConfig:
         """
@@ -48,7 +51,7 @@ class YacbaToStrandsConfigConverter:
         Returns:
             AgentFactoryConfig: Converted configuration for strands_agent_factory
         """
-        logger.debug("Converting YACBA config to strands_agent_factory config")
+        logger.debug("converting_yacba_config_to_strands_config")
         
         # Convert tool configurations to paths
         tool_config_paths = self._convert_tool_configs()
@@ -66,7 +69,8 @@ class YacbaToStrandsConfigConverter:
             system_prompt=self.yacba_config.system_prompt,
             model_config=self.yacba_config.model_config,
             emulate_system_prompt=self.yacba_config.emulate_system_prompt,
-            disable_context_repair=self.yacba_config.disable_context_repair,
+            # NOTE: disable_context_repair parameter will be added when strands_agent_factory is updated
+            # disable_context_repair=self.yacba_config.disable_context_repair,
             
             # Initial message and files
             initial_message=self._build_initial_message(),
@@ -95,7 +99,9 @@ class YacbaToStrandsConfigConverter:
             output_printer=create_auto_printer() if not self.yacba_config.headless else print,  # Auto-format HTML/ANSI in interactive mode
         )
         
-        logger.debug(f"Converted config with {len(tool_config_paths)} tool configs and {len(file_paths)} files")
+        logger.debug("config_conversion_complete", 
+                    tool_configs=len(tool_config_paths), 
+                    files=len(file_paths))
         return config
     
     def _convert_tool_configs(self) -> List[Path]:
@@ -113,7 +119,7 @@ class YacbaToStrandsConfigConverter:
         for path_like in self.yacba_config.tool_config_paths:
             result.append(Path(path_like))
         
-        logger.debug(f"Converted {len(self.yacba_config.tool_config_paths)} tool config paths")
+        logger.debug("tool_config_paths_converted", count=len(self.yacba_config.tool_config_paths))
         return result
     
     def _convert_file_uploads(self) -> List[Tuple[Path, Optional[str]]]:
@@ -142,7 +148,7 @@ class YacbaToStrandsConfigConverter:
             
             result.append((path, mimetype))
         
-        logger.debug(f"Converted {len(self.yacba_config.files_to_upload)} file uploads")
+        logger.debug("file_uploads_converted", count=len(self.yacba_config.files_to_upload))
         return result
     
     def _get_sessions_home(self) -> Optional[Path]:
@@ -186,5 +192,7 @@ class YacbaToStrandsConfigConverter:
         elif yacba_type == "summarizing":
             return "summarizing"
         else:
-            logger.warning(f"Unknown conversation manager type: {yacba_type}, defaulting to sliding_window")
+            logger.warning("unknown_conversation_manager_type", 
+                          type=yacba_type, 
+                          default="sliding_window")
             return "sliding_window"

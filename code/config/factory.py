@@ -21,7 +21,7 @@ import yaml
 import argparse
 from pathlib import Path
 
-from loguru import logger
+from utils.logging import get_logger, log_error
 from dataclass_args import build_config
 from dataclass_args.file_loading import load_file_content
 from profile_config import ProfileConfigResolver
@@ -32,6 +32,8 @@ from utils.config_utils import discover_tool_configs
 
 from .arguments import ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS
 from .dataclass import YacbaConfig
+
+logger = get_logger(__name__)
 
 PROFILE_CONFIG_NAME = ".yacba"
 PROFILE_CONFIG_PROFILE_FILE_NAME = "config"
@@ -69,9 +71,9 @@ def _process_file_loadable_fields(config_dict: dict) -> dict:
                     # Use dataclass-args' file loading function
                     loaded_content = load_file_content(file_path)
                     config_dict[field] = loaded_content
-                    logger.debug(f"Loaded @file for {field}: {len(loaded_content)} characters")
+                    logger.debug("file_loaded", field=field, length=len(loaded_content))
                 except Exception as e:
-                    logger.warning(f"Failed to load @file for {field} from {value}: {e}")
+                    logger.warning("file_load_failed", field=field, path=value, error=str(e))
     
     return config_dict
 
@@ -132,11 +134,11 @@ def parse_config() -> YacbaConfig:
             _handle_show_config(config)
             sys.exit(0)
         
-        logger.debug("Configuration parsing completed")
+        logger.debug("configuration_parsing_completed")
         return config
 
     except Exception as e:
-        logger.error(f"Configuration parsing failed: {e}")
+        log_error(logger, "configuration_parsing_failed", error=str(e))
         import traceback
         traceback.print_exc()
         sys.exit(ExitCode.CONFIG_ERROR)
@@ -227,7 +229,7 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
     # Add environment variables
     if ARGUMENTS_FROM_ENV_VARS:
         overrides_list.append(ARGUMENTS_FROM_ENV_VARS)
-        logger.debug(f"Added {len(ARGUMENTS_FROM_ENV_VARS)} environment variables")
+        logger.debug("environment_variables_added", count=len(ARGUMENTS_FROM_ENV_VARS))
     
     # Resolve with profile-config
     try:
@@ -240,10 +242,10 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
             overrides=overrides_list if overrides_list else None
         )
         profile_config = resolver.resolve()
-        logger.info(f"Configuration resolved for profile '{profile_name}'")
+        logger.info("profile_resolved", profile=profile_name)
     except ConfigNotFoundError:
         # No profile file found, use defaults + env vars
-        logger.debug("No configuration file found, using defaults + environment variables")
+        logger.debug("no_config_file_found_using_defaults")
         profile_config = ARGUMENT_DEFAULTS.copy()
         
         # Apply env vars manually
@@ -252,14 +254,14 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
                 if value is not None:
                     profile_config[key] = value
     except ProfileNotFoundError:
-        logger.error(f"Profile '{profile_name}' not found in configuration")
+        logger.error("profile_not_found", profile=profile_name)
         sys.exit(ExitCode.CONFIG_ERROR)
     
     # Apply defaults as fallbacks (only for missing keys)
     for key, default_value in ARGUMENT_DEFAULTS.items():
         if key not in profile_config:
             profile_config[key] = default_value
-            logger.debug(f"Applied default for missing key '{key}'")
+            logger.debug("default_applied", key=key)
     
     return profile_config
 
@@ -294,7 +296,7 @@ def _post_process_config(config: YacbaConfig, profile_config: dict) -> YacbaConf
         tool_config_paths, tool_discovery_result = discover_tool_configs(
             config.tool_configs_dir
         )
-        logger.info(f"Discovered {len(tool_config_paths)} tool configurations")
+        logger.info("tools_discovered", count=len(tool_config_paths))
     
     # Create updated config with post-processed fields
     # Note: dataclass is immutable, so we create a new instance

@@ -7,9 +7,11 @@ import re
 from typing import Dict, List, Optional, Any, Union
 import yaml
 
-from loguru import logger
+from utils.logging import get_logger
 
 from yacba_types.base import PathLike
+
+logger = get_logger(__name__)
 
 
 def is_likely_text_file(file_path: PathLike) -> bool:

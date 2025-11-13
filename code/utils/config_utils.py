@@ -9,10 +9,12 @@ import glob
 from pathlib import Path
 from typing import List, Union, Tuple
 
-from loguru import logger
+from utils.logging import get_logger
 
 from yacba_types.config import ToolDiscoveryResult
 from yacba_types.base import PathLike
+
+logger = get_logger(__name__)
 
 
 def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple[List[str], ToolDiscoveryResult]:
@@ -29,7 +31,7 @@ def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple
         - discovery_result: Summary of discovery process
     """
     if paths is None:
-        logger.info("Tool discovery is disabled by command-line option.")
+        logger.info("tool_discovery_disabled")
         empty_result = ToolDiscoveryResult([], [], 0)
         return [], empty_result
 
@@ -40,7 +42,7 @@ def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple
         path_list = list(paths)
 
     if not path_list:
-        logger.info("No tool configuration paths provided.")
+        logger.info("no_tool_paths_provided")
         empty_result = ToolDiscoveryResult([], [], 0)
         return [], empty_result
 
@@ -62,7 +64,9 @@ def discover_tool_configs(paths: Union[List[PathLike], PathLike, None]) -> Tuple
         total_files_scanned
     )
 
-    logger.info(f"Total tool discovery complete: {len(all_file_paths)} tool config files found from {len(path_list)} directories")
+    logger.info("tool_discovery_complete", 
+                tool_count=len(all_file_paths), 
+                directory_count=len(path_list))
     return all_file_paths, discovery_result
 
 
@@ -80,11 +84,11 @@ def _discover_single_directory(directory: PathLike) -> Tuple[List[str], List[dic
     dir_path = Path(directory).expanduser().resolve()
     
     if not dir_path.exists():
-        logger.warning(f"Tools directory not found: '{directory}'. Skipping tool discovery.")
+        logger.warning("tools_directory_not_found", directory=str(directory))
         return [], [], 0
     
     if not dir_path.is_dir():
-        logger.warning(f"Tools path is not a directory: '{directory}'. Skipping tool discovery.")
+        logger.warning("tools_path_not_directory", directory=str(directory))
         return [], [], 0
 
     search_pattern = str(dir_path / '*.tools.json')
@@ -93,10 +97,10 @@ def _discover_single_directory(directory: PathLike) -> Tuple[List[str], List[dic
     # Convert to absolute paths
     file_paths = [str(Path(f).absolute()) for f in config_files]
     
-    logger.info(f"Found {len(file_paths)} tool configuration files in '{directory}'")
+    logger.info("tool_configs_found", count=len(file_paths), directory=str(directory))
     
     # Log each found file
     for file_path in file_paths:
-        logger.debug(f"✓ Found tool config file: {file_path}")
+        logger.debug("tool_config_file_found", file_path=file_path)
 
     return file_paths, [], len(config_files)
