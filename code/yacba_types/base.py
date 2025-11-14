@@ -27,6 +27,7 @@ class ExitCode(IntEnum):
     RUNTIME_ERROR = 3
     INTERRUPTED = 4
     FATAL_ERROR = 5
+    USER_INTERRUPT = 130
 
 
 # Protocol for objects that can be converted to string

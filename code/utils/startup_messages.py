@@ -5,10 +5,9 @@ Handles welcome messages, startup information, and status reporting.
 """
 
 import sys
-from typing import List, TextIO, Optional
+from typing import Any, Dict, List, TextIO, Optional
 from pathlib import Path
-
-from yacba_types.tools import ToolSystemStatus
+from strands_agent_factory.tools import EnhancedToolSpec
 
 
 def print_welcome_message():
@@ -23,7 +22,7 @@ def print_startup_info(
     model_id: str,
     system_prompt: str,
     prompt_source: str,
-    tool_system_status: ToolSystemStatus,
+    tools: List[Dict[str, Any]],
     startup_files: List[tuple[str, str]],
     conversation_manager_info: Optional[str] = None,
     output_file: TextIO = sys.stdout,
@@ -35,7 +34,7 @@ def print_startup_info(
         model_id: Model identifier string
         system_prompt: System prompt text
         prompt_source: Source of the system prompt
-        tool_system_status: Status of tool loading
+        tools: List of tool specification dictionaries
         startup_files: List of uploaded files
         conversation_manager_info: Information about conversation manager configuration
         output_file: Output stream for messages
@@ -54,7 +53,10 @@ def print_startup_info(
         _print_conversation_manager_info(write, conversation_manager_info)
 
     # Display tool status
-    _print_tool_status(write, tool_system_status)
+    _print_tool_status(write, tools)
+
+    # Display A2A servers
+    _print_a2a_servers(write, tools)
 
     # Display uploaded files
     _print_startup_files(write, startup_files)
@@ -75,51 +77,71 @@ def _print_conversation_manager_info(write_func, conversation_manager_info: str)
     write_func(f"{conversation_manager_info}")
 
 
-def _print_tool_status(write_func, tool_system_status: ToolSystemStatus):
-    """Print detailed tool loading status."""
-    discovery = tool_system_status.discovery_result
-    successful_results = tool_system_status.successful_results
-    failed_results = tool_system_status.failed_results
-    missing_function_results = tool_system_status.results_with_missing_functions
+def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
+    """Print tool system status information."""
+    
+    # Exclude A2A tools from regular tool display since they always have
+    # the same 3 generic tools (a2a_discover_agent, a2a_list_discovered_agents, a2a_send_message)
+    # Users care about the agent URLs, not the generic tool names
+    non_a2a_tools = [t for t in tools if t.get('type') != 'a2a']
+    
+    # Filter the non-A2A tools for different categories
+    successful_loads = [t for t in non_a2a_tools if 'tool_names' in t and not t.get('error')]
+    failed_loads = [t for t in non_a2a_tools if t.get('error')]
+    no_tools = [t for t in non_a2a_tools if 'tool_names' in t and not t['tool_names']]
+    has_tools = [t for t in non_a2a_tools if 'tool_names' in t and t['tool_names']]
 
-    if discovery.total_files_scanned > 0 or len(successful_results) > 0 or len(failed_results) > 0:
+    if tools:  # Check original tools list for presence
         write_func("\nTool System Status:")
-        write_func(f"  Configuration files scanned: {discovery.total_files_scanned}")
-        write_func(f"  Valid configurations loaded: {len(discovery.successful_configs)}")
-        write_func(f"  Configuration parsing failures: {len(discovery.failed_configs)}")
-        write_func(f"  Tools successfully loaded: {tool_system_status.total_tools_loaded}")
+        write_func(f"  Configuration files scanned: {len(tools)}")
+        write_func(f"  Valid configurations loaded: {len([t for t in tools if 'tool_names' in t and not t.get('error')])}")
+        write_func(f"  Tools successfully loaded: {sum(len(t['tool_names']) for t in [t for t in tools if 'tool_names' in t and t['tool_names']])}")
 
-        # Report successful tool loading
-        if successful_results:
-            write_func("  ✓ Successful tool loading:")
-            for result in successful_results:
-                source_name = Path(result.source_file).name
-                write_func(f"    • {result.config_id} ({source_name}): {len(result.tools)} tools")
+        # Report successful tool loading (excluding A2A)
+        if successful_loads:
+            write_func("  Successful tool loading:")
+            for spec in successful_loads:
+                tool_id = spec.get('id', 'unknown')
+                source_file = spec.get('source_file', 'unknown')
+                tool_names = spec.get('tool_names', [])
+                write_func(f"    {tool_id} ({Path(source_file).name}): {len(tool_names)} tools - {', '.join(tool_names)}")
 
-        # Report configuration parsing failures
-        if discovery.has_failures:
-            write_func("  ✗ Configuration parsing failures:")
-            for failed in discovery.failed_configs:
-                source_name = Path(failed['file_path']).name
-                write_func(f"    • {source_name}: {failed['error']}")
+        # Report configurations with no usable tools (excluding A2A)
+        if no_tools:
+            write_func("  No usable tools found:")
+            for spec in no_tools:
+                tool_id = spec.get('id', 'unknown')
+                source_file = spec.get('source_file', 'unknown')
+                write_func(f"    {tool_id} ({Path(source_file).name}): No tools available")
 
-        # Report tool loading failures
-        if failed_results:
-            write_func("  ✗ Tool loading failures:")
-            for result in failed_results:
-                source_name = Path(result.source_file).name
-                write_func(f"    • {result.config_id} ({source_name}): {result.error_message}")
-
-        # Report missing functions
-        if missing_function_results:
-            write_func("  ⚠ Missing requested functions:")
-            for result in missing_function_results:
-                if result.has_missing_functions:
-                    source_name = Path(result.source_file).name
-                    missing_list = ', '.join(result.missing_functions)
-                    write_func(f"    • {result.config_id} ({source_name}): {missing_list}")
+        # Report configuration parsing failures (excluding A2A)
+        if failed_loads:
+            write_func("  Configuration failures:")
+            for spec in failed_loads:
+                tool_id = spec.get('id', 'unknown')
+                source_file = spec.get('source_file', 'unknown')
+                error = spec.get('error', 'unknown error')
+                write_func(f"    {tool_id} ({Path(source_file).name}): {error}")
     else:
         write_func("Available Tools: None")
+
+
+def _print_a2a_servers(write_func, tools: List[EnhancedToolSpec]):
+    """Print A2A server information."""
+    a2a_tools = [t for t in tools if t.get('type') == 'a2a' and not t.get('error')]
+    
+    if a2a_tools:
+        write_func("\nA2A Servers:")
+        total_agents = sum(len(t.get('urls', [])) for t in a2a_tools)
+        write_func(f"  Total A2A agents available: {total_agents}")
+        
+        for spec in a2a_tools:
+            provider_id = spec.get('id', 'unknown')
+            source_file = spec.get('source_file', 'unknown')
+            urls = spec.get('urls', [])
+            write_func(f"  {provider_id} ({Path(source_file).name}):")
+            for url in urls:
+                write_func(f"    - {url}")
 
 
 def _print_startup_files(write_func, startup_files: List[tuple[str, str]]):

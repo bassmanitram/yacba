@@ -4,38 +4,9 @@ Configuration-related type definitions for YACBA.
 YACBA manages configuration, not tool execution or protocol details.
 """
 
-from typing import Dict, List, Any, Optional, Literal, Union
+from typing import Dict, List, Any
 from typing_extensions import TypedDict, NamedTuple
 from .base import PathLike
-
-# Tool configuration types (what YACBA manages for tool loading)
-ToolType = Literal["mcp", "python"]
-
-
-class BaseToolConfig(TypedDict):
-    """Base tool configuration."""
-    id: str
-    type: ToolType
-    disabled: bool
-
-
-class MCPToolConfig(BaseToolConfig):
-    """MCP tool configuration - connection details only."""
-    # For stdio transport
-    command: Optional[str]
-    args: Optional[List[str]]
-    env: Optional[Dict[str, str]]
-    # For HTTP transport
-    url: Optional[str]
-
-
-class PythonToolConfig(BaseToolConfig):
-    """Python tool configuration - module loading details only."""
-    module_path: str
-    functions: List[str]
-
-
-ToolConfig = Union[MCPToolConfig, PythonToolConfig]
 
 
 # Discovery phase result (configuration file scanning)
@@ -43,7 +14,7 @@ ToolConfig = Union[MCPToolConfig, PythonToolConfig]
 
 class ToolDiscoveryResult(NamedTuple):
     """Result of scanning for tool configuration files."""
-    successful_configs: List[ToolConfig]
+    successful_configs: List[Dict[str, Any]]  # List of config dicts with file paths
     failed_configs: List[Dict[str, Any]]  # Include file path and error details
     total_files_scanned: int
 
@@ -69,4 +40,4 @@ class FileUpload(TypedDict):
     """Type definition for file upload information."""
     path: PathLike
     mimetype: str
-    size: Optional[int]
+    size: int

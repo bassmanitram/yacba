@@ -1,155 +1,231 @@
+#!/usr/bin/env python3
 """
-Main entry point for the YACBA Chatbot application.
-Fully typed version using yacba_types.
+YACBA - Yet Another ChatBot Agent
+
+A flexible chatbot system that integrates with strands-agents for AI conversation
+and tool usage, with support for multiple model providers and conversation management.
 """
 
-import nest_asyncio
 import asyncio
-nest_asyncio.apply()
-
 import sys
-import os
-from typing import NoReturn, List, Optional
-from loguru import logger
+from pathlib import Path
+from typing import NoReturn
 
-# Import migrated components with proper typing
-from cli import (
-    run_headless_mode,
-    chat_loop_async,
-)
-from adapters.cli.commands.registry import BackendCommandRegistry
-from adapters.cli.completer import YacbaCompleter
+# Configure logging early
+from utils.logging import get_logger, log_error
+
+logger = get_logger(__name__)
+
+# Completion imports
+from prompt_toolkit.completion import merge_completers
+
+# YACBA core functionality - configuration and startup
+from adapters.repl_toolkit.completer import YacbaCompleter
+from config import parse_config, YacbaConfig
 from utils.startup_messages import print_startup_info, print_welcome_message
-from utils.content_processing import files_to_content_blocks
-from core import ChatbotManager, parse_config, YacbaConfig
-from yacba_types import ExitCode, Message
+from yacba_types import ExitCode
+
+# strands_agent_factory integration
+from strands_agent_factory import AgentFactory
+from strands_agent_factory.core.agent import AgentProxy
+from adapters.strands_factory import YacbaToStrandsConfigConverter
+
+# repl_toolkit integration
+from repl_toolkit import AsyncREPL, HeadlessREPL
+from repl_toolkit.completion import PrefixCompleter, ShellExpansionCompleter
+from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry
 
 
-def _check_and_clear_cache_early():
-    """Check for --clear-cache flag early and clear cache before config parsing."""
-    # Quick check for --clear-cache flag without full argument parsing
-    if '--clear-cache' in sys.argv:
-        from utils.performance_utils import fs_cache
-        fs_cache.clear()
-        logger.info("Performance cache cleared")
+
+def _create_stdout_printer():
+    """Create a simple stdout printer for headless mode."""
+    import sys
+    def printer(text: str) -> None:
+        print(text, file=sys.stdout, flush=True)
+    return printer
 
 
-def _format_startup_message(files_to_upload: List[tuple[str, str]]) -> Optional[List[Message]]:
+async def _run_agent_lifecycle(config: YacbaConfig) -> None:
     """
-    Processes startup files using a memory-efficient generator and formats them
-    into a single multi-modal message for the agent.
-
+    Main agent lifecycle: configure, create agent, and run interface.
+    
     Args:
-        files_to_upload: A list of tuples containing file paths and their mimetypes.
-
-    Returns:
-        A list containing a single user message with file content, or None if no files.
-    """
-    if not files_to_upload:
-        return None
-
-    # Lazily process all files using a generator and collect the content blocks
-    content_blocks = files_to_content_blocks(files_to_upload, add_headers=True)
-
-    # If any blocks were generated, construct the final message
-    if content_blocks:
-        # Prepend the introductory text
-        intro_block = {"type": "text", "text": "The user has uploaded the following files for analysis:"}
-        # Append the concluding text
-        outro_block = {"type": "text", "text": "\nPlease acknowledge you have received these files and await my instructions."}
-
-        final_content = [intro_block] + content_blocks + [outro_block]
-        return [{"role": "user", "content": final_content}]
-
-    return None
-
-async def main_async() -> None:
-    """
-    Main async function to orchestrate the chatbot application.
-    It parses config, sets up the manager, and runs the appropriate loop.
-
+        config: Validated YACBA configuration
+        
     Raises:
-        SystemExit: On configuration errors or initialization failures
+        Exception: Any error during agent lifecycle
     """
-    # Clear cache early if requested, before config parsing
-    _check_and_clear_cache_early()
-
-    # Parse configuration using migrated config parser
-    config: YacbaConfig = parse_config()
-
-    # Print welcome message for interactive mode
-    if not config.headless:
-        print_welcome_message()
-
-    # Process startup files after parsing config and before initializing the manager/engine
-    # This is YACBA's responsibility: file processing and content preparation
-    config.startup_files_content = _format_startup_message(
-        [(upload["path"], upload["mimetype"]) for upload in config.files_to_upload]
-    )
-
-    logger.info("Starting up Chatbot Manager...")
-
-    # Use the migrated ChatbotManager with proper error handling
     try:
-        with ChatbotManager(config) as manager:
-            if not manager.is_ready:
-                logger.error("Failed to initialize the agent engine. Exiting.")
-                sys.exit(ExitCode.INITIALIZATION_ERROR)
-
-            # Enhanced startup information with tool loading details and conversation manager info
-            print_startup_info(
-                model_id=config.model_string,
-                system_prompt=config.system_prompt,
-                prompt_source=config.prompt_source,
-                tool_system_status=manager.engine.tool_system_status,
-                startup_files=[(upload["path"], upload["mimetype"]) for upload in config.files_to_upload],
-                conversation_manager_info=manager.engine.conversation_manager_info,
-                output_file=sys.stderr
-            )
-
-            if not config.headless and config.tool_configs:
-                print("Tools initialized.")
-
-            # Run in appropriate mode
-            if config.headless:
-                success: bool = await run_headless_mode(
-                    manager.engine,
-                    config.initial_message)
-                if not success:
-                    sys.exit(ExitCode.RUNTIME_ERROR)
-            else:
-                command_registry = BackendCommandRegistry(manager.engine)
-                completer = YacbaCompleter(command_registry.list_commands())
-                await chat_loop_async(
-                    manager.engine,
-                    command_registry,
-                    completer,
-                    config.initial_message,
-                    config.cli_prompt)
-
+        # Convert YACBA config to strands-agents format
+        config_converter = YacbaToStrandsConfigConverter(config)
+        strands_config = config_converter.convert()
+        
+        # Create agent factory and initialize it
+        factory = AgentFactory(config=strands_config)
+        await factory.initialize()  # Initialize the factory first
+        
+        # Create the agent
+        agent = factory.create_agent()  # This should be synchronous after initialization
+        
+        # Create action registry with backend
+        # Create action registry with appropriate printer
+        printer = _create_stdout_printer() if config.headless else print
+        action_registry = YacbaActionRegistry(printer=printer)
+        
+        # Run in appropriate mode
+        if config.headless:
+            await _run_headless_mode(agent, action_registry, config, strands_config)
+        else:
+            await _run_interactive_mode(agent, action_registry, config, strands_config)
+                
     except Exception as e:
-        logger.error(f"Fatal error in ChatbotManager: {e}")
+        log_error(logger, "fatal_error_in_agent_lifecycle", error=str(e))
         sys.exit(ExitCode.FATAL_ERROR)
 
+def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
+    """
+    Print startup information using YACBA's existing startup message system.
+    
+    Args:
+        config: YACBA configuration
+        agent_proxy: Agent proxy for tool information
+    """
+    try:
+        # Get basic info
+        model_id = config.model_string or "Unknown"
+        system_prompt = config.system_prompt or "No system prompt"
+        prompt_source = config.prompt_source or "configuration"
+        
+        # Use YACBA's existing startup message function
+        print_startup_info(
+            model_id=model_id,
+            system_prompt=system_prompt,
+            prompt_source=prompt_source,
+            tools=agent_proxy.tool_specs or [],
+            startup_files=config.files_to_upload or [],
+            conversation_manager_info=f"Conversation Manager: {config.conversation_manager_type}"
+        )
+            
+    except Exception as e:
+        logger.error("error_printing_startup_info", error=str(e))
+
+
+async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig, strands_config) -> None:
+    """
+    Run in headless mode using repl_toolkit.
+    
+    Args:
+        agent: The agent proxy
+        action_registry: The action registry
+        config: YACBA configuration
+        strands_config: Converted strands_agent_factory configuration
+    """
+    logger.info("starting_headless_mode")
+
+    repl = HeadlessREPL(        
+        action_registry=action_registry,
+    )
+
+    with agent as agent_context:
+        # Create backend adapter
+        backend = YacbaBackend(agent_context, strands_config)
+       
+        # Run the async REPL
+        return await repl.run(
+            backend=backend,
+            initial_message="Evaluate" if agent.has_initial_messages else None,
+        )
+
+async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig, strands_config) -> None:
+    """
+    Run in interactive mode using repl_toolkit.
+    
+    Args:
+        agent: The agent proxy
+        action_registry: The action registry
+        config: YACBA configuration
+        strands_config: Converted strands_agent_factory configuration
+    """
+    logger.info("starting_interactive_mode")
+    
+    # Create individual completers
+    command_completer = PrefixCompleter(
+        words=sorted(action_registry.list_commands()),  # Sort for better tab completion UX
+        prefix='/',
+        ignore_case=True
+    )
+    
+    shell_completer = ShellExpansionCompleter(
+        timeout=2.0,
+        multiline_all=True,
+        max_lines=30
+    )
+    
+    file_completer = YacbaCompleter()
+    
+    # Merge completers: commands first, then shell expansion, then file paths
+    completer = merge_completers([
+        command_completer,
+        shell_completer,
+        file_completer
+    ])
+    
+    # Prepare history path
+    if config.session_name:
+        sessions_dir = Path.home() / ".yacba" / "sessions"
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+        history_path = sessions_dir / f"{config.session_name}_history.txt"
+    else:
+        history_path = Path.home() / ".yacba/history.txt"  # No session, no history file
+    
+    repl = AsyncREPL(        
+        action_registry=action_registry,
+        completer=completer,
+        prompt_string=config.cli_prompt or "User: ",
+        history_path=history_path,
+        enable_system_prompt=True,
+        enable_suspend=True
+    )
+
+    with agent as agent_context:
+        # Create backend adapter
+        backend = YacbaBackend(agent_context, strands_config)
+
+        # Print startup information
+        # Print welcome message for interactive mode
+        print_welcome_message()
+        
+        _print_startup_info(config, agent_context)
+        
+        # Run the async REPL
+        return await repl.run(
+            backend=backend,
+            initial_message="Evaluate" if agent.has_initial_messages else None,
+        )
 
 def main() -> NoReturn:
     """
     Synchronous main entry point. Configures logging and runs the async application.
-
+    
     This function never returns normally - it either completes successfully
     or exits with an error code.
     """
-    log_level: str = os.environ.get("LOGURU_LEVEL", "INFO").upper()
-    logger.remove()
-    logger.add(sys.stderr, level=log_level)
-
     try:
-        asyncio.run(main_async())
-        # If we get here, the application completed successfully
-        sys.exit(ExitCode.SUCCESS)
+        # Welcome message printed after config parsing (if not headless)
+        
+        # Parse configuration
+        config = parse_config()
+        
+        # Run the main application
+        asyncio.run(_run_agent_lifecycle(config))
+        
     except KeyboardInterrupt:
-        print("\nExiting.", file=sys.stderr)
-        sys.exit(ExitCode.INTERRUPTED)
+        logger.info("application_interrupted_by_user")
+        sys.exit(ExitCode.USER_INTERRUPT)
+    except Exception as e:
+        log_error(logger, "fatal_error", error=str(e))
+        sys.exit(ExitCode.FATAL_ERROR)
+
 
 if __name__ == "__main__":
     main()

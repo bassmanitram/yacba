@@ -1,0 +1,77 @@
+# Example logging configuration for YACBA
+# Copy to logging.yaml and customize as needed
+# 
+# Usage:
+#   YACBA_LOG_CONFIG=logging.yaml yacba --profile dev
+#
+# Or set log levels via environment:
+#   YACBA_LOG_LEVEL=DEBUG                 # Global level
+#   YACBA_LOG_CONFIG_LEVEL=DEBUG          # yacba.config module
+#   YACBA_LOG_ADAPTERS_LEVEL=WARNING      # yacba.adapters module
+#   YACBA_LOG_JSON=true                   # Output JSON format
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  simple:
+    format: '%(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+
+# Per-module logger configuration
+loggers:
+  yacba:
+    level: INFO
+    handlers: [console]
+    propagate: false
+    
+  yacba.config:
+    level: INFO  # Change to DEBUG to see config resolution details
+    
+  yacba.config.factory:
+    level: INFO  # Detailed config parsing logs
+    
+  yacba.adapters:
+    level: INFO
+    
+  yacba.adapters.repl_toolkit:
+    level: INFO  # REPL interaction logs
+    
+  yacba.adapters.strands_factory:
+    level: INFO  # Agent factory conversion logs
+    
+  yacba.utils:
+    level: INFO
+    
+  yacba.utils.config_utils:
+    level: INFO  # Tool discovery logs
+    
+  yacba.utils.file_utils:
+    level: INFO  # File processing logs
+
+root:
+  level: INFO
+  handlers: [console]
+
+# Common configuration patterns:
+#
+# Debug everything:
+#   root:
+#     level: DEBUG
+#
+# Debug just config system:
+#   yacba.config:
+#     level: DEBUG
+#
+# Quiet adapters:
+#   yacba.adapters:
+#     level: WARNING
+#
+# Verbose tool discovery:
+#   yacba.utils.config_utils:
+#     level: DEBUG

@@ -1,0 +1,27 @@
+[run]
+source = .
+omit =
+    */tests/*
+    */__pycache__/*
+    */site-packages/*
+    .venv/*
+    # Exclude main entry point (integration test only)
+    yacba.py
+    # Exclude mostly-print modules
+    utils/startup_messages.py
+    # Exclude test infrastructure
+    tests/*
+    */__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+    ...
+
+precision = 2
