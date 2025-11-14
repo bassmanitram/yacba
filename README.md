@@ -1,153 +1,269 @@
-# YACBA - CLI Interface for strands-agent-factory
+# YACBA - Yet Another ChatBot Agent
 
-**Command-line interface and configuration management for AI agents**
+YACBA is a command-line interface for chatting with AI models. It provides configuration management, tool integration, and saves your conversation sessions. The underlying AI capabilities come from [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory), which is built on [strands-agents](https://github.com/pydantic/strands-agents).
 
-> **Built on [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)**, which itself is built on [strands-agents](https://github.com/pydantic/strands-agents).
->
->  **For core AI agent concepts, tool development, and advanced features**, refer to the [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory#readme).
+You can run it interactively for chat sessions, or in headless mode for automation and scripting. Configuration can be done through command-line arguments, config files with named profiles, or environment variables.
 
 ---
 
-## What is YACBA?
-
-YACBA provides a **command-line interface** and **configuration management layer** on top of strands-agent-factory. It's designed for users who want quick access to AI agents through the terminal, with features like:
-
-- **CLI Interface**: Full-featured command-line argument parsing (via [dataclass-args](https://pypi.org/project/dataclass-args/))
-- **Profile System**: Reusable YAML/JSON configuration profiles (via [profile-config](https://pypi.org/project/profile-config/))
-- **Interactive Mode**: REPL with tab completion, history, and commands (via [repl-toolkit](https://pypi.org/project/repl-toolkit/))
-- **Headless Mode**: Script-friendly automation for CI/CD pipelines
-- **File Management**: Glob patterns, MIME detection, bulk upload
-
-**Core agent functionality** (LLM integration, tool execution, conversation management, A2A support) comes from [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory).
-
----
-
-## When to Use YACBA vs strands-agent-factory Directly
-
-### Use YACBA when you want:
--  Command-line interface for quick agent interactions
--  Configuration profiles for different contexts (dev, prod, research)
--  Interactive chat sessions with history and tab completion
--  Scriptable headless mode for automation
-
-### Use strands-agent-factory directly when you want:
--  To embed agents in Python applications
--  Full programmatic control over agent behavior
--  Custom UI/UX beyond terminal interfaces
--  Advanced customization beyond YACBA's scope
-
----
-
-## Quick Start
-
-### Installation
-
-> **⚠️ Important**: `strands-agent-factory` is installed from GitHub (not PyPI). The requirements file handles this automatically.
+## Getting Started
 
 ```bash
-# Clone the repository
 git clone https://github.com/your-username/yacba.git
 cd yacba/code
-
-# Install dependencies
 pip install -r requirements.txt
 
-# Run YACBA
-python yacba.py --help
+# Start a chat session (uses default model: gemini-2.5-flash)
+python yacba.py
+
+# Or specify a different model
+python yacba.py -m "gpt-4o"
 ```
 
-### Basic Usage
+You'll need Python 3.9+ and API keys for whichever model provider you use (OpenAI, Anthropic, Google, etc.).
+
+---
+
+## Usage
+
+### Command Line Options
 
 ```bash
-# Interactive mode
-python yacba.py -m "gpt-4o"
+# Basic chat
+python yacba.py -m "gpt-4o" -s "You are a helpful assistant"
 
 # With tools
 python yacba.py -m "gpt-4o" -t ./sample-tool-configs
 
-# Headless mode (for scripts)
+# Non-interactive (headless mode)
 python yacba.py -m "gpt-4o" -H -i "Analyze the current directory"
 
-# With configuration profile
+# Using a saved configuration profile
 python yacba.py --profile development
 ```
 
-### First Conversation
+The `-m` option specifies which model to use. Default is `"litellm:gemini/gemini-2.5-flash"`. You can also set it via config file, profile, or the `YACBA_MODEL_STRING` environment variable.
 
-```bash
-# Start an interactive session
-python yacba.py -m "anthropic:claude-3-5-sonnet-20241022" -s "You are a helpful coding assistant"
+Model format examples:
+- `"gpt-4o"`
+- `"anthropic:claude-3-5-sonnet-20241022"`
+- `"litellm:gemini/gemini-2.5-flash"`
+- `"bedrock:anthropic.claude-3-sonnet-20240229-v1:0"`
+- `"ollama:llama2:7b"`
 
-# In the REPL:
-User: /help                    # List available commands
-User: What is Python?          # Chat with the agent
-User: file("script.py")        # Upload a file mid-conversation
-User: /status                  # Check session status
-User: /exit                    # Exit
+The `-s` option sets a system prompt. You can provide text directly or load from a file using `@filename.txt`.
+
+Use `-t` to specify a directory containing tool configuration files. These let the agent use tools such as file operations, shell commands, or MCP servers.
+
+Add `-f` to upload files at startup. You can use glob patterns: `-f "*.py" "text/plain"` or `-f "docs/**/*.md" "text/markdown"`. Repeat the option for multiple patterns.
+
+With `-H` (headless mode), YACBA reads prompts from stdin and processes them non-interactively. It sends the accumulated input and exits when it reaches EOF. You can also include `/send` on a line by itself to send a request immediately and continue accepting input, allowing for multi-turn conversations in scripts or pipelines.
+
+The `--session-name` option lets you name your session so that conversations are automatically saved and can be resumed later.
+
+### Common Options
+
+```
+-m, --model-string MODEL
+    Which model to use (default: "litellm:gemini/gemini-2.5-flash")
+
+-s, --system-prompt PROMPT
+    System prompt text or @file.txt
+
+-t, --tool-configs-dir DIR
+    Directory with tool configuration files
+
+-f, --files GLOB [MIMETYPE]
+    Upload files matching glob (repeatable)
+
+-H, --headless
+    Non-interactive mode
+
+-i, --initial-message TEXT
+    Initial message to send (supports @file.txt)
+
+--session-name NAME
+    Name for this session (enables auto-save)
+
+--profile PROFILE
+    Use a named configuration profile
+
+--config-file PATH
+    Specify config file location
+
+--show-config
+    Display resolved configuration
+
+--list-profiles
+    List available profiles
 ```
 
+For the complete list: `python yacba.py --help`
+
+### Model Configuration
+
+You can fine-tune model behavior using a JSON or YAML config file:
+
+```json
+{
+  "temperature": 0.7,
+  "max_tokens": 2000,
+  "top_p": 0.9
+}
+```
+
+```bash
+python yacba.py -m "gpt-4o" --model-config ./configs/creative.json
+```
+
+You can override individual settings in the model configuration with `--mc`:
+
+```bash
+python yacba.py -m "gpt-4o" --mc temperature:0.9 --mc max_tokens:4000
+```
+
+### Conversation Management
+
+For long conversations, YACBA can manage context in three ways:
+
+**No management** (`--conversation-manager-type null`): Everything stays in context. Good for short sessions or models with large context windows.
+
+**Sliding window** (`--conversation-manager-type sliding_window`): Keeps only recent messages. Older messages are dropped. Use `--sliding-window-size` to set how many to keep (default: 40).
+
+```bash
+python yacba.py --conversation-manager-type sliding_window --sliding-window-size 30
+```
+
+**Summarizing** (`--conversation-manager-type summarizing`): Summarizes older messages while keeping recent ones in full. Use `--preserve-recent-messages` to set how many recent messages to never summarize (default: 10), and `--summary-ratio` for how much to condense (default: 0.3).
+
+```bash
+python yacba.py \
+  --conversation-manager-type summarizing \
+  --preserve-recent-messages 15 \
+  --summary-ratio 0.2 \
+  --summarization-model "gpt-4o-mini"
+```
+
+You can use a different (cheaper) model for summarization with `--summarization-model`, and customize the summarization prompt with `--custom-summarization-prompt`.
+
 ---
 
-## Features
+## Configuration Files
 
-### What YACBA Adds
+YACBA looks for configuration in `~/.yacba/config.yaml` or `./.yacba/config.yaml`. You can also specify a file with `--config-file`.
 
-These features are provided by YACBA on top of strands-agent-factory:
+Configuration uses profiles - named sets of options you can switch between:
 
-#### CLI Interface (dataclass-args)
-- Auto-generated argument parser from configuration dataclass
-- File loading with `@file.txt` syntax for many arguments
-- Property overrides with `--mc` and `--smc` for model configs
-- See [CLI Reference](#cli-reference) below
+```yaml
+default_profile: development
 
-#### Profile System (profile-config)
-- YAML/JSON configuration files
-- Profile inheritance and composition
-- Environment variable substitution
-- Configuration discovery in standard locations
+defaults:
+  conversation_manager_type: sliding_window
+  sliding_window_size: 40
 
-#### Interactive Mode (repl-toolkit)
-- Full-featured REPL with prompt_toolkit
-- Tab completion for:
-  - Commands: `/help<Tab>` → `/help`
-  - File paths: `file("/tmp/<Tab>` → completions
-  - Shell variables: `${HOME}<Tab>` → `/home/user`
-  - Shell commands: `$(whoami)<Tab>` → `username`
-- Command history with search
-- Multi-line input (Alt+Enter)
-- Cancellation support (Alt+C)
+profiles:
+  development:
+    model_string: "litellm:gemini/gemini-2.5-flash"
+    system_prompt: "You are a development assistant"
+    tool_configs_dir: "~/.yacba/tools/"
+    show_tool_use: true
+    
+  production:
+    model_string: "anthropic:claude-3-5-sonnet-20241022"
+    system_prompt: "@~/.yacba/prompts/production.txt"
+    conversation_manager_type: summarizing
+    preserve_recent_messages: 15
+    session_name: "prod-session"
+    
+  coding:
+    inherits: development
+    model_string: "gpt-4o"
+    system_prompt: "You are an expert programmer"
+```
 
-#### Headless Mode
-- Non-interactive automation
-- Exit after initial message
-- Script-friendly output
-- CI/CD integration
+Use a profile with `--profile`:
 
-### What strands-agent-factory Provides
+```bash
+python yacba.py --profile coding
+```
 
-These core features come from [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory):
+Configuration sources are merged in this order (highest priority first):
+1. Command-line arguments
+2. Config file specified with `--config-file`
+3. Discovered config files
+4. Environment variables (`YACBA_*`)
+5. Default values
 
-- **LLM Integration**: OpenAI, Anthropic, Google, AWS Bedrock, 100+ providers via LiteLLM
-- **Tool System**: Python functions, MCP servers, A2A (Agent-to-Agent) tools
-- **Conversation Management**: Sliding window, summarization strategies
-- **Session Persistence**: Save/restore conversation state
-- **Tool Execution**: Parallel execution, error handling, result formatting
+Some CLI options can be set via environment variables using the `YACBA_` prefix:
 
- **See [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory#readme) for details on these features.**
+```bash
+export YACBA_MODEL_STRING="gpt-4o"
+export YACBA_SYSTEM_PROMPT="You are a helpful assistant"
+export YACBA_SHOW_TOOL_USE="true"
+```
+
+For more details on the profile system, including advanced features like profile inheritance, variable substitution, and configuration discovery, see the [profile-config documentation](https://pypi.org/project/profile-config/).
 
 ---
 
-## Tool Configuration
+## Interactive Mode
 
-YACBA uses [strands-agent-factory's tool system](https://github.com/JBarmentlo/strands-agent-factory#tools). Tool configurations are JSON files that define what tools your agent can use.
+When you run YACBA without `-H`, you get an interactive chat session with these commands:
 
-### Tool Types
+- `/help` - Show available commands
+- `/status` - Show session information
+- `/tools` - List available tools
+- `/history` - Show conversation history
+- `/clear` - Clear conversation history
+- `/session save [name]` - Save current session
+- `/session load <name>` - Load saved session
+- `/session list` - List saved sessions
+- `/conversation-manager [type]` - Change conversation strategy
+- `/exit` or `/quit` - Exit
 
-All tool types below are provided by strands-agent-factory:
+The REPL provides tab completion for commands, file paths, shell variables, and command substitution.
 
-#### 1. Python Function Tools
+Keyboard shortcuts:
+- **Alt+Enter**: Submit your message
+- **Alt+C**: Cancel running operation
+- **Ctrl+C**: Cancel or exit
+- **Ctrl+R**: Search history
+- **F6**: Paste from clipboard
+- **Escape+!**: Enter a shell command (type `sh`, or your prefered shell command, to drop into a shell session)
 
-Load Python functions as tools:
+
+### Tab Completion Examples
+
+The REPL provides intelligent completion:
+
+```bash
+# Command completion
+/h<Tab>              # Completes to /help, /history
+/se<Tab>             # Completes to /session
+
+# File path completion
+file("/tmp/<Tab>     # Shows directory contents
+file("~/Doc<Tab>     # Completes to ~/Documents/
+
+# Shell variable expansion
+${HOME}<Tab>         # Expands to /home/username
+${PWD}<Tab>          # Expands to current directory
+
+# Shell command substitution
+$(whoami)<Tab>       # Expands to current username
+$(pwd)<Tab>          # Expands to current directory path
+```
+Sessions are stored in `~/.yacba/sessions/` by default.
+
+---
+
+## Tools
+
+YACBA loads tools from JSON or YAML configuration files. Tools let the agent interact with systems, files, APIs, or other agents.
+
+### Python Function Tools
+
+Expose Python functions as tools:
 
 ```json
 {
@@ -158,15 +274,13 @@ Load Python functions as tools:
 }
 ```
 
- See: [`sample-tool-configs/strands.tools.json`](./sample-tool-configs/strands.tools.json)
+### MCP Server Tools
 
-#### 2. MCP Server Tools
-
-Connect to [Model Context Protocol](https://modelcontextprotocol.io/) servers:
+Connect to Model Context Protocol servers:
 
 ```json
 {
-  "id": "aws-cli-mcp",
+  "id": "aws-mcp",
   "type": "mcp",
   "command": "uvx",
   "args": ["-q", "awslabs.aws-api-mcp-server@latest"],
@@ -176,451 +290,243 @@ Connect to [Model Context Protocol](https://modelcontextprotocol.io/) servers:
 }
 ```
 
- See: [`sample-tool-configs/aws-cli.tools.json`](./sample-tool-configs/aws-cli.tools.json)
-
-#### 3. A2A (Agent-to-Agent) Tools
+### A2A Tools
 
 Connect to other AI agents as tools:
 
 ```json
 {
-  "id": "research-agents",
+  "id": "specialist-agents",
   "type": "a2a",
   "urls": [
-    "https://research-agent-1.example.com",
-    "https://research-agent-2.example.com"
+    "https://research-agent.example.com",
+    "https://code-agent.example.com"
   ],
   "timeout": 300
 }
 ```
 
- See: [`sample-tool-configs/a2a-example.tools.json`](./sample-tool-configs/a2a-example.tools.json)
-
- **For tool development and A2A setup**, see [strands-agent-factory tool documentation](https://github.com/JBarmentlo/strands-agent-factory#tools).
-
-### Using Tools
+Load tools with `-t`:
 
 ```bash
-# Specify tool configuration directory
-python yacba.py -m "gpt-4o" -t ./sample-tool-configs
-
-# Agent will have access to all tools defined in that directory
+python yacba.py -t ./sample-tool-configs
 ```
 
----
-
-## CLI Reference
-
-YACBA's CLI is auto-generated from the `YacbaConfig` dataclass via [dataclass-args](https://pypi.org/project/dataclass-args/).
-
-### Full Help
-
-```bash
-python yacba.py --help
-```
-
-### Key Options
-
-```
-usage: yacba.py [-h] [--profile PROFILE] [--config-file CONFIG_FILE] 
-                [-m MODEL_STRING] [-s SYSTEM_PROMPT] [-t TOOL_CONFIGS_DIR]
-                [-f FILE_GLOB [MIMETYPE ...]] [-H] [-i INITIAL_MESSAGE]
-                [many more options...]
-
-Required:
-  -m, --model-string MODEL_STRING
-                        Model to use (format: framework:model_name)
-                        Examples: "gpt-4o", "anthropic:claude-3-5-sonnet-20241022",
-                                  "litellm:gemini/gemini-2.5-flash"
-
-Common Options:
-  -s, --system-prompt SYSTEM_PROMPT
-                        System prompt (supports @file.txt to load from file)
-  -t, --tool-configs-dir TOOL_CONFIGS_DIR
-                        Directory containing tool configuration files
-  -f, --files FILE_GLOB [MIMETYPE ...]
-                        File(s) to upload at startup (repeatable)
-  -H, --headless        Run in non-interactive mode
-  -i, --initial-message INITIAL_MESSAGE
-                        Message to send on startup (supports @file.txt)
-
-Profile Management:
-  --profile PROFILE     Use named configuration profile
-  --config-file CONFIG_FILE
-                        Path to configuration file
-  --list-profiles       List available profiles
-  --show-config         Display resolved configuration
-
-Model Configuration:
-  --model-config MODEL_CONFIG
-                        Model config JSON file
-  --mc MC               Model config property override (key.path:value)
-  --summarization-model SUMMARIZATION_MODEL
-                        Separate model for summarization
-  --summarization-model-config SUMMARIZATION_MODEL_CONFIG
-                        Summarization model config file
-  --smc SMC             Summarization config override (key.path:value)
-
-Conversation Management:
-  --conversation-manager-type {null,sliding_window,summarizing}
-                        Strategy: null, sliding_window, or summarizing
-  --sliding-window-size SLIDING_WINDOW_SIZE
-                        Number of messages to keep
-  --preserve-recent-messages PRESERVE_RECENT_MESSAGES
-                        Messages to always preserve when summarizing
-  --summary-ratio SUMMARY_RATIO
-                        Summary length ratio (0.0-1.0)
-
-Session Management:
-  --session-name SESSION_NAME
-                        Named session for persistence
-  --agent-id AGENT_ID   Agent identifier
-
-UI Customization:
-  --cli-prompt CLI_PROMPT
-                        Custom prompt string (supports @file.txt)
-  --response-prefix RESPONSE_PREFIX
-                        Custom response prefix (supports @file.txt)
-  --show-tool-use       Display tool execution details
-```
-
-For complete option list: `python yacba.py --help`
-
----
-
-## Configuration System
-
-### Configuration Files
-
-YACBA uses [profile-config](https://pypi.org/project/profile-config/) for configuration management.
-
-```yaml
-# ~/.yacba/config.yaml
-profiles:
-  development:
-    model_string: "litellm:gemini/gemini-2.5-flash"
-    tool_configs_dir: "./dev-tools"
-    conversation_manager_type: "sliding_window"
-    sliding_window_size: 30
-    show_tool_use: true
-    
-  production:
-    model_string: "anthropic:claude-3-5-sonnet-20241022"
-    conversation_manager_type: "summarizing"
-    preserve_recent_messages: 15
-    summary_ratio: 0.2
-    
-  research:
-    model_string: "gpt-4o"
-    tool_configs_dir: "./research-tools"
-    max_files: 50
-    conversation_manager_type: "null"  # Unlimited context
-```
-
-### Configuration Precedence
-
-1. **CLI arguments** (highest priority)
-2. **User-specified config file** (`--config-file`)
-3. **Discovered config files** (`~/.yacba/config.yaml`, `./yacba.yaml`)
-4. **Environment variables**
-5. **Default values** (lowest priority)
-
-### Using Profiles
-
-```bash
-# Use a profile
-python yacba.py --profile development
-
-# Override profile settings
-python yacba.py --profile development -m "gpt-4o" --show-tool-use
-
-# Create sample config
-python yacba.py --init-config ~/.yacba/config.yaml
-```
-
----
-
-## Interactive Mode Commands
-
-When running in interactive mode, use these built-in commands:
-
-| Command | Description |
-|---------|-------------|
-| `/help` | Show available commands |
-| `/shortcuts` | Show keyboard shortcuts |
-| `/status` | Show comprehensive session status |
-| `/info` | Alias for `/status` |
-| `/stats` | Alias for `/status` |
-| `/tools` | List available tools |
-| `/history` | Show conversation history |
-| `/clear` | Clear conversation history |
-| `/session save [name]` | Save current session |
-| `/session load <name>` | Load saved session |
-| `/session list` | List saved sessions |
-| `/conversation-manager [type]` | Change conversation manager |
-| `/conversation-stats` | Show conversation statistics |
-| `/shell <command>` | Execute shell command |
-| `/exit` | Exit the application |
-| `/quit` | Exit the application |
-
-Commands have tab completion (sorted alphabetically).
-
----
-
-## Advanced Features
-
-### Tab Completion
-
-YACBA provides intelligent, context-aware tab completion:
-
-1. **Commands**: `/he<Tab>` → `/help`
-2. **File paths**: `file("/tmp/<Tab>` → directory contents
-3. **Shell variables**: `${HOME}<Tab>` → `/home/user`
-4. **Shell commands**: `$(whoami)<Tab>` → `username`
-
-### File Loading Syntax
-
-Many arguments support loading from files:
-
-```bash
-# Load system prompt from file
-python yacba.py -m "gpt-4o" -s @prompts/coding-assistant.txt
-
-# Load initial message from file
-python yacba.py -m "gpt-4o" -H -i @queries/analysis-request.txt
-```
-
-### Model Configuration Files
-
-Fine-tune model parameters:
-
-```json
-{
-  "temperature": 0.7,
-  "max_tokens": 2000,
-  "top_p": 0.9,
-  "frequency_penalty": 0.0
-}
-```
-
-```bash
-python yacba.py -m "gpt-4o" --model-config ./sample-model-configs/openai-gpt4.json
-```
-
- See: [`sample-model-configs/`](./sample-model-configs/) for examples
-
-### Property Overrides
-
-Override specific config properties:
-
-```bash
-# Override model temperature
-python yacba.py -m "gpt-4o" --model-config config.json --mc temperature:0.9
-
-# Multiple overrides
-python yacba.py -m "gpt-4o" --mc temperature:0.7 --mc max_tokens:1000
-```
+See the `sample-tool-configs/` directory for examples. For details on creating custom tools or setting up MCP/A2A, see the [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory#tools).
 
 ---
 
 ## Examples
 
-### Basic Chat
+### Chat with file context
 
 ```bash
-python yacba.py -m "gpt-4o" -s "You are a helpful assistant"
+python yacba.py -m "gpt-4o" \
+  -s "You are a code reviewer" \
+  -f "*.py" "text/plain" \
+  -i "Review these files"
 ```
 
-### With Tools
+### Headless automation
 
 ```bash
-python yacba.py -m "gpt-4o" -t ./sample-tool-configs -s "You are a system administrator assistant"
+python yacba.py -H \
+  -i "List all TODO comments" \
+  -t ./sample-tool-configs \
+  -f "**/*.py" "text/plain"
 ```
 
-### Headless Automation
+### Long conversation with summarization
 
 ```bash
-python yacba.py -m "gpt-4o" -H -i "Summarize all Python files in the current directory" \
-  -t ./sample-tool-configs -f "*.py" "text/plain"
+python yacba.py -m "gpt-4o" \
+  --session-name research \
+  --conversation-manager-type summarizing \
+  --preserve-recent-messages 20 \
+  --summarization-model "gpt-4o-mini"
 ```
 
-### With Configuration Profile
+### Multiple file types
 
 ```bash
-python yacba.py --profile development
+python yacba.py \
+  -f "src/**/*.py" "text/plain" \
+  -f "*.md" "text/markdown" \
+  -f "*.json" "application/json"
 ```
 
-### A2A Multi-Agent Setup
+### Custom configuration
 
 ```bash
-# Main agent with access to specialized agents as tools
-python yacba.py -m "gpt-4o" -t ./a2a-tools \
-  -s "You are a project manager who coordinates with specialized agents"
+python yacba.py -m "anthropic:claude-3-5-sonnet-20241022" \
+  -s @prompts/assistant.txt \
+  -t ./tools \
+  --session-name project \
+  --show-tool-use \
+  --mc temperature:0.8 \
+  --mc max_tokens:4000
 ```
-
-(Requires A2A agents running at the URLs specified in `./a2a-tools/`)
-
----
-
-## Architecture
-
-YACBA sits atop strands-agent-factory, providing CLI/configuration convenience:
-
-```
-┌──────────────────────────────────────────────────────┐
-│                  strands-agents                      │
-│            (Core AI Agent Framework)                 │
-└────────────────────┬─────────────────────────────────┘
-                     │
-                     │ builds on
-                     ▼
-┌──────────────────────────────────────────────────────┐
-│            strands-agent-factory                     │
-│  • Agent lifecycle   • Tool management               │
-│  • Conversation mgmt • Provider adapters             │
-│  • Session storage   • A2A support                   │
-└────────────────────┬─────────────────────────────────┘
-                     │
-                     │ wrapped by
-                     ▼
-┌──────────────────────────────────────────────────────┐
-│                    YACBA                             │
-│  • CLI interface  • Profile system                   │
-│  • Interactive    • Configuration                    │
-│  • Headless mode  • File management                  │
-└──────────────────────────────────────────────────────┘
-```
-
-### YACBA's Role
-
-YACBA is a **thin wrapper** that:
-1. Parses CLI arguments (dataclass-args)
-2. Loads configuration profiles (profile-config)
-3. Converts to strands-agent-factory config format
-4. Creates and runs agents via strands-agent-factory
-5. Provides REPL interface (repl-toolkit)
-
-**All core agent functionality** comes from strands-agent-factory.
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
-
-**Module Import Errors**
+If you get module import errors, make sure dependencies are installed:
 ```bash
-# Ensure dependencies are installed
 pip install -r requirements.txt
 ```
 
-**API Credentials**
+For API errors, check that your credentials are set:
 ```bash
-# Set appropriate environment variables
-export OPENAI_API_KEY="your-key"
-export ANTHROPIC_API_KEY="your-key"
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_API_KEY="..."
 ```
 
-**Tool Loading Failures**
-- Check tool configuration syntax matches strands-agent-factory format
-- Verify file paths in tool configs
-- See [strands-agent-factory tool docs](https://github.com/JBarmentlo/strands-agent-factory#tools)
-
-### Debug Logging
-
+For AWS Bedrock:
 ```bash
-# Enable debug logging
-export LOGURU_LEVEL=DEBUG
-python yacba.py -m "gpt-4o"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_REGION_NAME="us-east-1"
+```
 
-# Trace level (very verbose)
-export LOGURU_LEVEL=TRACE
+(note that in a configuration profile you can specify environment variables, but it is strongly
+advised that you do NOT save secrets in configuration profiles)
+
+See [LiteLLM provider documentation](https://docs.litellm.ai/docs/providers) for other providers.
+
+To debug configuration:
+```bash
 python yacba.py --show-config
-```
-
-### Validate Configuration
-
-```bash
-# Show resolved configuration
-python yacba.py --profile development --show-config
-
-# List available profiles
 python yacba.py --list-profiles
 ```
 
----
+For detailed logs:
+```bash
+export YACBA_LOG_LEVEL=DEBUG
+python yacba.py
+```
 
-## Documentation
+### Corrupted Sessions
 
-- **YACBA Docs**: See [`docs/`](./docs/) directory
-  - [API Reference](docs/API.md) - YACBA's wrapper APIs
-  - [Architecture](docs/ARCHITECTURE.md) - System design
-  - [Troubleshooting](docs/TROUBLESHOOTING.md) - Problem solving
-  - [Completion System](docs/COMPLETION_SYSTEM.md) - Tab completion details
-
--  **strands-agent-factory Docs**: [GitHub Repository](https://github.com/JBarmentlo/strands-agent-factory#readme)
-  - Core agent concepts
-  - Tool development guide
-  - A2A setup instructions
-  - Provider configuration
-  - Conversation management strategies
-
--  **strands-agents Docs**: [GitHub Repository](https://github.com/pydantic/strands-agents)
-  - Underlying agent framework
-  - Advanced customization
-
----
-
-## Contributing
-
-Contributions welcome! YACBA's modular architecture makes it easy to contribute:
-
-- **YACBA Layer**: CLI, configuration, REPL enhancements
-- **strands-agent-factory**: Core agent features, tools (contribute there)
-- **Documentation**: Examples, tutorials, guides
-
-### Development Setup
+If a session fails to load because of interrupted tool execution, use the repair tool:
 
 ```bash
-git clone https://github.com/your-username/yacba.git
-cd yacba/code
+python code/scripts/fix_strands_session.py ~/.yacba/sessions/session_name
 
-# Install in development mode
-pip install -e .
-
-# Run tests
-python -m pytest tests/
+# Preview changes first
+python code/scripts/fix_strands_session.py --dry-run ~/.yacba/sessions/session_name
 ```
+
+This removes orphaned tool calls (where the agent requested a tool but execution was cancelled before completion). The tool will show you what will be deleted and ask for confirmation.
+
+---
+
+## File Locations
+
+YACBA uses these locations by default:
+
+- `~/.yacba/config.yaml` - User configuration
+- `./.yacba/config.yaml` - Project configuration
+- `~/.yacba/sessions/` - Saved sessions
+- `~/.yacba/history.txt` - Command history
+- `~/.yacba/prompts/` - System prompts (by convention)
+- `~/.yacba/tools/` - Tool configurations (by convention)
+
+Example tool and model configurations are in the `sample-tool-configs/` and `sample-model-configs/` directories.
+
+---
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details on how YACBA is structured and how it integrates with strands-agent-factory.
+
+---
+
+## Environment Variables
+
+All configuration options can be set via environment variables with the `YACBA_` prefix:
+
+```bash
+YACBA_MODEL_STRING="gpt-4o"
+YACBA_SYSTEM_PROMPT="You are a helpful assistant"
+YACBA_TOOL_CONFIGS_DIR="./tools"
+YACBA_SESSION_NAME="my-session"
+YACBA_SHOW_TOOL_USE="true"
+YACBA_HEADLESS="false"
+```
+
+Logging control:
+```bash
+YACBA_LOG_LEVEL=DEBUG          # DEBUG, INFO, WARNING, ERROR
+YACBA_LOG_TRACEBACKS=false     # Show/hide exception tracebacks
+YACBA_LOG_JSON=true            # JSON formatted logs
+```
+
+Provider API keys:
+```bash
+OPENAI_API_KEY="..."
+ANTHROPIC_API_KEY="..."
+GOOGLE_API_KEY="..."
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_REGION_NAME="..."
+```
+
+---
+
+## Development
+
+The project structure:
+
+```
+yacba/
+├── code/
+│   ├── yacba.py                    # Entry point
+│   ├── config/                     # Configuration handling
+│   ├── adapters/                   # Framework integrations
+│   │   ├── strands_factory/        # strands-agent-factory adapter
+│   │   └── repl_toolkit/           # REPL adapter
+│   ├── utils/                      # Utilities
+│   ├── scripts/                    # Maintenance tools
+│   │   └── fix_strands_session.py
+│   ├── sample-tool-configs/        # Example tool configs
+│   ├── sample-model-configs/       # Example model configs
+│   └── tests/                      # Test suite
+└── README.md
+```
+
+Run tests:
+```bash
+cd code
+python -m pytest tests/ -v
+```
+
+Contributions are welcome. For features related to core agent functionality (new tool types, conversation strategies, provider support), contribute to [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory) instead.
+
+---
+
+## Dependencies
+
+YACBA uses:
+- [dataclass-args](https://pypi.org/project/dataclass-args/) for CLI parsing
+- [profile-config](https://pypi.org/project/profile-config/) for configuration management
+- [repl-toolkit](https://pypi.org/project/repl-toolkit/) for the interactive interface
+- [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory) for agent functionality
+- [structlog](https://www.structlog.org/) for logging
+
+strands-agent-factory brings in strands-agents, LiteLLM, and prompt_toolkit.
+
+See `requirements.txt` for the complete list.
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file.
 
 ---
 
-## Acknowledgments
+## Credits
 
-- **[strands-agents](https://github.com/pydantic/strands-agents)**: Foundation AI agent framework
-- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)**: Agent lifecycle and tool management
-- **[repl-toolkit](https://pypi.org/project/repl-toolkit/)**: Interactive REPL framework
-- **[dataclass-args](https://pypi.org/project/dataclass-args/)**: CLI argument parsing
-- **[profile-config](https://pypi.org/project/profile-config/)**: Configuration management
-- **[prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)**: Terminal UI components
-
----
-
-## Related Projects
-
-- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)** - Core agent factory this wraps
-- **[strands-agents](https://github.com/pydantic/strands-agents)** - Underlying agent framework
-- **[repl-toolkit](https://github.com/your-org/repl-toolkit)** - REPL framework used here
-
----
-
-**Questions? Issues?**
-
-- YACBA Issues: [GitHub Issues](https://github.com/your-username/yacba/issues)
-- strands-agent-factory Issues: [GitHub Issues](https://github.com/JBarmentlo/strands-agent-factory/issues)
-- General Discussion: [GitHub Discussions](https://github.com/your-username/yacba/discussions)
+Built with [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory), [strands-agents](https://github.com/pydantic/strands-agents), [dataclass-args](https://pypi.org/project/dataclass-args/), [profile-config](https://pypi.org/project/profile-config/), [repl-toolkit](https://pypi.org/project/repl-toolkit/), [structlog](https://www.structlog.org/), and [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).

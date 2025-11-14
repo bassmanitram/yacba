@@ -743,7 +743,7 @@ class ContentType(str, Enum):
 
 - `YACBA_CONFIG`: Path to configuration file
 - `YACBA_PROFILE`: Profile to use
-- `LOGURU_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+- `YACBA_LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
 
 #### Configuration Defaults
 
@@ -919,7 +919,7 @@ python code/yacba.py --show-config --profile development
 - **repl-toolkit Version**: 1.2.0+
 - **dataclass-args Version**: 1.1.0+
 - **API Documentation Version**: 2.0
-- **Last Updated**: 2025-01-06
+- **Last Updated**: 2025-01-15
 
 ---
 

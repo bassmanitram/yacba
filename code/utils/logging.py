@@ -34,7 +34,7 @@ import structlog
 
 # Module-level configuration
 _configured = False
-_default_level = logging.INFO
+_default_level = logging.ERROR  # Default to ERROR level
 _include_tracebacks = True
 
 
@@ -70,11 +70,11 @@ def configure_logging(
     
     # Determine log level
     if level:
-        _default_level = getattr(logging, level.upper(), logging.INFO)
+        _default_level = getattr(logging, level.upper(), logging.ERROR)
     elif os.environ.get('YACBA_LOG_LEVEL'):
-        _default_level = getattr(logging, os.environ['YACBA_LOG_LEVEL'].upper(), logging.INFO)
+        _default_level = getattr(logging, os.environ['YACBA_LOG_LEVEL'].upper(), logging.ERROR)
     else:
-        _default_level = logging.INFO
+        _default_level = logging.ERROR  # Default to ERROR
     
     # Configure stdlib logging first
     if config_file and config_file.exists():
@@ -187,7 +187,7 @@ def set_module_level(module: str, level: str) -> None:
         set_module_level("yacba.config", "DEBUG")
         set_module_level("yacba.adapters", "WARNING")
     """
-    log_level = getattr(logging, level.upper(), logging.INFO)
+    log_level = getattr(logging, level.upper(), logging.ERROR)
     logging.getLogger(module).setLevel(log_level)
 
 

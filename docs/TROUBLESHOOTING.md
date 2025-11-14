@@ -77,11 +77,11 @@ python code/yacba.py -m "gpt-4o" -H -i "test"
 
 ```bash
 # Debug level
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --model gpt-4o
 
 # Trace level (very verbose)
-export LOGURU_LEVEL=TRACE
+export YACBA_LOG_LEVEL=TRACE
 python code/yacba.py --model gpt-4o
 ```
 
@@ -264,7 +264,7 @@ export YACBA_TIMEOUT=120
 
 4. **Enable debug logging**:
 ```bash
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --model gpt-4o
 # Look for where it hangs
 ```
@@ -465,7 +465,7 @@ ls /path/to/tools/*.{json,yaml}
 
 4. **Test tool discovery**:
 ```bash
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --tool-configs-dir /path/to/tools --show-config
 # Check debug output for tool discovery
 ```
@@ -578,7 +578,7 @@ netstat -an | grep 8080
 
 4. **Check server logs**:
 ```bash
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --tool-configs-dir /path/to/tools
 # Look for MCP server startup logs
 ```
@@ -707,7 +707,7 @@ python code/yacba.py --model gpt-4o --headless --initial-message "test"
 
 4. **Enable debug logging**:
 ```bash
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --model gpt-4o
 # Check request/response in logs
 ```
@@ -915,6 +915,50 @@ cp ~/.yacba/sessions/my-session.json.bak ~/.yacba/sessions/my-session.json
 
 ## Performance Issues
 
+
+---
+
+### Issue: Session corruption (orphaned toolUse)
+
+**Symptoms**:
+```
+Error: Invalid message sequence
+Orphaned toolUse message detected
+Session failed to load
+```
+
+**Causes**:
+- Tool execution was cancelled mid-operation
+- Tool call without matching result
+- Interrupted agent execution
+
+**Solutions**:
+
+1. **Use the session repair tool**:
+```bash
+python code/scripts/fix_strands_session.py ~/.yacba/sessions/session_name
+
+# Preview changes first (dry run)
+python code/scripts/fix_strands_session.py --dry-run ~/.yacba/sessions/session_name
+```
+
+2. **What the repair tool does**:
+- Scans session messages for orphaned `toolUse` blocks
+- Identifies the first corrupted message
+- Removes that message and all subsequent messages
+- Restores valid conversation state
+
+3. **Interactive confirmation**:
+The tool shows you exactly what will be deleted and asks for confirmation before making changes.
+
+4. **Fix multiple sessions**:
+```bash
+# Repair all sessions at once
+python code/scripts/fix_strands_session.py ~/.yacba/sessions/session_*
+```
+
+See [Corrupted Sessions](../README.md#corrupted-sessions) in the main README for more details.
+
 ### Issue: Slow response times
 
 **Symptoms**:
@@ -1001,15 +1045,15 @@ python code/yacba.py --session my-session  # Resume
 
 ```bash
 # Debug level
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --model gpt-4o
 
 # Trace level (very verbose)
-export LOGURU_LEVEL=TRACE
+export YACBA_LOG_LEVEL=TRACE
 python code/yacba.py --model gpt-4o
 
 # Log to file
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --model gpt-4o 2>&1 | tee yacba.log
 ```
 
@@ -1119,7 +1163,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee error.log
 
 6. **Debug logs**:
 ```bash
-export LOGURU_LEVEL=DEBUG
+export YACBA_LOG_LEVEL=DEBUG
 python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 ```
 
@@ -1257,7 +1301,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 ### Before Reporting
 
 1. **Check existing issues** in the appropriate repository
-2. **Enable debug logging**: `export LOGURU_LEVEL=DEBUG`
+2. **Enable debug logging**: `export YACBA_LOG_LEVEL=DEBUG`
 3. **Test with minimal config**: Remove customizations
 4. **Verify versions**: Check strands-agent-factory and repl-toolkit versions
 
@@ -1268,7 +1312,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 - YACBA version (git commit hash)
 - Full command that failed
 - Output of `--show-config`
-- Debug logs (`LOGURU_LEVEL=DEBUG`)
+- Debug logs (`YACBA_LOG_LEVEL=DEBUG`)
 - Operating system
 
 **For strands-agent-factory issues**:
@@ -1292,4 +1336,4 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 
 ---
 
-Last Updated: 2025-01-06
+Last Updated: 2025-01-15
