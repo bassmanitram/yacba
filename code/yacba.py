@@ -126,21 +126,15 @@ async def _run_headless_mode(agent: AgentProxy, action_registry: YacbaActionRegi
         action_registry=action_registry,
     )
 
-    success = False
     with agent as agent_context:
         # Create backend adapter
         backend = YacbaBackend(agent_context, strands_config)
        
         # Run the async REPL
-        success = await repl.run(
+        return await repl.run(
             backend=backend,
             initial_message="Evaluate" if agent.has_initial_messages else None,
         )
-
-    if not success:
-        logger.error("headless_mode_completed_with_errors")
-        sys.exit(ExitCode.RUNTIME_ERROR)
-
 
 async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionRegistry, config: YacbaConfig, strands_config) -> None:
     """
@@ -204,7 +198,7 @@ async def _run_interactive_mode(agent: AgentProxy, action_registry: YacbaActionR
         _print_startup_info(config, agent_context)
         
         # Run the async REPL
-        await repl.run(
+        return await repl.run(
             backend=backend,
             initial_message="Evaluate" if agent.has_initial_messages else None,
         )
