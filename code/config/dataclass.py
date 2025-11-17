@@ -25,8 +25,10 @@ ConversationManagerType = Literal['null', 'sliding_window', 'summarizing']
 
 @dataclass
 class YacbaConfig:
-    """
-    Configuration for YACBA with rich annotations for CLI generation.
+    """YACBA - Yet Another ChatBot Agent
+    
+    A flexible chatbot system with support for multiple AI providers,
+    conversation management, and tool usage.
     
     Fields are annotated with dataclass-args annotations to automatically generate:
     - CLI arguments (--model-string, --system-prompt, etc.)
@@ -80,6 +82,16 @@ class YacbaConfig:
     
     session_name: Optional[str] = cli_help(
         "Session name for conversation persistence",
+        default=None
+    )
+    
+    # ========================================================================
+    # Tools Configuration (grouped together)
+    # ========================================================================
+    
+    tool_configs_dir: Optional[str] = combine_annotations(
+        cli_short('t'),
+        cli_help("Directory containing tool configuration files"),
         default=None
     )
     
@@ -192,7 +204,6 @@ class YacbaConfig:
     startup_files_content: Optional[List[Message]] = cli_exclude(default=None)
     prompt_source: str = cli_exclude(default="default")
     files_to_upload: List[FileUpload] = cli_exclude(default_factory=list)
-    tool_configs_dir: Optional[str] = cli_exclude(default=None)
     tool_discovery_result: Optional[str] = cli_exclude(default=None)
     
     @property

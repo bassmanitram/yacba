@@ -4,23 +4,33 @@ YACBA supports a profile-based configuration system that allows you to define re
 
 ## Overview
 
-The configuration system uses YAML files with profiles powered by the [profile-config](https://pypi.org/project/profile-config/) library. You can define multiple profiles for different use cases and easily switch between them or override specific settings.
+The configuration system uses two mechanisms:
 
-## Configuration File Locations
+1. **Profile-based configuration** - YAML files with named profiles, powered by [profile-config](https://pypi.org/project/profile-config/)
+2. **Simple configuration files** - Flat JSON/YAML files via `--config`, powered by [dataclass-args](https://pypi.org/project/dataclass-args/)
 
-YACBA searches for configuration files in:
+Both systems can be used together, with clear precedence rules.
 
-1. **Home directory**: `~/.yacba/config.yaml` (or `config.yml`)
-2. **Explicit path**: Via `--config` flag in dataclass-args (not profile-config search)
+## Profile-Based Configuration (Recommended)
 
-**Note**: profile-config with `search_home=True` only searches the home directory. Project-specific config files would need to be explicitly specified via `--config`.
+### File Locations
 
-## Configuration File Structure
+YACBA uses profile-config which automatically discovers and merges configuration files:
+
+**Discovered locations** (both are searched and merged):
+1. `~/.yacba/config.yaml` (or `.yml`) - User-wide configuration
+2. `./.yacba/config.yaml` (or `.yml`) - Project-specific configuration
+
+**Precedence**: Project config overrides user config for the same keys. Missing keys in project config are filled from user config.
+
+This allows you to:
+- Set user-wide defaults in your home directory
+- Override specific settings per-project
+- Share project configs in version control
+
+### Profile Configuration Structure
 
 ```yaml
-# Default profile to use when none specified
-default_profile: development
-
 # Global defaults applied to all profiles
 defaults:
   conversation_manager_type: sliding_window
@@ -52,6 +62,60 @@ profiles:
     max_files: 50
 ```
 
+### Profile Selection
+
+Profiles are selected via:
+
+1. **CLI argument**: `yacba --profile name` (highest priority)
+2. **Environment variable**: `export YACBA_PROFILE=name`
+3. **Default fallback**: `'default'` profile is used if not specified
+
+**Example:**
+```bash
+# Uses 'default' profile from config
+yacba
+
+# Uses 'production' profile
+yacba --profile production
+
+# Uses profile from environment
+export YACBA_PROFILE=development
+yacba
+```
+
+### Profile Features
+
+- **Multiple profiles**: Switch between different configurations easily
+- **Inheritance**: Profiles can inherit from other profiles with `inherits: base_profile`
+- **Defaults section**: Common settings applied to all profiles
+- **File loading**: Use `@filename.txt` to load content from files
+- **Hierarchical merging**: User-wide + project-specific configs merged automatically
+
+## Simple Configuration Files
+
+In addition to profile-based configuration, you can use simple JSON or YAML files with `--config`:
+
+**Example (`my-config.json`):**
+```json
+{
+  "model_string": "gpt-4o",
+  "system_prompt": "You are a helpful assistant",
+  "show_tool_use": true,
+  "conversation_manager_type": "summarizing"
+}
+```
+
+**Usage:**
+```bash
+yacba --config my-config.json
+```
+
+**Important differences from profile-config:**
+- `--config` files do NOT support profiles, inheritance, or defaults sections
+- They are simple flat key-value pairs
+- They override profile-config but are overridden by CLI arguments
+- Use profile-config (`.yacba/config.yaml`) for structured configurations with multiple profiles
+
 ## Configuration Options
 
 All CLI options can be specified in configuration files. Field names match the YacbaConfig dataclass:
@@ -64,7 +128,7 @@ All CLI options can be specified in configuration files. Field names match the Y
 - `initial_message`: Initial message or `"@path/to/file"`
 
 ### Tool Configuration
-- `tool_configs_dir`: Directory containing .tools.json files (converted to paths internally)
+- `tool_configs_dir`: Directory containing tool configuration files
 - `show_tool_use`: Boolean to show detailed tool usage (default: false)
 
 ### File Handling
@@ -76,12 +140,12 @@ All CLI options can be specified in configuration files. Field names match the Y
 - `preserve_recent_messages`: Recent messages to preserve in summarizing mode (default: 10)
 - `summary_ratio`: Ratio for summarization 0.0-1.0 (default: 0.3)
 - `summarization_model`: Optional separate model for summaries
-- `summarization_model_config`: Config for summarization model
 - `custom_summarization_prompt`: Custom prompt for summarization or `"@path/to/file"`
 - `should_truncate_results`: Truncate long tool results (default: true)
 
 ### Model Configuration
 - `model_config`: Dictionary of model configuration parameters
+- `summarization_model_config`: Dictionary for summarization model config
 - `emulate_system_prompt`: Use user message for system prompt (default: false)
 - `disable_context_repair`: Disable automatic context repair (default: false)
 
@@ -138,22 +202,82 @@ Child profiles override parent settings. Inheritance is resolved by profile-conf
 
 ## Variable Interpolation
 
-Profile-config supports variable interpolation (controlled by `enable_interpolation` parameter, enabled by default in YACBA).
+Profile-config supports variable interpolation (enabled by default in YACBA).
 
-The exact syntax depends on the profile-config library's interpolation implementation. Consult the [profile-config documentation](https://pypi.org/project/profile-config/) for details.
+Consult the [profile-config documentation](https://pypi.org/project/profile-config/) for interpolation syntax details.
 
 ## Configuration Resolution Priority
 
 Settings are resolved in this order (highest to lowest priority):
 
-1. **Command-line arguments** (highest priority)
-2. **--config file** (if specified via dataclass-args)
-3. **Environment variables** (YACBA_* prefix)
-4. **Profile settings** (from profile-config)
-5. **Global defaults section** (in config file)
-6. **Built-in defaults** (lowest priority)
+1. **Command-line arguments** - Direct CLI flags (highest priority)
+2. **Simple config file** - File specified with `--config`
+3. **Environment variables** - `YACBA_*` prefixed variables (scalars only)
+4. **Project profile config** - `./.yacba/config.yaml` 
+5. **User profile config** - `~/.yacba/config.yaml`
+6. **Built-in defaults** - Hard-coded fallbacks (lowest priority)
 
-Implementation: profile-config resolves DEFAULTS → PROFILE → ENV, then dataclass-args adds --config → CLI args.
+**Example:**
+```bash
+# User config: model_string: "gemini-2.5-flash"
+# Project config: model_string: "gpt-4o", show_tool_use: true
+# Environment: YACBA_SESSION_NAME="my-session"
+# CLI: --system-prompt "You are a code reviewer"
+
+# Result:
+#   model_string: "gpt-4o"  (project config overrides user config)
+#   show_tool_use: true  (from project config)
+#   session_name: "my-session"  (from environment)
+#   system_prompt: "You are a code reviewer"  (from CLI, highest priority)
+```
+
+**Implementation:**
+- profile-config merges: defaults → user config → project config → env vars
+- dataclass-args adds: profile result → `--config` file → CLI args
+
+## Environment Variables
+
+Scalar configuration fields can be set via `YACBA_*` environment variables:
+
+**Core Configuration:**
+```bash
+YACBA_MODEL_STRING="gpt-4o"
+YACBA_SYSTEM_PROMPT="You are a helpful assistant"
+YACBA_EMULATE_SYSTEM_PROMPT="false"
+YACBA_DISABLE_CONTEXT_REPAIR="false"
+```
+
+**Session and Files:**
+```bash
+YACBA_SESSION_NAME="my-session"
+YACBA_AGENT_ID="my-agent"
+YACBA_TOOL_CONFIGS_DIR="./tools"
+YACBA_MAX_FILES="20"
+```
+
+**Conversation Management:**
+```bash
+YACBA_CONVERSATION_MANAGER_TYPE="sliding_window"
+YACBA_SLIDING_WINDOW_SIZE="40"
+YACBA_PRESERVE_RECENT_MESSAGES="10"
+YACBA_SUMMARY_RATIO="0.3"
+YACBA_SUMMARIZATION_MODEL="gpt-4o-mini"
+YACBA_CUSTOM_SUMMARIZATION_PROMPT="Provide a summary..."
+YACBA_SHOULD_TRUNCATE_RESULTS="true"
+```
+
+**Execution and Display:**
+```bash
+YACBA_HEADLESS="false"
+YACBA_INITIAL_MESSAGE="Hello"
+YACBA_SHOW_TOOL_USE="true"
+YACBA_CLI_PROMPT="> "
+YACBA_RESPONSE_PREFIX="Assistant: "
+```
+
+**Note**: Complex configurations like `model_config` and `summarization_model_config` cannot be set via environment variables. Use configuration files or CLI arguments with `--model-config` and `--mc` instead.
+
+Environment variables override profile settings but are overridden by `--config` files and CLI arguments.
 
 ## Meta-Arguments
 
@@ -189,6 +313,9 @@ yacba --profile coding
 # Use profile with overrides
 yacba --profile development --model-string "openai:gpt-4" --show-tool-use
 
+# Use simple config file
+yacba --config my-settings.json
+
 # Override without profile (uses defaults + env vars)
 yacba --model-string "litellm:gemini/gemini-1.5-pro"
 
@@ -215,25 +342,40 @@ This creates a sample configuration with common profiles.
 Edit `~/.yacba/config.yaml` to add your preferred settings:
 
 ```yaml
-default_profile: my-default
-
 defaults:
   conversation_manager_type: sliding_window
   sliding_window_size: 60
   
 profiles:
-  my-default:
+  default:
     model_string: "litellm:gemini/gemini-1.5-flash"
     tool_configs_dir: "~/my-tools/"
     system_prompt: "You are my personal assistant."
     
   coding:
-    inherits: my-default
+    inherits: default
     model_string: "anthropic:claude-3-sonnet"
     system_prompt: "You are an expert programmer."
 ```
 
-### 3. Daily Usage
+### 3. Optional: Create Project-Specific Config
+
+For project-specific settings:
+
+```bash
+mkdir -p ./.yacba
+cat > ./.yacba/config.yaml << 'EOF'
+profiles:
+  default:
+    tool_configs_dir: "./tools"
+    session_name: "my-project"
+    model_string: "gpt-4o"
+EOF
+```
+
+Settings in `./.yacba/config.yaml` override `~/.yacba/config.yaml`.
+
+### 4. Daily Usage
 
 ```bash
 # Simple usage with configured defaults
@@ -246,27 +388,11 @@ yacba --profile coding
 yacba --profile coding --model-string "openai:gpt-4"
 ```
 
-## Environment Variables
-
-All configuration fields can be set via `YACBA_*` environment variables:
-
-```bash
-export YACBA_MODEL_STRING="openai:gpt-4"
-export YACBA_SYSTEM_PROMPT="You are an expert programmer"
-export YACBA_SESSION_NAME="my-session"
-export YACBA_SHOW_TOOL_USE="true"
-export YACBA_PROFILE="production"
-```
-
-Environment variables override profile settings but are overridden by CLI arguments.
-
 ## Sample Configuration
 
 Complete example with multiple profiles:
 
 ```yaml
-default_profile: development
-
 defaults:
   conversation_manager_type: sliding_window
   sliding_window_size: 40
@@ -274,10 +400,15 @@ defaults:
   should_truncate_results: true
 
 profiles:
-  development:
+  default:
     model_string: "litellm:gemini/gemini-1.5-flash"
-    system_prompt: "You are a helpful development assistant with access to tools."
+    system_prompt: "You are a helpful assistant."
     tool_configs_dir: "~/.yacba/tools/"
+    show_tool_use: false
+
+  development:
+    inherits: default
+    system_prompt: "You are a helpful development assistant with access to tools."
     show_tool_use: true
     model_config:
       temperature: 0.7
@@ -335,7 +466,7 @@ yacba --profile development --show-config
 ### Common Issues
 
 1. **Profile not found**: Check spelling and that profile exists in config file
-2. **Configuration file not found**: Ensure it's at `~/.yacba/config.yaml`
+2. **Configuration file not found**: Ensure it's at `~/.yacba/config.yaml` or `./.yacba/config.yaml`
 3. **Settings not applying**: Check precedence (CLI args override everything)
 4. **File loading fails**: Check `@` syntax and file paths
 5. **YAML syntax errors**: Validate YAML with online tools or `yamllint`
@@ -375,9 +506,11 @@ Use `yacba --help` to see all available options.
 
 - Configuration powered by [profile-config](https://pypi.org/project/profile-config/)
 - CLI parsing powered by [dataclass-args](https://pypi.org/project/dataclass-args/)
-- File discovery searches `~/.yacba/config.yaml` by default
+- Both `~/.yacba/config.yaml` and `./.yacba/config.yaml` are discovered and merged
+- Project config overrides user config for the same keys
 - Profile inheritance and interpolation handled by profile-config
 - Field names must match YacbaConfig dataclass exactly
 - Use `@` prefix for file loading, not `file://`
+- Environment variables support scalar values only (not dicts)
 
 The configuration system makes YACBA more convenient while maintaining all existing functionality. Set up your preferences once, then enjoy simplified daily usage with consistent, reproducible configurations.

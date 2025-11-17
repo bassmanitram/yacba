@@ -94,9 +94,34 @@ def parse_config() -> YacbaConfig:
     try:
         # Handle --help very early (before any profile resolution)
         if '--help' in sys.argv or '-h' in sys.argv:
-            # Use dataclass-args to show help (with defaults only)
-            build_config(YacbaConfig, base_configs=ARGUMENT_DEFAULTS)
-            sys.exit(0)
+            # Temporarily override sys.argv[0] for help display
+            original_argv0 = sys.argv[0]
+            sys.argv[0] = 'yacba'
+            
+            try:
+                # Use dataclass-args to show help (with defaults only)
+                # This will call sys.exit() after showing help
+                build_config(YacbaConfig, base_configs=ARGUMENT_DEFAULTS)
+            except SystemExit:
+                # Catch the exit from build_config to add our subcommand help
+                sys.argv[0] = original_argv0
+                
+                print("\nSubcommands (use without dash prefix):")
+                print("  version           Show version information")
+                print("  doctor            Run health check and show installation status")
+                print("  list-extras       Show available model providers and tools")
+                print("  install-extras    Install additional providers or tools")
+                print("  link              Create symlink to launcher")
+                print("  self-update       Update YACBA to latest version")
+                print("  upgrade-deps      Upgrade dependencies to latest versions")
+                print("  uninstall         Remove YACBA installation")
+                print("\nExamples:")
+                print("  yacba version")
+                print("  yacba doctor")
+                print("  yacba list-extras")
+                print("  yacba install-extras anthropic openai")
+                
+                sys.exit(0)
         
         # Parse arguments using custom parser that includes meta-arguments
         cli_args, profile_name = _parse_args_with_meta()
@@ -120,11 +145,18 @@ def parse_config() -> YacbaConfig:
         
         # 3. Use dataclass-args with base_configs
         # This gives us: profile_config < --config < CLI args
-        config = build_config(
-            YacbaConfig,
-            args=_filter_meta_args(sys.argv[1:]),
-            base_configs=profile_config
-        )
+        # Temporarily override sys.argv[0] for better help output
+        original_argv0 = sys.argv[0]
+        sys.argv[0] = 'yacba'
+        
+        try:
+            config = build_config(
+                YacbaConfig,
+                args=_filter_meta_args(sys.argv[1:]),
+                base_configs=profile_config
+            )
+        finally:
+            sys.argv[0] = original_argv0
         
         # 4. YACBA-specific post-processing (BEFORE show-config)
         config = _post_process_config(config, profile_config)

@@ -2,133 +2,89 @@
 """
 YACBA List Extras Subcommand
 
-Display available model provider extras and their installation status.
+Show available model provider extras and tools.
 """
 
 import sys
-import re
-from pathlib import Path
-from importlib import metadata
+from extras_discovery import discover_all_extras
 
 
 # ANSI color codes
 GREEN = '\033[0;32m'
+RED = '\033[0;31m'
 YELLOW = '\033[1;33m'
+BOLD = '\033[1m'
 NC = '\033[0m'
 
 
-def discover_extras():
-    """Discover available extras from strands-agents metadata."""
-    try:
-        meta = metadata.metadata('strands-agents')
-        
-        # Get built-in (required dependencies without "extra ==")
-        builtin = []
-        extras = []
-        
-        for line in str(meta).split('\n'):
-            if line.startswith('Requires-Dist:'):
-                if 'extra ==' not in line and 'boto3' in line:
-                    builtin.append('bedrock')
-            elif line.startswith('Provides-Extra:'):
-                extra = line.split(':', 1)[1].strip()
-                if extra not in ['all', 'dev', 'docs', 'otel']:
-                    extras.append(extra)
-        
-        return sorted(set(builtin)), sorted(set(extras))
+# Descriptions for known extras
+DESCRIPTIONS = {
+    # Providers
+    'anthropic': 'Anthropic SDK (direct Claude API)',
+    'openai': 'OpenAI SDK (GPT models)',
+    'litellm': 'LiteLLM (100+ providers)',
+    'ollama': 'Ollama SDK (local models)',
+    'gemini': 'Google Gemini SDK',
+    'mistralai': 'Mistral AI SDK',
+    'llamaapi': 'Llama API SDK',
+    'bedrock': 'AWS Bedrock (extended support)',
     
-    except Exception as e:
-        print(f"Error discovering extras: {e}", file=sys.stderr)
-        return [], []
-
-
-def check_extra_installed(extra):
-    """Check if an extra is installed."""
-    package_map = {
-        'anthropic': 'anthropic',
-        'openai': 'openai',
-        'gemini': 'google-generativeai',
-        'litellm': 'litellm',
-        'ollama': 'ollama',
-        'mistral': 'mistralai',
-        'llamaapi': 'llama-api-client',
-        'writer': 'writer-sdk',
-        'sagemaker': 'boto3-stubs',
-        'a2a': 'a2a-sdk',
-    }
-    
-    package = package_map.get(extra, extra)
-    
-    try:
-        metadata.version(package)
-        return True
-    except metadata.PackageNotFoundError:
-        return False
-
-
-def get_extra_description(extra):
-    """Get human-readable description for an extra."""
-    descriptions = {
-        'anthropic': 'Anthropic SDK (direct Claude API)',
-        'openai': 'OpenAI SDK (direct GPT API)',
-        'gemini': 'Google Gemini SDK',
-        'litellm': 'LiteLLM (100+ providers)',
-        'ollama': 'Ollama Python SDK',
-        'mistral': 'Mistral AI SDK',
-        'llamaapi': 'Llama API SDK',
-        'writer': 'Writer AI SDK',
-        'sagemaker': 'AWS SageMaker SDK',
-        'a2a': 'Agent-to-Agent tools',
-        'bedrock': 'AWS Bedrock (all AWS models)',
-    }
-    return descriptions.get(extra, extra)
+    # Tools
+    'tools': 'Extended tool set',
+    'a2a': 'Agent-to-Agent communication',
+}
 
 
 def main():
-    """List available extras and their status."""
+    """List available extras."""
     print("YACBA Model Support")
     print("=" * 50)
     print()
     
-    builtin, extras = discover_extras()
+    # Built-in support
+    print("Built-in (always available, no installation needed):")
+    print(f"  bedrock")
+    print(f"      AWS Bedrock (all AWS models)")
+    print(f"      Requires: AWS credentials configured")
+    print()
     
-    # Show built-in
-    if builtin:
-        print("Built-in (always available, no installation needed):")
-        for framework in builtin:
-            desc = get_extra_description(framework)
-            print(f"  {framework}")
-            print(f"      {GREEN}✓{NC} {desc}")
-            if framework == 'bedrock':
-                print(f"      Requires: AWS credentials configured")
-        print()
+    # Discover all extras
+    all_extras = discover_all_extras()
     
-    # Show optional extras
-    if extras:
+    # Separate into categories
+    tools = [e for e in all_extras if e.is_tool]
+    providers = [e for e in all_extras if not e.is_tool]
+    
+    # Display providers
+    if providers:
         print("Optional Extras (require installation):")
         print()
-        
-        # Categorize
-        providers = [e for e in extras if e != 'a2a']
-        tools = [e for e in extras if e == 'a2a']
-        
-        if providers:
-            print("Provider SDKs:")
-            for provider in providers:
-                desc = get_extra_description(provider)
-                status = f"[{GREEN}INSTALLED{NC}]" if check_extra_installed(provider) else ""
-                print(f"  {provider:15} {desc:40} {status}")
-            print()
-        
-        if tools:
-            print("Tools:")
-            for tool in tools:
-                desc = get_extra_description(tool)
-                status = f"[{GREEN}INSTALLED{NC}]" if check_extra_installed(tool) else ""
-                print(f"  {tool:15} {desc:40} {status}")
-            print()
+        print("Provider SDKs:")
+        for extra in providers:
+            status = f"{GREEN}INSTALLED{NC}" if extra.is_installed else "available"
+            desc = DESCRIPTIONS.get(extra.name, "")
+            
+            print(f"  {extra.name:15} {desc:40} [{status}]")
+        print()
     
-    print("Install: yacba install-extra <name> [<name2> ...]")
+    # Display tools
+    if tools:
+        print("Additional Capabilities:")
+        for extra in tools:
+            status = f"{GREEN}INSTALLED{NC}" if extra.is_installed else "available"
+            desc = DESCRIPTIONS.get(extra.name, "")
+            
+            print(f"  {extra.name:15} {desc:40} [{status}]")
+        print()
+    
+    # Installation instructions
+    print("To install an extra:")
+    print("  yacba install-extra <name>")
+    print()
+    print("Examples:")
+    print("  yacba install-extra anthropic")
+    print("  yacba install-extra litellm")
+    print("  yacba install-extra tools")
     
     return 0
 

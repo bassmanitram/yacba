@@ -50,6 +50,63 @@ is_installed() {
 }
 
 # ============================================================================
+# Symlink Creation Helper
+# ============================================================================
+
+_find_writable_path_dir() {
+    # Find first writable directory in PATH
+    # Returns: directory path or empty if none writable
+    
+    local IFS=':'
+    for dir in $PATH; do
+        if [[ -d "$dir" && -w "$dir" ]]; then
+            echo "$dir"
+            return 0
+        fi
+    done
+    
+    # Fallback: check common locations even if not in current PATH
+    for dir in "$HOME/bin" "$HOME/.local/bin"; do
+        if [[ -d "$dir" && -w "$dir" ]]; then
+            echo "$dir"
+            return 0
+        fi
+    done
+    
+    # Last resort
+    echo "/usr/local/bin"
+    return 1
+}
+
+_prompt_symlink_creation() {
+    local target="$YACBA_CODE/yacba"
+    local default_dir
+    default_dir=$(_find_writable_path_dir)
+    local link_path="${default_dir}/yacba"
+    
+    echo
+    read -r -p "Create 'yacba' command in ${default_dir}? [Y/n]: " create_link
+    create_link=${create_link:-y}
+    
+    if [[ ! "$create_link" =~ ^[Yy] ]]; then
+        echo
+        echo "To create a symlink later, run: yacba link"
+        return 0
+    fi
+    
+    # Delegate to link subcommand
+    "$YACBA_VENV/bin/python3" "$YACBA_CLI/link.py" "$default_dir" --name yacba --quiet
+    
+    if [[ $? -eq 0 ]]; then
+        log_success "Symlink created: ${link_path}"
+        echo
+        echo "You can now run: ${BOLD}yacba --help${NC}"
+        echo
+        echo "(To install to a different location, run: ${BOLD}yacba link${NC})"
+    fi
+}
+
+# ============================================================================
 # Bootstrap Installation
 # ============================================================================
 
@@ -157,7 +214,9 @@ _do_install() {
     echo "═══════════════════════════════════════"
     echo -e "${GREEN}${BOLD}Installation Complete!${NC}"
     echo "═══════════════════════════════════════"
-    echo
+    
+    # Prompt for symlink creation
+    _prompt_symlink_creation
 }
 
 # ============================================================================
@@ -217,8 +276,14 @@ route_subcommand() {
         doctor)
             script="doctor.py"
             ;;
+        link)
+            script="link.py"
+            ;;
         self-update|update)
             script="self_update.py"
+            ;;
+        upgrade-deps|upgrade)
+            script="upgrade_deps.py"
             ;;
         version)
             script="version.py"
@@ -231,10 +296,12 @@ route_subcommand() {
             echo
             echo "Available subcommands:"
             echo "  install           Install or reinstall YACBA"
-            echo "  install-extra     Install additional model providers"
+            echo "  install-extras    Install additional model providers"
             echo "  list-extras       Show available extras"
             echo "  doctor            Run health check"
+            echo "  link              Create symlink to launcher"
             echo "  self-update       Update YACBA to latest version"
+            echo "  upgrade-deps      Upgrade dependencies to latest versions"
             echo "  version           Show version information"
             echo "  uninstall         Uninstall YACBA"
             echo

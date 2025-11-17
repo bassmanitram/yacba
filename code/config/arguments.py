@@ -87,13 +87,21 @@ def _build_env_vars() -> Dict[str, Any]:
     
     Checks for YACBA_* environment variables for each default key.
     Only includes variables that are actually set.
+    Only processes scalar values (not dicts/objects).
     
     Returns:
         Dictionary of environment variable overrides
     """
     env_vars = {}
     
+    # Skip object-type configs that can't be set via environment variables
+    # These must be provided via configuration files or CLI arguments
+    SKIP_KEYS = {'model_config', 'summarization_model_config'}
+    
     for key in ARGUMENT_DEFAULTS.keys():
+        if key in SKIP_KEYS:
+            continue
+            
         value = _get_env_var(key)
         if value is not None:
             # Type conversion for known types

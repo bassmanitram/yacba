@@ -1,6 +1,6 @@
 # YACBA - Yet Another ChatBot Agent
 
-YACBA is a command-line interface for chatting with AI models. It provides configuration management, tool integration, and saves your conversation sessions. The underlying AI capabilities come from [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory), which is built on [strands-agents](https://github.com/pydantic/strands-agents).
+YACBA is a command-line interface for chatting with AI models. It provides configuration management, tool integration, and saves your conversation sessions. The underlying AI capabilities come from [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), which is built on [strands-agents](https://github.com/pydantic/strands-agents).
 
 You can run it interactively for chat sessions, or in headless mode for automation and scripting. Configuration can be done through command-line arguments, config files with named profiles, or environment variables.
 
@@ -8,19 +8,89 @@ You can run it interactively for chat sessions, or in headless mode for automati
 
 ## Getting Started
 
+### Quick Install (Recommended)
+
+Download and run the YACBA launcher:
+
 ```bash
-git clone https://github.com/your-username/yacba.git
-cd yacba/code
-pip install -r requirements.txt
+# Download launcher
+curl -o yacba https://raw.githubusercontent.com/bassmanitram/yacba/main/code/yacba
+chmod +x yacba
 
-# Start a chat session (uses default model: gemini-2.5-flash)
-python yacba.py
-
-# Or specify a different model
-python yacba.py -m "gpt-4o"
+# Run installation
+./yacba
 ```
 
-You'll need Python 3.9+ and API keys for whichever model provider you use (OpenAI, Anthropic, Google, etc.).
+The launcher will automatically:
+- Install YACBA to `~/.yacba/`
+- Set up a Python virtual environment
+- Install core dependencies
+- Offer to create a symlink in your PATH for easy access
+
+After installation, you can run `yacba` from anywhere (if you created the symlink), or use `~/.yacba/bin/yacba`.
+
+(**Note:** After installation you should remove the yacba launcher that you _originally_ downloaded)
+
+### Install Model Providers
+
+YACBA installs with minimal dependencies. Install model providers as needed:
+
+```bash
+# List available providers
+yacba list-extras
+
+# Install providers (you can install multiple at once)
+yacba install-extras anthropic openai
+
+# Or install the multi-provider proxy (recommended for flexibility)
+yacba install-extras litellm
+```
+
+Available providers: `anthropic`, `openai`, `google`, `ollama`, `mistral`, `litellm`, `all`
+
+### Set API Keys
+
+Configure authentication for your chosen providers:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="..."
+```
+
+For AWS Bedrock and SageMaker:
+```bash
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_REGION_NAME="us-east-1"
+```
+
+### Start Chatting
+
+```bash
+# Interactive chat with default model (gemini-2.5-flash via LiteLLM)
+yacba
+
+# Specify a different model
+yacba -m "gpt-4o"
+
+# With system prompt and tools
+yacba -m "claude-3-5-sonnet" -s "You are a helpful assistant" -t ~/.yacba/tools/
+```
+
+### Manual Installation (Alternative)
+
+If you prefer manual setup or want to contribute to development:
+
+```bash
+git clone https://github.com/bassmanitram/yacba.git
+cd yacba
+./code/yacba
+```
+
+---
+
+**Requirements:** Python 3.10+ and git (for installation and updates)
 
 ---
 
@@ -30,16 +100,16 @@ You'll need Python 3.9+ and API keys for whichever model provider you use (OpenA
 
 ```bash
 # Basic chat
-python yacba.py -m "gpt-4o" -s "You are a helpful assistant"
+yacba -m "gpt-4o" -s "You are a helpful assistant"
 
 # With tools
-python yacba.py -m "gpt-4o" -t ./sample-tool-configs
+yacba -m "gpt-4o" -t ./sample-tool-configs
 
 # Non-interactive (headless mode)
-python yacba.py -m "gpt-4o" -H -i "Analyze the current directory"
+yacba -m "gpt-4o" -H -i "Analyze the current directory"
 
 # Using a saved configuration profile
-python yacba.py --profile development
+yacba --profile development
 ```
 
 The `-m` option specifies which model to use. Default is `"litellm:gemini/gemini-2.5-flash"`. You can also set it via config file, profile, or the `YACBA_MODEL_STRING` environment variable.
@@ -98,7 +168,7 @@ The `--session-name` option lets you name your session so that conversations are
     List available profiles
 ```
 
-For the complete list: `python yacba.py --help`
+For the complete list: `yacba --help`
 
 ### Model Configuration
 
@@ -113,13 +183,13 @@ You can fine-tune model behavior using a JSON or YAML config file:
 ```
 
 ```bash
-python yacba.py -m "gpt-4o" --model-config ./configs/creative.json
+yacba -m "gpt-4o" --model-config ./configs/creative.json
 ```
 
 You can override individual settings in the model configuration with `--mc`:
 
 ```bash
-python yacba.py -m "gpt-4o" --mc temperature:0.9 --mc max_tokens:4000
+yacba -m "gpt-4o" --mc temperature:0.9 --mc max_tokens:4000
 ```
 
 ### Conversation Management
@@ -131,13 +201,13 @@ For long conversations, YACBA can manage context in three ways:
 **Sliding window** (`--conversation-manager-type sliding_window`): Keeps only recent messages. Older messages are dropped. Use `--sliding-window-size` to set how many to keep (default: 40).
 
 ```bash
-python yacba.py --conversation-manager-type sliding_window --sliding-window-size 30
+yacba --conversation-manager-type sliding_window --sliding-window-size 30
 ```
 
 **Summarizing** (`--conversation-manager-type summarizing`): Summarizes older messages while keeping recent ones in full. Use `--preserve-recent-messages` to set how many recent messages to never summarize (default: 10), and `--summary-ratio` for how much to condense (default: 0.3).
 
 ```bash
-python yacba.py \
+yacba \
   --conversation-manager-type summarizing \
   --preserve-recent-messages 15 \
   --summary-ratio 0.2 \
@@ -150,59 +220,67 @@ You can use a different (cheaper) model for summarization with `--summarization-
 
 ## Configuration Files
 
-YACBA looks for configuration in `~/.yacba/config.yaml` or `./.yacba/config.yaml`. You can also specify a file with `--config-file`.
+YACBA supports configuration files to reduce repetitive command-line arguments.
 
-Configuration uses profiles - named sets of options you can switch between:
+### Quick Start
 
-```yaml
-default_profile: development
+Create a configuration file with named profiles:
 
-defaults:
-  conversation_manager_type: sliding_window
-  sliding_window_size: 40
-
+```bash
+cat > ~/.yacba/config.yaml << 'EOF'
 profiles:
-  development:
+  default:
     model_string: "litellm:gemini/gemini-2.5-flash"
-    system_prompt: "You are a development assistant"
     tool_configs_dir: "~/.yacba/tools/"
-    show_tool_use: true
     
   production:
-    model_string: "anthropic:claude-3-5-sonnet-20241022"
-    system_prompt: "@~/.yacba/prompts/production.txt"
-    conversation_manager_type: summarizing
-    preserve_recent_messages: 15
-    session_name: "prod-session"
-    
-  coding:
-    inherits: development
     model_string: "gpt-4o"
-    system_prompt: "You are an expert programmer"
+    conversation_manager_type: summarizing
+    session_name: "prod"
+EOF
+
+# Use profiles
+yacba                      # Uses 'default' profile
+yacba --profile production # Uses 'production' profile
 ```
 
-Use a profile with `--profile`:
+### Configuration Locations
+
+- `~/.yacba/config.yaml` - User-wide settings
+- `./.yacba/config.yaml` - Project-specific settings (overrides user)
+
+Both files are discovered and merged automatically.
+
+### Quick Reference
 
 ```bash
-python yacba.py --profile coding
-```
+# Use a profile
+yacba --profile development
 
-Configuration sources are merged in this order (highest priority first):
-1. Command-line arguments
-2. Config file specified with `--config-file`
-3. Discovered config files
-4. Environment variables (`YACBA_*`)
-5. Default values
+# Use simple config file
+yacba --config my-settings.json
 
-Some CLI options can be set via environment variables using the `YACBA_` prefix:
-
-```bash
+# Set via environment
 export YACBA_MODEL_STRING="gpt-4o"
-export YACBA_SYSTEM_PROMPT="You are a helpful assistant"
-export YACBA_SHOW_TOOL_USE="true"
+yacba
+
+# Debug configuration
+yacba --show-config
+yacba --list-profiles
 ```
 
-For more details on the profile system, including advanced features like profile inheritance, variable substitution, and configuration discovery, see the [profile-config documentation](https://pypi.org/project/profile-config/).
+### Further Information
+
+For complete configuration documentation including:
+- Profile inheritance and structure
+- All available configuration options
+- File loading with `@filename` syntax
+- Configuration precedence rules  
+- Environment variable reference (all 20 variables)
+- Variable interpolation
+- Troubleshooting
+
+See **[README.CONFIG.md](README.CONFIG.md)** for the complete configuration guide.
 
 ---
 
@@ -228,7 +306,7 @@ Keyboard shortcuts:
 - **Alt+C**: Cancel running operation
 - **Ctrl+C**: Cancel or exit
 - **Ctrl+R**: Search history
-- **F6**: Paste from clipboard
+- **F6**: Paste from clipboard (Text and images)
 - **Escape+!**: Enter a shell command (type `sh`, or your prefered shell command, to drop into a shell session)
 
 
@@ -309,10 +387,10 @@ Connect to other AI agents as tools:
 Load tools with `-t`:
 
 ```bash
-python yacba.py -t ./sample-tool-configs
+yacba -t ./sample-tool-configs
 ```
 
-See the `sample-tool-configs/` directory for examples. For details on creating custom tools or setting up MCP/A2A, see the [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory#tools).
+See the `sample-tool-configs/` directory for examples. For details on creating custom tools or setting up MCP/A2A, see the [strands-agent-factory documentation](https://github.com/bassmanitram/strands-agent-factory#tools).
 
 ---
 
@@ -321,7 +399,7 @@ See the `sample-tool-configs/` directory for examples. For details on creating c
 ### Chat with file context
 
 ```bash
-python yacba.py -m "gpt-4o" \
+yacba -m "gpt-4o" \
   -s "You are a code reviewer" \
   -f "*.py" "text/plain" \
   -i "Review these files"
@@ -330,7 +408,7 @@ python yacba.py -m "gpt-4o" \
 ### Headless automation
 
 ```bash
-python yacba.py -H \
+yacba -H \
   -i "List all TODO comments" \
   -t ./sample-tool-configs \
   -f "**/*.py" "text/plain"
@@ -339,7 +417,7 @@ python yacba.py -H \
 ### Long conversation with summarization
 
 ```bash
-python yacba.py -m "gpt-4o" \
+yacba -m "gpt-4o" \
   --session-name research \
   --conversation-manager-type summarizing \
   --preserve-recent-messages 20 \
@@ -349,7 +427,7 @@ python yacba.py -m "gpt-4o" \
 ### Multiple file types
 
 ```bash
-python yacba.py \
+yacba \
   -f "src/**/*.py" "text/plain" \
   -f "*.md" "text/markdown" \
   -f "*.json" "application/json"
@@ -358,7 +436,7 @@ python yacba.py \
 ### Custom configuration
 
 ```bash
-python yacba.py -m "anthropic:claude-3-5-sonnet-20241022" \
+yacba -m "anthropic:claude-3-5-sonnet-20241022" \
   -s @prompts/assistant.txt \
   -t ./tools \
   --session-name project \
@@ -397,14 +475,14 @@ See [LiteLLM provider documentation](https://docs.litellm.ai/docs/providers) for
 
 To debug configuration:
 ```bash
-python yacba.py --show-config
-python yacba.py --list-profiles
+yacba --show-config
+yacba --list-profiles
 ```
 
 For detailed logs:
 ```bash
 export YACBA_LOG_LEVEL=DEBUG
-python yacba.py
+yacba
 ```
 
 ### Corrupted Sessions
@@ -443,38 +521,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details on how YACBA is str
 
 ---
 
-## Environment Variables
-
-All configuration options can be set via environment variables with the `YACBA_` prefix:
-
-```bash
-YACBA_MODEL_STRING="gpt-4o"
-YACBA_SYSTEM_PROMPT="You are a helpful assistant"
-YACBA_TOOL_CONFIGS_DIR="./tools"
-YACBA_SESSION_NAME="my-session"
-YACBA_SHOW_TOOL_USE="true"
-YACBA_HEADLESS="false"
-```
-
-Logging control:
-```bash
-YACBA_LOG_LEVEL=DEBUG          # DEBUG, INFO, WARNING, ERROR
-YACBA_LOG_TRACEBACKS=false     # Show/hide exception tracebacks
-YACBA_LOG_JSON=true            # JSON formatted logs
-```
-
-Provider API keys:
-```bash
-OPENAI_API_KEY="..."
-ANTHROPIC_API_KEY="..."
-GOOGLE_API_KEY="..."
-AWS_ACCESS_KEY_ID="..."
-AWS_SECRET_ACCESS_KEY="..."
-AWS_REGION_NAME="..."
-```
-
----
-
 ## Development
 
 The project structure:
@@ -502,7 +548,7 @@ cd code
 python -m pytest tests/ -v
 ```
 
-Contributions are welcome. For features related to core agent functionality (new tool types, conversation strategies, provider support), contribute to [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory) instead.
+Contributions are welcome. For features related to core agent functionality (new tool types, conversation strategies, provider support), contribute to [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory) instead.
 
 ---
 
@@ -510,12 +556,14 @@ Contributions are welcome. For features related to core agent functionality (new
 
 YACBA uses:
 - [dataclass-args](https://pypi.org/project/dataclass-args/) for CLI parsing
-- [profile-config](https://pypi.org/project/profile-config/) for configuration management
+- [profile-config](https://pypi.org/project/profile-config/) for profile-based configuration management
 - [repl-toolkit](https://pypi.org/project/repl-toolkit/) for the interactive interface
-- [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory) for agent functionality
+- [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory) for agent functionality
 - [structlog](https://www.structlog.org/) for logging
 
-strands-agent-factory brings in strands-agents, LiteLLM, and prompt_toolkit.
+strands-agent-factory brings in strands-agents, LiteLLM.
+
+repl-toolkit brings in prompt-toolkit.
 
 See `requirements.txt` for the complete list.
 
@@ -529,4 +577,4 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Credits
 
-Built with [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory), [strands-agents](https://github.com/pydantic/strands-agents), [dataclass-args](https://pypi.org/project/dataclass-args/), [profile-config](https://pypi.org/project/profile-config/), [repl-toolkit](https://pypi.org/project/repl-toolkit/), [structlog](https://www.structlog.org/), and [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).
+Built with [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), [strands-agents](https://github.com/pydantic/strands-agents), [dataclass-args](https://pypi.org/project/dataclass-args/), [profile-config](https://pypi.org/project/profile-config/), [repl-toolkit](https://pypi.org/project/repl-toolkit/), [structlog](https://www.structlog.org/), and [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).
