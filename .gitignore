@@ -211,3 +211,4 @@ backups*/**
 .yacba_history
 docs/research/
 local/
+.last_update_check
