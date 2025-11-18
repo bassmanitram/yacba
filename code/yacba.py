@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import NoReturn
 
 # Configure logging early
-from utils.logging import get_logger, log_error
+from utils.logging import get_logger
+from utils.exceptions import log_exception
 
 logger = get_logger(__name__)
 
@@ -79,7 +80,7 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
             await _run_interactive_mode(agent, action_registry, config, strands_config)
                 
     except Exception as e:
-        log_error(logger, "fatal_error_in_agent_lifecycle", error=str(e))
+        log_exception(logger, "fatal_error_in_agent_lifecycle", e)
         sys.exit(ExitCode.FATAL_ERROR)
 
 def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
@@ -223,7 +224,7 @@ def main() -> NoReturn:
         logger.info("application_interrupted_by_user")
         sys.exit(ExitCode.USER_INTERRUPT)
     except Exception as e:
-        log_error(logger, "fatal_error", error=str(e))
+        log_exception(logger, "fatal_error", e)
         sys.exit(ExitCode.FATAL_ERROR)
 
 

@@ -1,0 +1,73 @@
+name: Project Status
+
+on:
+  schedule:
+    # Run daily at 8 AM UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,all-providers,all-tools]"
+
+    - name: Run comprehensive tests
+      run: |
+        pytest tests/ -v --cov=strands_agent_factory --cov-report=term-missing
+
+    - name: Check code quality
+      run: |
+        black --check strands_agent_factory/ tests/
+        isort --check-only strands_agent_factory/ tests/
+        mypy strands_agent_factory/
+
+    - name: Test examples compile
+      run: |
+        cd examples
+        python -m py_compile basic_usage.py
+        python -m py_compile file_processing_example.py
+        python -m py_compile tool_configuration_example.py
+
+    - name: Package health check
+      run: |
+        python -m build
+        twine check dist/*
+        pip install dist/*.whl
+        python -c "
+        import strands_agent_factory
+        print(f'Package version: {strands_agent_factory.__version__}')
+        print('All imports successful')
+        "
+
+    - name: Generate status report
+      run: |
+        echo "# Project Status Report" > status-report.md
+        echo "Generated: $(date)" >> status-report.md
+        echo "" >> status-report.md
+        echo "## Test Results" >> status-report.md
+        pytest tests/ --tb=no -q >> status-report.md 2>&1 || true
+        echo "" >> status-report.md
+        echo "## Package Information" >> status-report.md
+        python -c "
+        import strands_agent_factory
+        print(f'Version: {strands_agent_factory.__version__}')
+        print(f'Package: strands-agent-factory')
+        " >> status-report.md
+
+    - name: Upload status report
+      uses: actions/upload-artifact@v5
+      with:
+        name: status-report
+        path: status-report.md

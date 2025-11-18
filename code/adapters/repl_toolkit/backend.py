@@ -7,7 +7,8 @@ and the repl_toolkit AsyncBackend protocol
 
 from typing import Optional
 
-from utils.logging import get_logger, log_error
+from utils.logging import get_logger
+from utils.exceptions import log_exception
 
 from strands_agent_factory.core.agent import AgentProxy
 from strands_agent_factory import AgentFactoryConfig
@@ -77,7 +78,7 @@ class YacbaBackend(AsyncBackend):
             return success
             
         except Exception as e:
-            log_error(logger, "error_processing_input", error=str(e))
+            log_exception(logger, "error_processing_input", e)
             return False
     
     def get_agent_proxy(self) -> AgentProxy:
@@ -116,7 +117,7 @@ class YacbaBackend(AsyncBackend):
             logger.debug("conversation_history_cleared")
             return True
         except Exception as e:
-            logger.error("error_clearing_conversation", error=str(e))
+            log_exception(logger, "error_clearing_conversation", e)
             return False
     
     def get_tool_names(self) -> list[str]:
@@ -147,7 +148,7 @@ class YacbaBackend(AsyncBackend):
             
             return tool_names
         except Exception as e:
-            logger.error("error_getting_tool_names", error=str(e))
+            log_exception(logger, "error_getting_tool_names", e)
             return []
     
     def get_conversation_stats(self) -> dict:
@@ -182,5 +183,5 @@ class YacbaBackend(AsyncBackend):
                 "tool_count": tool_count
             }
         except Exception as e:
-            logger.error("error_getting_conversation_stats", error=str(e))
+            log_exception(logger, "error_getting_conversation_stats", e)
             return {"message_count": 0, "tool_count": 0}

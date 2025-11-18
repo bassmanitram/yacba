@@ -30,6 +30,7 @@ def check_installation():
         'home_exists': yacba_home.exists(),
         'venv': (venv_path / "bin" / "python3").exists(),
         'code': (code_path / "yacba.py").exists(),
+        'commit_info': (code_path / ".commit_info").exists(),
     }
 
 
@@ -39,6 +40,28 @@ def get_package_version(package):
         return metadata.version(package)
     except metadata.PackageNotFoundError:
         return None
+
+
+def check_yacba_package():
+    """Check if YACBA itself is installed as package."""
+    try:
+        version = metadata.version('yacba')
+        
+        # Check if editable install
+        dist = metadata.distribution('yacba')
+        try:
+            direct_url = dist.read_text('direct_url.json')
+            is_editable = 'editable' in direct_url.lower()
+        except FileNotFoundError:
+            is_editable = False
+        
+        return {
+            'installed': True,
+            'version': version,
+            'editable': is_editable,
+        }
+    except metadata.PackageNotFoundError:
+        return {'installed': False}
 
 
 def main():
@@ -61,6 +84,24 @@ def main():
         return 1
     print()
     
+    # Check YACBA package
+    print("YACBA Package:")
+    pkg_status = check_yacba_package()
+    if pkg_status['installed']:
+        mode = "editable" if pkg_status['editable'] else "regular"
+        print(f"{GREEN}✓{NC} yacba ({pkg_status['version']}) - {mode} install")
+    else:
+        print(f"{YELLOW}⚠{NC} yacba package not installed")
+        print(f"  Run: pip install -e {install_status['home']}/code")
+    
+    # Check commit info
+    if install_status['commit_info']:
+        print(f"{GREEN}✓{NC} Commit info available (.commit_info exists)")
+    else:
+        print(f"{YELLOW}⚠{NC} No commit info (installed via git or old version)")
+    
+    print()
+    
     # Core packages
     print("Core Packages:")
     
@@ -70,15 +111,16 @@ def main():
         'strands-agents': 'Strands Agents SDK',
         'repl-toolkit': 'REPL Toolkit',
         'profile-config': 'Profile Config',
+        'dataclass-args': 'Dataclass Args',
     }
     
     all_ok = True
     for package, desc in core_packages.items():
         version = get_package_version(package)
         if version:
-            print(f"{GREEN}✓{NC} {package} ({version}) - {desc}")
+            print(f"{GREEN}✓{NC} {package} ({version})")
         else:
-            print(f"{RED}✗{NC} {package} (not installed) - {desc}")
+            print(f"{RED}✗{NC} {package} (not installed)")
             all_ok = False
     print()
     
@@ -86,9 +128,9 @@ def main():
     print("Built-in Model Support:")
     boto3_version = get_package_version('boto3')
     if boto3_version:
-        print(f"{GREEN}✓{NC} bedrock - AWS Bedrock (boto3 {boto3_version})")
+        print(f"{GREEN}✓{NC} AWS Bedrock (boto3 {boto3_version})")
     else:
-        print(f"{RED}✗{NC} bedrock - AWS Bedrock (boto3 missing)")
+        print(f"{YELLOW}⚠{NC} AWS Bedrock (boto3 not installed)")
     print()
     
     # Optional extras
@@ -105,21 +147,23 @@ def main():
     for extra, desc in extras.items():
         version = get_package_version(extra)
         if version:
-            print(f"{GREEN}✓{NC} [{extra}] - {desc} ({version})")
+            print(f"{GREEN}✓{NC} {extra} - {desc} ({version})")
         else:
-            print(f"  {YELLOW}✗{NC} [{extra}] - {desc} (not installed)")
+            print(f"  {YELLOW}○{NC} {extra} - {desc} (not installed)")
     print()
     
     # Overall status
-    if all_ok and boto3_version:
-        print(f"Installation: {GREEN}{BOLD}HEALTHY{NC}")
+    if all_ok:
+        print(f"Status: {GREEN}{BOLD}HEALTHY{NC}")
+        print()
+        print("To install optional providers:")
+        print("  yacba install-extras anthropic openai litellm")
     else:
-        print(f"Installation: {RED}{BOLD}NEEDS ATTENTION{NC}")
-        if not all_ok:
-            print()
-            print("To fix core dependencies:")
-            yacba_home = Path(os.environ.get('YACBA_HOME', Path.home() / ".yacba"))
-            print(f"  {yacba_home}/.venv/bin/pip install -r {yacba_home}/code/requirements.txt")
+        print(f"Status: {RED}{BOLD}NEEDS ATTENTION{NC}")
+        print()
+        print("To fix core dependencies:")
+        yacba_home = Path(os.environ.get('YACBA_HOME', Path.home() / ".yacba"))
+        print(f"  {yacba_home}/.venv/bin/pip install -e {yacba_home}/code")
     
     return 0
 
