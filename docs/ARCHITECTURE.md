@@ -2,14 +2,14 @@
 
 ## Overview
 
-YACBA is a **CLI wrapper** built on top of [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory), which itself is built on [strands-agents](https://github.com/pydantic/strands-agents).
+YACBA is a **CLI wrapper** built on top of [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), which itself is built on [strands-agents](https://github.com/pydantic/strands-agents).
 
 **YACBA's Role**: Provide command-line interface, configuration management, profile system, and interactive REPL on top of strands-agent-factory's core agent functionality.
 
 **Core Functionality** (LLM integration, tool execution, conversation management, A2A support) comes from strands-agent-factory.
 
 > **Note**: This documents YACBA's wrapper architecture only. For core agent architecture,  
-> see [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory).
+> see [strands-agent-factory documentation](https://github.com/bassmanitram/strands-agent-factory).
 
 ---
 
@@ -1185,7 +1185,7 @@ Common fixtures for testing:
 - Tool result truncation (should_truncate_results)
 - Session persistence to disk (not memory)
 
-See [strands-agent-factory performance docs](https://github.com/JBarmentlo/strands-agent-factory) for details.
+See [strands-agent-factory performance docs](https://github.com/bassmanitram/strands-agent-factory) for details.
 
 ### Logging Performance
 
@@ -1427,7 +1427,7 @@ yacba --help
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
 
 ### External
-- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)** - Core architecture
+- **[strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory)** - Core architecture
   - Agent lifecycle and management
   - Tool system architecture
   - Conversation management design

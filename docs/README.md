@@ -2,7 +2,7 @@
 
 Welcome to the YACBA (Yet Another ChatBot Agent) documentation.
 
-YACBA is built on [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory). For core agent concepts, tool development, and advanced features, refer to the [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory#readme).
+YACBA is built on [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory). For core agent concepts, tool development, and advanced features, refer to the [strands-agent-factory documentation](https://github.com/bassmanitram/strands-agent-factory#readme).
 
 ## Documentation Files
 
@@ -20,7 +20,7 @@ Quick diagnostics, common issues, configuration problems, and debugging techniqu
 ### External Resources
 
 - **[Main README](../README.md)** - Getting started, usage examples, configuration
-- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)** - Core agent features and tool development  
+- **[strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory)** - Core agent features and tool development  
 - **[profile-config](https://pypi.org/project/profile-config/)** - Profile system documentation
 - **[repl-toolkit](https://pypi.org/project/repl-toolkit/)** - Interactive REPL framework
 - **[dataclass-args](https://pypi.org/project/dataclass-args/)** - CLI argument generation
@@ -49,7 +49,7 @@ Covers core agent functionality:
 - Agent lifecycle
 - Tool development guides
 
-For most agent-related questions, see [strands-agent-factory docs](https://github.com/JBarmentlo/strands-agent-factory#readme).
+For most agent-related questions, see [strands-agent-factory docs](https://github.com/bassmanitram/strands-agent-factory#readme).
 
 ---
 
@@ -73,7 +73,7 @@ For most agent-related questions, see [strands-agent-factory docs](https://githu
 
 - [Tool Examples](../README.md#tools) - Python, MCP, and A2A tools
 - [Sample Configs](../code/sample-tool-configs/) - Working examples
-- [Tool Development](https://github.com/JBarmentlo/strands-agent-factory#tools) - Creating custom tools
+- [Tool Development](https://github.com/bassmanitram/strands-agent-factory#tools) - Creating custom tools
 
 ### Architecture
 

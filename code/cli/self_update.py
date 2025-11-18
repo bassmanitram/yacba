@@ -8,8 +8,12 @@ Update YACBA to the latest version from GitHub (no git required).
 import sys
 import os
 import shutil
+import subprocess
+import tarfile
+import json
+import urllib.request
 from pathlib import Path
-from downloader import download_github_archive, get_latest_commit_info, get_local_commit_info, DownloadError
+from typing import Optional, Dict, Any
 
 
 # ANSI color codes
@@ -20,6 +24,204 @@ BLUE = '\033[0;34m'
 NC = '\033[0m'
 
 
+class UpdateError(Exception):
+    """Update operation failed."""
+    pass
+
+
+def detect_download_tool() -> Optional[str]:
+    """Detect available download tool (curl or wget)."""
+    if shutil.which('curl'):
+        return 'curl'
+    elif shutil.which('wget'):
+        return 'wget'
+    return None
+
+
+def download_file(url: str, output_path: Path) -> None:
+    """
+    Download file using curl or wget.
+    
+    Args:
+        url: URL to download
+        output_path: Destination file path
+    
+    Raises:
+        UpdateError: If download fails
+    """
+    tool = detect_download_tool()
+    if tool is None:
+        raise UpdateError("Neither curl nor wget found")
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        if tool == 'curl':
+            subprocess.run(
+                ['curl', '-L', '-o', str(output_path), url],
+                check=True,
+                capture_output=True
+            )
+        elif tool == 'wget':
+            subprocess.run(
+                ['wget', '-O', str(output_path), url],
+                check=True,
+                capture_output=True
+            )
+    except subprocess.CalledProcessError as e:
+        raise UpdateError(f"Download failed: {e}")
+
+
+def get_latest_commit_info(repo_owner: str, repo_name: str, branch: str = "main") -> Optional[Dict[str, Any]]:
+    """
+    Get latest commit information from GitHub API.
+    
+    Args:
+        repo_owner: Repository owner
+        repo_name: Repository name
+        branch: Branch name
+    
+    Returns:
+        Dict with commit info or None if failed
+    """
+    api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/commits/{branch}"
+    
+    try:
+        req = urllib.request.Request(api_url)
+        req.add_header('Accept', 'application/vnd.github.v3+json')
+        
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read())
+            return {
+                'sha': data['sha'],
+                'short_sha': data['sha'][:7],
+                'message': data['commit']['message'].split('\n')[0],
+                'date': data['commit']['committer']['date'],
+                'author': data['commit']['author']['name'],
+            }
+    except Exception:
+        return None
+
+
+def get_local_commit_info(code_dir: Path) -> Optional[Dict[str, Any]]:
+    """
+    Get commit info for locally installed code.
+    
+    Args:
+        code_dir: Directory containing .commit_info file
+    
+    Returns:
+        Dict with commit info or None
+    """
+    commit_file = code_dir / ".commit_info"
+    if not commit_file.exists():
+        return None
+    
+    try:
+        with open(commit_file, 'r') as f:
+            return json.load(f)
+    except:
+        return None
+
+
+def extract_tarball(tar_path: Path, extract_to: Path, strip_components: int = 1) -> None:
+    """
+    Extract tarball, stripping top-level directory.
+    
+    Args:
+        tar_path: Path to .tar.gz file
+        extract_to: Directory to extract into
+        strip_components: Number of leading path components to strip
+    
+    Raises:
+        UpdateError: If extraction fails
+    """
+    try:
+        extract_to.mkdir(parents=True, exist_ok=True)
+        
+        with tarfile.open(tar_path, 'r:gz') as tar:
+            members = tar.getmembers()
+            
+            if strip_components > 0:
+                for member in members:
+                    parts = Path(member.name).parts
+                    if len(parts) > strip_components:
+                        member.name = str(Path(*parts[strip_components:]))
+                        tar.extract(member, extract_to)
+            else:
+                tar.extractall(extract_to)
+                
+    except Exception as e:
+        raise UpdateError(f"Extraction failed: {e}")
+
+
+def download_github_archive(
+    repo_owner: str,
+    repo_name: str,
+    target_dir: Path,
+    branch: str = "main"
+) -> Dict[str, Any]:
+    """
+    Download and extract GitHub repository archive.
+    
+    Args:
+        repo_owner: Repository owner
+        repo_name: Repository name
+        target_dir: Target directory for extracted content
+        branch: Branch to download
+    
+    Returns:
+        Dict with download info (commit sha, etc.)
+    
+    Raises:
+        UpdateError: If download or extraction fails
+    """
+    archive_url = f"https://github.com/{repo_owner}/{repo_name}/archive/refs/heads/{branch}.tar.gz"
+    
+    temp_dir = Path("/tmp") / f"yacba-update-{os.getpid()}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_tar = temp_dir / f"{repo_name}.tar.gz"
+    
+    try:
+        # Get commit info
+        print("Fetching latest commit info...")
+        commit_info = get_latest_commit_info(repo_owner, repo_name, branch)
+        
+        # Download
+        print(f"Downloading from GitHub...")
+        download_file(archive_url, temp_tar)
+        
+        size_mb = temp_tar.stat().st_size / (1024 * 1024)
+        print(f"Downloaded {size_mb:.1f} MB")
+        
+        # Extract
+        print(f"Extracting...")
+        
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        
+        extract_tarball(temp_tar, target_dir, strip_components=1)
+        
+        # Save commit info
+        if commit_info:
+            commit_file = target_dir / ".commit_info"
+            with open(commit_file, 'w') as f:
+                json.dump(commit_info, f, indent=2)
+        
+        return {
+            'success': True,
+            'target_dir': target_dir,
+            'commit_info': commit_info,
+        }
+        
+    finally:
+        # Cleanup
+        if temp_tar.exists():
+            temp_tar.unlink()
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def check_for_updates(code_path: Path) -> dict:
     """
     Check if updates are available.
@@ -27,28 +229,23 @@ def check_for_updates(code_path: Path) -> dict:
     Returns:
         Dict with 'available', 'local_commit', 'remote_commit'
     """
-    # Get local commit info
     local_info = get_local_commit_info(code_path)
-    
-    # Get remote commit info
     remote_info = get_latest_commit_info("bassmanitram", "yacba", "main")
     
     if not remote_info:
         return {
-            'available': None,  # Unknown
+            'available': None,
             'local_commit': local_info,
             'remote_commit': None,
         }
     
     if not local_info:
-        # No local commit info (old installation or manual install)
         return {
-            'available': True,  # Assume update available
+            'available': True,
             'local_commit': None,
             'remote_commit': remote_info,
         }
     
-    # Compare SHAs
     available = local_info['sha'] != remote_info['sha']
     
     return {
@@ -77,7 +274,7 @@ def perform_update(code_path: Path, backup: bool = True) -> bool:
             print(f"{BLUE}ℹ{NC} Creating backup...")
             if backup_path.exists():
                 shutil.rmtree(backup_path)
-            shutil.copytree(code_path, backup_path)
+            shutil.copytree(code_path, backup_path, symlinks=True)
             print(f"{GREEN}✓{NC} Backup created at {backup_path}")
             print()
         
@@ -89,8 +286,7 @@ def perform_update(code_path: Path, backup: bool = True) -> bool:
             "bassmanitram",
             "yacba",
             code_path,
-            branch="main",
-            show_progress=True
+            branch="main"
         )
         
         print()
@@ -107,7 +303,7 @@ def perform_update(code_path: Path, backup: bool = True) -> bool:
         
         return True
         
-    except DownloadError as e:
+    except UpdateError as e:
         print(f"{RED}✗{NC} Update failed: {e}", file=sys.stderr)
         
         # Restore backup if available
@@ -115,7 +311,7 @@ def perform_update(code_path: Path, backup: bool = True) -> bool:
             print(f"{YELLOW}⚠{NC} Restoring from backup...", file=sys.stderr)
             if code_path.exists():
                 shutil.rmtree(code_path)
-            shutil.move(backup_path, code_path)
+            shutil.move(str(backup_path), str(code_path))
             print(f"{GREEN}✓{NC} Restored from backup", file=sys.stderr)
         
         return False
@@ -129,7 +325,7 @@ def perform_update(code_path: Path, backup: bool = True) -> bool:
             try:
                 if code_path.exists():
                     shutil.rmtree(code_path)
-                shutil.move(backup_path, code_path)
+                shutil.move(str(backup_path), str(code_path))
                 print(f"{GREEN}✓{NC} Restored from backup", file=sys.stderr)
             except:
                 print(f"{RED}✗{NC} Failed to restore backup", file=sys.stderr)

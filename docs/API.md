@@ -4,7 +4,7 @@ Complete API reference for YACBA's wrapper layer - the CLI, configuration, and a
 
 > **Note**: This documents **YACBA's wrapper APIs only**. For strands-agent-factory APIs  
 > (agent creation, tool development, conversation management, A2A tools), see the  
-> [strands-agent-factory documentation](https://github.com/JBarmentlo/strands-agent-factory).
+> [strands-agent-factory documentation](https://github.com/bassmanitram/strands-agent-factory).
 
 ---
 
@@ -19,7 +19,7 @@ YACBA is a thin wrapper that adds:
 - **Adapters** - Bridge YACBA config → strands-agent-factory config
 
 **Core agent functionality** (LLM integration, tool execution, conversation management) is in  
-[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory).
+[strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory).
 
 ---
 
@@ -188,7 +188,7 @@ from strands_agent_factory import AgentFactory
 factory = AgentFactory(config=strands_config)
 ```
 
-**See Also**: [strands-agent-factory AgentFactory docs](https://github.com/JBarmentlo/strands-agent-factory)
+**See Also**: [strands-agent-factory AgentFactory docs](https://github.com/bassmanitram/strands-agent-factory)
 
 ---
 
@@ -404,7 +404,7 @@ class ToolsAction(Action):
     async def execute(self, backend: Backend, args: Optional[str]) -> str
 ```
 
-**Note**: Tools are managed by strands-agent-factory. See [strands-agent-factory tool docs](https://github.com/JBarmentlo/strands-agent-factory#tools).
+**Note**: Tools are managed by strands-agent-factory. See [strands-agent-factory tool docs](https://github.com/bassmanitram/strands-agent-factory#tools).
 
 ---
 
@@ -471,7 +471,7 @@ class ConversationManagerAction(Action):
 ```
 
 **Note**: Conversation management is implemented by strands-agent-factory. See  
-[strands-agent-factory conversation management docs](https://github.com/JBarmentlo/strands-agent-factory).
+[strands-agent-factory conversation management docs](https://github.com/bassmanitram/strands-agent-factory).
 
 ---
 
@@ -507,7 +507,7 @@ for config in configs:
 ```
 
 **See Also**:
-- [strands-agent-factory tool configuration](https://github.com/JBarmentlo/strands-agent-factory#tools)
+- [strands-agent-factory tool configuration](https://github.com/bassmanitram/strands-agent-factory#tools)
 - Sample configs in `sample-tool-configs/` directory
 
 ---
@@ -854,7 +854,7 @@ raise ToolLoadingError("Invalid tool configuration: missing 'type' field")
 ```
 
 **Note**: Tool loading is handled by strands-agent-factory. See  
-[strands-agent-factory error handling](https://github.com/JBarmentlo/strands-agent-factory).
+[strands-agent-factory error handling](https://github.com/bassmanitram/strands-agent-factory).
 
 ---
 
@@ -900,7 +900,7 @@ python code/yacba.py --show-config --profile development
 - [Troubleshooting](TROUBLESHOOTING.md) - Problem solving
 
 ### External
-- **[strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory)** - Core agent APIs
+- **[strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory)** - Core agent APIs
   - Agent creation and lifecycle
   - Tool development (Python, MCP, A2A)
   - Conversation management strategies
@@ -928,4 +928,4 @@ python code/yacba.py --show-config --profile development
 - [Architecture Documentation](ARCHITECTURE.md) - System design
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Problem solving
 - [Main README](../README.md) - Feature overview
-- [strands-agent-factory Documentation](https://github.com/JBarmentlo/strands-agent-factory) - Core agent features
+- [strands-agent-factory Documentation](https://github.com/bassmanitram/strands-agent-factory) - Core agent features

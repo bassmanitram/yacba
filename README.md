@@ -14,7 +14,7 @@ Download and run the YACBA launcher:
 
 ```bash
 # Download launcher
-curl -o yacba https://raw.githubusercontent.com/bassmanitram/yacba/main/code/yacba
+curl -o yacba https://raw.githubusercontent.com/bassmanitram/yacba/main/yacba
 chmod +x yacba
 
 # Run installation
@@ -24,12 +24,13 @@ chmod +x yacba
 The launcher will automatically:
 - Install YACBA to `~/.yacba/`
 - Set up a Python virtual environment
+- Download the latest code from GitHub
 - Install core dependencies
 - Offer to create a symlink in your PATH for easy access
 
-After installation, you can run `yacba` from anywhere (if you created the symlink), or use `~/.yacba/bin/yacba`.
+After installation, you can run `yacba` from anywhere (if you created the symlink).
 
-(**Note:** After installation you should remove the yacba launcher that you _originally_ downloaded)
+**Note:** After installation you can remove the downloaded launcher script if desired. The symlink will point to the installed version.
 
 ### Install Model Providers
 
@@ -85,12 +86,33 @@ If you prefer manual setup or want to contribute to development:
 ```bash
 git clone https://github.com/bassmanitram/yacba.git
 cd yacba
-./code/yacba
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
 ---
 
-**Requirements:** Python 3.10+ and git (for installation and updates)
+**Requirements:** Python 3.10+, and either `curl` or `wget` (for installation and updates)
+
+---
+
+## Management Commands
+
+YACBA includes self-management commands:
+
+```bash
+yacba version           # Show version and dependencies
+yacba doctor            # Run health check
+yacba self-update       # Update to latest version from GitHub
+yacba upgrade-deps      # Upgrade dependencies to latest versions
+yacba install-extras    # Install model provider packages
+yacba list-extras       # Show available extras
+yacba link [directory]  # Create symlink in PATH
+yacba uninstall         # Remove YACBA installation
+```
+
+All updates are downloaded directly from GitHub without requiring git.
 
 ---
 
@@ -451,7 +473,7 @@ yacba -m "anthropic:claude-3-5-sonnet-20241022" \
 
 If you get module import errors, make sure dependencies are installed:
 ```bash
-pip install -r requirements.txt
+yacba install-extras <provider>
 ```
 
 For API errors, check that your credentials are set:
@@ -485,15 +507,20 @@ export YACBA_LOG_LEVEL=DEBUG
 yacba
 ```
 
+To run health checks:
+```bash
+yacba doctor
+```
+
 ### Corrupted Sessions
 
 If a session fails to load because of interrupted tool execution, use the repair tool:
 
 ```bash
-python code/scripts/fix_strands_session.py ~/.yacba/sessions/session_name
+python ~/.yacba/code/code/scripts/fix_strands_session.py ~/.yacba/sessions/session_name
 
 # Preview changes first
-python code/scripts/fix_strands_session.py --dry-run ~/.yacba/sessions/session_name
+python ~/.yacba/code/code/scripts/fix_strands_session.py --dry-run ~/.yacba/sessions/session_name
 ```
 
 This removes orphaned tool calls (where the agent requested a tool but execution was cancelled before completion). The tool will show you what will be deleted and ask for confirmation.
@@ -504,14 +531,17 @@ This removes orphaned tool calls (where the agent requested a tool but execution
 
 YACBA uses these locations by default:
 
-- `~/.yacba/config.yaml` - User configuration
-- `./.yacba/config.yaml` - Project configuration
-- `~/.yacba/sessions/` - Saved sessions
-- `~/.yacba/history.txt` - Command history
-- `~/.yacba/prompts/` - System prompts (by convention)
-- `~/.yacba/tools/` - Tool configurations (by convention)
+- `~/.yacba/` - Installation directory
+  - `code/` - Downloaded repository
+  - `.venv/` - Python virtual environment
+  - `sessions/` - Saved sessions
+  - `config.yaml` - User configuration
+  - `history.txt` - Command history
+  - `prompts/` - System prompts (by convention)
+  - `tools/` - Tool configurations (by convention)
+- `./.yacba/config.yaml` - Project-specific configuration
 
-Example tool and model configurations are in the `sample-tool-configs/` and `sample-model-configs/` directories.
+Example tool and model configurations are in the repository's `sample-tool-configs/` and `sample-model-configs/` directories.
 
 ---
 
@@ -527,12 +557,19 @@ The project structure:
 
 ```
 yacba/
+├── yacba                           # Bootstrap launcher
+├── pyproject.toml                  # Package definition
 ├── code/
 │   ├── yacba.py                    # Entry point
 │   ├── config/                     # Configuration handling
 │   ├── adapters/                   # Framework integrations
 │   │   ├── strands_factory/        # strands-agent-factory adapter
 │   │   └── repl_toolkit/           # REPL adapter
+│   ├── cli/                        # Management subcommands
+│   │   ├── version.py
+│   │   ├── doctor.py
+│   │   ├── self_update.py
+│   │   └── ...
 │   ├── utils/                      # Utilities
 │   ├── scripts/                    # Maintenance tools
 │   │   └── fix_strands_session.py
@@ -542,13 +579,25 @@ yacba/
 └── README.md
 ```
 
+### Contributing
+
+Clone the repository and install in development mode:
+
+```bash
+git clone https://github.com/bassmanitram/yacba.git
+cd yacba
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
 Run tests:
 ```bash
 cd code
 python -m pytest tests/ -v
 ```
 
-Contributions are welcome. For features related to core agent functionality (new tool types, conversation strategies, provider support), contribute to [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory) instead.
+Contributions are welcome. For features related to core agent functionality (new tool types, conversation strategies, provider support), consider contributing to [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory) instead.
 
 ---
 
@@ -561,11 +610,11 @@ YACBA uses:
 - [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory) for agent functionality
 - [structlog](https://www.structlog.org/) for logging
 
-strands-agent-factory brings in strands-agents, LiteLLM.
+strands-agent-factory brings in strands-agents and LiteLLM.
 
 repl-toolkit brings in prompt-toolkit.
 
-See `requirements.txt` for the complete list.
+See `pyproject.toml` for the complete list.
 
 ---
 

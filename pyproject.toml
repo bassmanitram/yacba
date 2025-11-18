@@ -31,7 +31,7 @@ dependencies = [
     "pyyaml>=6.0",
     "structlog>=24.1.0",
     "repl-toolkit>=1.2.0",
-    "strands-agent-factory @ git+https://github.com/JBarmentlo/strands-agent-factory.git@v1.1.1",
+    "strands-agent-factory @ git+https://github.com/bassmanitram/strands-agent-factory.git@v1.1.1",
 ]
 
 [project.optional-dependencies]
@@ -50,9 +50,6 @@ all = [
     "litellm>=1.0.0",
 ]
 dev = ["pytest", "mypy", "black", "ruff"]
-
-[project.scripts]
-yacba-cli = "yacba:main"
 
 [project.urls]
 Homepage = "https://github.com/bassmanitram/yacba"

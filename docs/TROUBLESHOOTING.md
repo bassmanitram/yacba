@@ -4,9 +4,9 @@
 
 This guide provides solutions to **YACBA-specific issues** - problems with the CLI wrapper, configuration management, and REPL interface.
 
-> **Note**: YACBA is built on [strands-agent-factory](https://github.com/JBarmentlo/strands-agent-factory).  
+> **Note**: YACBA is built on [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory).  
 > For **core agent issues** (LLM connections, tool execution, conversation management), see  
-> [strands-agent-factory troubleshooting](https://github.com/JBarmentlo/strands-agent-factory#troubleshooting).
+> [strands-agent-factory troubleshooting](https://github.com/bassmanitram/strands-agent-factory#troubleshooting).
 
 ### When to Use This Guide vs strands-agent-factory Docs
 
@@ -418,7 +418,7 @@ unset YACBA_SESSION_NAME
 ## Tool Loading Issues
 
 > **Note**: Tool loading is handled by strands-agent-factory. Most tool issues should be reported there.  
-> See [strands-agent-factory tool troubleshooting](https://github.com/JBarmentlo/strands-agent-factory#tools) for tool-specific issues.
+> See [strands-agent-factory tool troubleshooting](https://github.com/bassmanitram/strands-agent-factory#tools) for tool-specific issues.
 
 
 ### Issue: Tools not loading
@@ -588,7 +588,7 @@ python code/yacba.py --tool-configs-dir /path/to/tools
 ## Model Connection Problems
 
 > **Note**: LLM provider connections are handled by strands-agent-factory.  
-> See [strands-agent-factory provider docs](https://github.com/JBarmentlo/strands-agent-factory#providers) for connection issues.
+> See [strands-agent-factory provider docs](https://github.com/bassmanitram/strands-agent-factory#providers) for connection issues.
 
 
 ### Issue: Connection timeout
@@ -1286,7 +1286,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 - Tab completion not working
 - File glob processing errors
 
-**strands-agent-factory Issues** ([GitHub Issues](https://github.com/JBarmentlo/strands-agent-factory/issues)):
+**strands-agent-factory Issues** ([GitHub Issues](https://github.com/bassmanitram/strands-agent-factory/issues)):
 - LLM provider connection errors
 - Tool loading/execution failures
 - Tool configuration format issues
@@ -1316,7 +1316,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 - Operating system
 
 **For strands-agent-factory issues**:
-- See [strands-agent-factory contributing guide](https://github.com/JBarmentlo/strands-agent-factory/blob/main/CONTRIBUTING.md)
+- See [strands-agent-factory contributing guide](https://github.com/bassmanitram/strands-agent-factory/blob/main/CONTRIBUTING.md)
 
 ### Community Support
 
@@ -1332,7 +1332,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 - [API Documentation](API.md) - YACBA wrapper APIs
 - [Architecture](ARCHITECTURE.md) - System design
 - [Completion System](COMPLETION_SYSTEM.md) - Tab completion
-- **[strands-agent-factory Docs](https://github.com/JBarmentlo/strands-agent-factory)** - Core agent features
+- **[strands-agent-factory Docs](https://github.com/bassmanitram/strands-agent-factory)** - Core agent features
 
 ---
 
