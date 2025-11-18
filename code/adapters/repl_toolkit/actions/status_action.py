@@ -32,7 +32,6 @@ def _gather_status_info(backend) -> dict:
     status = {}
 
     # Get basic session info
-    agent_proxy = backend.get_agent_proxy()
     config = backend.config
 
     # Session information

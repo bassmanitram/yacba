@@ -5,7 +5,6 @@ Target Coverage: 60%+
 """
 
 import pytest
-from pathlib import Path
 import yaml
 
 
@@ -169,7 +168,7 @@ class TestModelConfigParserIntegration:
             path, value = ModelConfigParser.parse_property_override(override)
             assert path == expected[0]
             assert value == expected[1]
-            assert type(value) == type(expected[1])
+            assert isinstance(value, type(expected[1]))
 
     def test_nested_path_parsing(self):
         """Test parsing nested property paths."""

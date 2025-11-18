@@ -42,9 +42,9 @@ def main():
 
     # Built-in support
     print("Built-in (always available, no installation needed):")
-    print(f"  bedrock")
-    print(f"      AWS Bedrock (all AWS models)")
-    print(f"      Requires: AWS credentials configured")
+    print("  bedrock")
+    print("      AWS Bedrock (all AWS models)")
+    print("      Requires: AWS credentials configured")
     print()
 
     # Discover all extras

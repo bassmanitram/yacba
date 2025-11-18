@@ -6,7 +6,7 @@ Centralized logic for discovering available extras from strands packages.
 """
 
 from importlib import metadata
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from dataclasses import dataclass
 
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 YACBA - Yet Another ChatBot Agent
 
@@ -12,29 +11,35 @@ from pathlib import Path
 from typing import NoReturn
 
 # Configure logging early
-from utils.logging import get_logger
-from utils.exceptions import log_exception
+from utils.logging import get_logger  # noqa: E402
+from utils.exceptions import log_exception  # noqa: E402
 
 logger = get_logger(__name__)
 
 # Completion imports
-from prompt_toolkit.completion import merge_completers
+from prompt_toolkit.completion import merge_completers  # noqa: E402
 
 # YACBA core functionality - configuration and startup
-from adapters.repl_toolkit.completer import YacbaCompleter
-from config import parse_config, YacbaConfig
-from utils.startup_messages import print_startup_info, print_welcome_message
-from yacba_types import ExitCode
+from adapters.repl_toolkit.completer import YacbaCompleter  # noqa: E402
+from config import parse_config, YacbaConfig  # noqa: E402
+from utils.startup_messages import (
+    print_startup_info,
+    print_welcome_message,
+)  # noqa: E402
+from yacba_types import ExitCode  # noqa: E402
 
 # strands_agent_factory integration
-from strands_agent_factory import AgentFactory
-from strands_agent_factory.core.agent import AgentProxy
-from adapters.strands_factory import YacbaToStrandsConfigConverter
+from strands_agent_factory import AgentFactory  # noqa: E402
+from strands_agent_factory.core.agent import AgentProxy  # noqa: E402
+from adapters.strands_factory import YacbaToStrandsConfigConverter  # noqa: E402
 
 # repl_toolkit integration
-from repl_toolkit import AsyncREPL, HeadlessREPL
-from repl_toolkit.completion import PrefixCompleter, ShellExpansionCompleter
-from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry
+from repl_toolkit import AsyncREPL, HeadlessREPL  # noqa: E402
+from repl_toolkit.completion import (
+    PrefixCompleter,
+    ShellExpansionCompleter,
+)  # noqa: E402
+from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry  # noqa: E402
 
 
 def _create_stdout_printer():

@@ -6,7 +6,6 @@ Target Coverage: 90%+
 
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 
 class TestYacbaToStrandsConfigConverter:

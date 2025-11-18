@@ -134,7 +134,7 @@ def main():
     try:
         current_script = Path(__file__).resolve()
         running_from_install = yacba_home in current_script.parents
-    except:
+    except Exception:
         running_from_install = False
 
     if running_from_install:

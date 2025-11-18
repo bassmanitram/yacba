@@ -41,7 +41,7 @@ class TestExitCode:
         from yacba_types import ExitCode
 
         codes = list(ExitCode)
-        assert len(codes) == 6
+        assert len(codes) == 7
         assert ExitCode.SUCCESS in codes
 
 

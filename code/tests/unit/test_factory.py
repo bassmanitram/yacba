@@ -5,9 +5,7 @@ Target Coverage: 60%+ (complex module with many integration points)
 """
 
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import sys
+from unittest.mock import patch, MagicMock
 
 
 class TestProfileConfigConstants:
@@ -158,7 +156,6 @@ class TestConfigResolution:
     def test_resolve_profile_catches_not_found(self):
         """Test that ProfileNotFoundError is caught and handled properly."""
         from config.factory import _resolve_profile_and_env
-        from profile_config.exceptions import ProfileNotFoundError
 
         # When profile doesn't exist, function exits
         # This is expected behavior - test should expect SystemExit

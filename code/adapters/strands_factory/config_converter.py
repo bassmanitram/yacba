@@ -6,7 +6,7 @@ system into the simpler AgentFactoryConfig format required by strands_agent_fact
 """
 
 from pathlib import Path
-from typing import List, Tuple, Optional, Any, Dict, Literal
+from typing import List, Tuple, Optional, Literal
 
 from utils.logging import get_logger
 
@@ -20,7 +20,9 @@ try:
     from repl_toolkit import create_auto_printer
 except ImportError:
     # Fallback for testing outside project venv
-    create_auto_printer = lambda: print
+    def create_auto_printer():
+        return print
+
 
 # Define the type locally since it's just a literal
 ConversationManagerType = Literal["null", "sliding_window", "summarizing"]

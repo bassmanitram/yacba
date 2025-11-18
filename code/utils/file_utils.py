@@ -1,10 +1,8 @@
 import glob
 import json
-import mimetypes
-import os
 from pathlib import Path
 import re
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Any, Union
 import yaml
 
 from utils.logging import get_logger

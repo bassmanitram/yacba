@@ -12,7 +12,6 @@ from repl_toolkit import Action, ActionContext, ActionRegistry
 
 def handle_session(context: ActionContext) -> None:
     """Handle the /session action."""
-    backend = context.backend
     args = context.args
 
     try:

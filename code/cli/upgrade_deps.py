@@ -32,7 +32,7 @@ def get_package_version(package):
 
 def upgrade_core_deps(code_path, venv_python, dry_run=False):
     """Upgrade YACBA core dependencies via pip install -e --upgrade."""
-    print(f"Upgrading YACBA core dependencies...")
+    print("Upgrading YACBA core dependencies...")
     print()
 
     if dry_run:

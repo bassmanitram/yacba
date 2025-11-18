@@ -7,7 +7,6 @@ Interactive installation of model provider extras and configuration.
 
 import sys
 import argparse
-from pathlib import Path
 
 
 def main():

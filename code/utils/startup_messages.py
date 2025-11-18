@@ -93,7 +93,6 @@ def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
     ]
     failed_loads = [t for t in non_a2a_tools if t.get("error")]
     no_tools = [t for t in non_a2a_tools if "tool_names" in t and not t["tool_names"]]
-    has_tools = [t for t in non_a2a_tools if "tool_names" in t and t["tool_names"]]
 
     if tools:  # Check original tools list for presence
         write_func("\nTool System Status:")

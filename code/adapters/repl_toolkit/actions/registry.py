@@ -1,6 +1,6 @@
 """Action registry for YACBA CLI integration."""
 
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 from utils.logging import get_logger
 

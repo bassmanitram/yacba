@@ -121,7 +121,7 @@ def get_local_commit_info(code_dir: Path) -> Optional[Dict[str, Any]]:
     try:
         with open(commit_file, "r") as f:
             return json.load(f)
-    except:
+    except Exception:
         return None
 
 
@@ -188,14 +188,14 @@ def download_github_archive(
         commit_info = get_latest_commit_info(repo_owner, repo_name, branch)
 
         # Download
-        print(f"Downloading from GitHub...")
+        print("Downloading from GitHub...")
         download_file(archive_url, temp_tar)
 
         size_mb = temp_tar.stat().st_size / (1024 * 1024)
         print(f"Downloaded {size_mb:.1f} MB")
 
         # Extract
-        print(f"Extracting...")
+        print("Extracting...")
 
         if target_dir.exists():
             shutil.rmtree(target_dir)
@@ -324,7 +324,7 @@ def perform_update(repo_path: Path, backup: bool = True) -> bool:
                     shutil.rmtree(repo_path)
                 shutil.move(str(backup_path), str(repo_path))
                 print(f"{GREEN}✓{NC} Restored from backup", file=sys.stderr)
-            except:
+            except Exception:
                 print(f"{RED}✗{NC} Failed to restore backup", file=sys.stderr)
                 print(f"  Backup is at: {backup_path}", file=sys.stderr)
 
@@ -384,7 +384,7 @@ def main():
             local = update_info["local_commit"]
             print(f"  Current:  {local['short_sha']} - {local['message']}")
         else:
-            print(f"  Current:  Unknown version")
+            print("  Current:  Unknown version")
 
         if update_info["remote_commit"]:
             remote = update_info["remote_commit"]

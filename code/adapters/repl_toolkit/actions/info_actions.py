@@ -9,7 +9,6 @@ Handles actions that display information about the current state:
 """
 
 import json
-from typing import TYPE_CHECKING
 
 from utils.general_utils import custom_json_serializer_for_display
 from repl_toolkit import Action, ActionContext, ActionRegistry

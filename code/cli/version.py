@@ -32,7 +32,7 @@ def get_version_info():
 
             with open(commit_file, "r") as f:
                 commit_info = json.load(f)
-        except:
+        except Exception:
             pass
 
     # Try to read version from __version__.py
@@ -44,7 +44,7 @@ def get_version_info():
                     if line.startswith("__version__"):
                         yacba_version = line.split("=")[1].strip().strip("\"'")
                         break
-        except:
+        except Exception:
             pass
 
     return {

@@ -136,7 +136,7 @@ def fix_session(session_path: Path, dry_run: bool = False) -> bool:
     # Count messages to delete
     num_to_delete = count_messages_from(messages_dir, orphan_id)
 
-    print(f"\n⚠ CORRUPTION DETECTED:")
+    print("\n⚠ CORRUPTION DETECTED:")
     print(f"  Orphaned toolUse at message {orphan_id}")
     print(
         f"  {num_to_delete} message(s) will be deleted (message_{orphan_id}.json onwards)"

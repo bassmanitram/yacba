@@ -5,9 +5,7 @@ Target Coverage: 80%+
 """
 
 import pytest
-from pathlib import Path
 import json
-import tempfile
 
 
 class TestIsLikelyTextFile:

@@ -4,7 +4,6 @@ Content and message type definitions.
 
 from typing import Dict, List, Union, Literal, Optional
 from typing_extensions import TypedDict
-from .base import JSONDict
 
 # Content block types
 

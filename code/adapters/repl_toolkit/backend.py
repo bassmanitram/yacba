@@ -184,7 +184,7 @@ class YacbaBackend(AsyncBackend):
                 try:
                     messages = getattr(self.agent_proxy, "messages", [])
                     message_count = len(messages) if messages else 0
-                except:
+                except Exception:
                     message_count = 0
 
             return {"message_count": message_count, "tool_count": tool_count}

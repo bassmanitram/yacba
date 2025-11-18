@@ -2,7 +2,6 @@
 Unit tests for exception handling utilities.
 """
 
-import pytest
 from utils.exceptions import (
     categorize_exception,
     extract_provider_error_message,

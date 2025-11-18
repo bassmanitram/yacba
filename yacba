@@ -432,6 +432,7 @@ main() {
         # Dash prefix or no args = run yacba.py
         # Set up environment
         export PYTHONWARNINGS=ignore
+        export PYTHONPATH="${YACBA_REPO}/code:${PYTHONPATH}"
         export YACBA_LOG_LEVEL=${YACBA_LOG_LEVEL:-ERROR}
         
         # Filter noisy warnings

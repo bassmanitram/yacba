@@ -10,8 +10,7 @@ with annotations that drive both CLI argument generation and validation.
 Field order determines --help output order: common options first, then grouped by functionality.
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional
 
 from yacba_types import FileUpload, Message, PathLike
