@@ -2,8 +2,7 @@
 Base type definitions used throughout YACBA.
 """
 
-from typing import (Union, Dict, List, Any, Protocol,
-                    runtime_checkable)
+from typing import Union, Dict, List, Any, Protocol, runtime_checkable
 from pathlib import Path
 from enum import IntEnum
 import os
@@ -21,6 +20,7 @@ PathLike = Union[str, Path, os.PathLike]
 
 class ExitCode(IntEnum):
     """Standard exit codes for YACBA application."""
+
     SUCCESS = 0
     CONFIG_ERROR = 1
     INITIALIZATION_ERROR = 2

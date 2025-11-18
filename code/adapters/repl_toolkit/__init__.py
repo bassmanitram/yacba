@@ -10,8 +10,4 @@ from .actions import YacbaActionRegistry
 from .completer import YacbaCompleter
 from .backend import YacbaBackend
 
-__all__ = [
-    'YacbaActionRegistry',
-    'YacbaBackend',
-    'YacbaCompleter'
-]
+__all__ = ["YacbaActionRegistry", "YacbaBackend", "YacbaCompleter"]

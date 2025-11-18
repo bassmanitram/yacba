@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 class ModelConfigError(Exception):
     """Custom exception for model configuration errors."""
+
     pass
 
 
@@ -54,16 +55,24 @@ class ModelConfigParser:
             if not path.is_file():
                 raise ModelConfigError(f"Model config path is not a file: {file_path}")
 
-            config = load_structured_file(path, 'yaml')
+            config = load_structured_file(path, "yaml")
 
             if not isinstance(config, dict):
-                raise ModelConfigError(f"Model config file must contain a YAML object, got {type(config).__name__}")
+                raise ModelConfigError(
+                    f"Model config file must contain a YAML object, got {type(config).__name__}"
+                )
 
-            logger.debug("model_config_loaded", file_path=str(file_path), property_count=len(config))
+            logger.debug(
+                "model_config_loaded",
+                file_path=str(file_path),
+                property_count=len(config),
+            )
             return config
 
         except yaml.YAMLError as e:
-            raise ModelConfigError(f"Invalid YAML in model config file {file_path}: {e}")
+            raise ModelConfigError(
+                f"Invalid YAML in model config file {file_path}: {e}"
+            )
         except Exception as e:
             raise ModelConfigError(f"Error loading model config file {file_path}: {e}")
 
@@ -81,30 +90,36 @@ class ModelConfigParser:
         Raises:
             ModelConfigError: If the override format is invalid
         """
-        if ':' not in property_override:
+        if ":" not in property_override:
             raise ModelConfigError(
                 f"Invalid property override format: '{property_override}'. "
                 "Expected format: 'property.path: value'"
             )
 
         # Split on first colon to handle values that contain colons
-        path, value_str = property_override.split(':', 1)
+        path, value_str = property_override.split(":", 1)
         path = path.strip()
         value_str = value_str.strip()
 
         if not path:
-            raise ModelConfigError(f"Empty property path in override: '{property_override}'")
+            raise ModelConfigError(
+                f"Empty property path in override: '{property_override}'"
+            )
 
         # Parse and infer type of the value
         try:
             parsed_value = ModelConfigParser._infer_type(value_str)
-            logger.debug("property_override_parsed", 
-                        path=path, 
-                        value=parsed_value, 
-                        value_type=type(parsed_value).__name__)
+            logger.debug(
+                "property_override_parsed",
+                path=path,
+                value=parsed_value,
+                value_type=type(parsed_value).__name__,
+            )
             return path, parsed_value
         except Exception as e:
-            raise ModelConfigError(f"Error parsing value '{value_str}' for property '{path}': {e}")
+            raise ModelConfigError(
+                f"Error parsing value '{value_str}' for property '{path}': {e}"
+            )
 
     @staticmethod
     def _infer_type(value_str: str) -> Any:
@@ -124,22 +139,23 @@ class ModelConfigParser:
             return ""
 
         # Handle quoted strings (preserve as string)
-        if (value_str.startswith('"') and value_str.endswith('"')) or \
-           (value_str.startswith("'") and value_str.endswith("'")):
+        if (value_str.startswith('"') and value_str.endswith('"')) or (
+            value_str.startswith("'") and value_str.endswith("'")
+        ):
             return value_str[1:-1]  # Remove quotes
 
         # Handle booleans
-        if value_str.lower() == 'true':
+        if value_str.lower() == "true":
             return True
-        elif value_str.lower() == 'false':
+        elif value_str.lower() == "false":
             return False
 
         # Handle null/None
-        if value_str.lower() in ('null', 'none'):
+        if value_str.lower() in ("null", "none"):
             return None
 
         # Handle YAML arrays and objects
-        if value_str.startswith('[') or value_str.startswith('{'):
+        if value_str.startswith("[") or value_str.startswith("{"):
             try:
                 return yaml.safe_load(value_str)
             except yaml.YAMLError:
@@ -149,7 +165,7 @@ class ModelConfigParser:
         # Handle numbers
         try:
             # Try integer first
-            if '.' not in value_str and 'e' not in value_str.lower():
+            if "." not in value_str and "e" not in value_str.lower():
                 return int(value_str)
             else:
                 return float(value_str)
@@ -160,7 +176,9 @@ class ModelConfigParser:
         return value_str
 
     @staticmethod
-    def apply_property_override(config: Dict[str, Any], property_path: str, value: Any) -> None:
+    def apply_property_override(
+        config: Dict[str, Any], property_path: str, value: Any
+    ) -> None:
         """
         Apply a property override to a configuration dictionary using dot notation and array indexing.
 
@@ -187,7 +205,9 @@ class ModelConfigParser:
                 elif isinstance(component, int):
                     # Array index
                     if not isinstance(current, list):
-                        raise ModelConfigError(f"Cannot index non-list with [{component}] in path: {property_path}")
+                        raise ModelConfigError(
+                            f"Cannot index non-list with [{component}] in path: {property_path}"
+                        )
 
                     # Extend list if necessary
                     while len(current) <= component:
@@ -201,7 +221,9 @@ class ModelConfigParser:
                 current[final_component] = value
             elif isinstance(final_component, int):
                 if not isinstance(current, list):
-                    raise ModelConfigError(f"Cannot index non-list with [{final_component}] in path: {property_path}")
+                    raise ModelConfigError(
+                        f"Cannot index non-list with [{final_component}] in path: {property_path}"
+                    )
 
                 # Extend list if necessary
                 while len(current) <= final_component:
@@ -210,7 +232,9 @@ class ModelConfigParser:
                 current[final_component] = value
 
         except Exception as e:
-            raise ModelConfigError(f"Error applying override '{property_path}: {value}': {e}")
+            raise ModelConfigError(
+                f"Error applying override '{property_path}: {value}': {e}"
+            )
 
     @staticmethod
     def _parse_property_path(property_path: str) -> List[Union[str, int]]:
@@ -232,34 +256,40 @@ class ModelConfigParser:
         components = []
 
         # Split by dots, but handle array indexing
-        parts = property_path.split('.')
+        parts = property_path.split(".")
 
         for part in parts:
             # Check if this part contains array indexing
-            if '[' in part and ']' in part:
+            if "[" in part and "]" in part:
                 # Extract the base name and indices
-                match = re.match(r'^([^[]+)(\[[^\]]+\])+$', part)
+                match = re.match(r"^([^[]+)(\[[^\]]+\])+$", part)
                 if not match:
-                    raise ModelConfigError(f"Invalid array notation in property path: {part}")
+                    raise ModelConfigError(
+                        f"Invalid array notation in property path: {part}"
+                    )
 
                 base_name = match.group(1)
                 components.append(base_name)
 
                 # Extract all array indices
-                indices = re.findall(r'\[([^\]]+)\]', part)
+                indices = re.findall(r"\[([^\]]+)\]", part)
                 for index_str in indices:
                     try:
                         index = int(index_str)
                         components.append(index)
                     except ValueError:
-                        raise ModelConfigError(f"Invalid array index '{index_str}' in property path: {part}")
+                        raise ModelConfigError(
+                            f"Invalid array index '{index_str}' in property path: {part}"
+                        )
             else:
                 components.append(part)
 
         return components
 
     @staticmethod
-    def merge_configs(base_config: Dict[str, Any], overrides: List[str]) -> Dict[str, Any]:
+    def merge_configs(
+        base_config: Dict[str, Any], overrides: List[str]
+    ) -> Dict[str, Any]:
         """
         Merge a base configuration with a list of property overrides.
 
@@ -279,7 +309,9 @@ class ModelConfigParser:
         # Apply each override
         for override in overrides:
             property_path, value = ModelConfigParser.parse_property_override(override)
-            ModelConfigParser.apply_property_override(merged_config, property_path, value)
+            ModelConfigParser.apply_property_override(
+                merged_config, property_path, value
+            )
 
         logger.debug("config_merged", override_count=len(overrides))
         return merged_config
@@ -296,19 +328,24 @@ class ModelConfigParser:
             ModelConfigError: If configuration is invalid
         """
         if not isinstance(config, dict):
-            raise ModelConfigError(f"Model configuration must be a dictionary, got {type(config).__name__}")
+            raise ModelConfigError(
+                f"Model configuration must be a dictionary, got {type(config).__name__}"
+            )
 
         # Basic validation - ensure all values are YAML-serializable
         try:
             yaml.dump(config)
         except yaml.YAMLError as e:
-            raise ModelConfigError(f"Model configuration contains non-serializable values: {e}")
+            raise ModelConfigError(
+                f"Model configuration contains non-serializable values: {e}"
+            )
 
         logger.debug("model_config_validated", property_count=len(config))
 
 
-def parse_model_config(config_file: Optional[str] = None,
-                      overrides: Optional[List[str]] = None) -> Dict[str, Any]:
+def parse_model_config(
+    config_file: Optional[str] = None, overrides: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """
     Parse model configuration from file and/or command-line overrides.
 

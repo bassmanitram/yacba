@@ -12,6 +12,7 @@ import json
 # Path Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def test_data_dir():
     """Return path to test fixtures directory."""
@@ -28,12 +29,14 @@ def temp_dir(tmp_path):
 def temp_config_file(tmp_path):
     """Create a temporary config file."""
     config_file = tmp_path / "test_config.yaml"
-    config_file.write_text("""
+    config_file.write_text(
+        """
 profiles:
   test:
     model_string: "gpt-4o"
     headless: false
-""")
+"""
+    )
     return config_file
 
 
@@ -41,13 +44,14 @@ profiles:
 # Mock strands-agent-factory Components
 # ============================================================================
 
+
 @pytest.fixture
 def mock_agent():
     """Mock AgentProxy from strands-agent-factory."""
     agent = Mock()
-    agent.send_message_to_agent = AsyncMock(return_value=iter([
-        {'type': 'text', 'content': 'Hello'}
-    ]))
+    agent.send_message_to_agent = AsyncMock(
+        return_value=iter([{"type": "text", "content": "Hello"}])
+    )
     agent.tool_specs = []
     agent.has_initial_messages = False
     agent.clear_messages = Mock()
@@ -69,11 +73,12 @@ def mock_agent_factory():
 # Configuration Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def minimal_yacba_config():
     """Minimal valid YacbaConfig for testing."""
     from config import YacbaConfig
-    
+
     return YacbaConfig(
         model_string="gpt-4o",
         tool_config_paths=[],
@@ -108,7 +113,7 @@ def minimal_yacba_config():
 def full_yacba_config():
     """Fully populated YacbaConfig for testing."""
     from config import YacbaConfig
-    
+
     return YacbaConfig(
         model_string="anthropic:claude-3-5-sonnet-20241022",
         tool_config_paths=[Path("./tools")],
@@ -155,16 +160,21 @@ def sample_model_config():
 # File Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sample_tool_config(tmp_path):
     """Create a sample tool configuration file."""
     tool_config = tmp_path / "tools.json"
-    tool_config.write_text(json.dumps({
-        "type": "python",
-        "id": "test-tools",
-        "module_path": "test_module",
-        "functions": ["test_func"]
-    }))
+    tool_config.write_text(
+        json.dumps(
+            {
+                "type": "python",
+                "id": "test-tools",
+                "module_path": "test_module",
+                "functions": ["test_func"],
+            }
+        )
+    )
     return tool_config
 
 
@@ -180,10 +190,11 @@ def sample_text_file(tmp_path):
 # Environment Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def clean_env(monkeypatch):
     """Provide clean environment without YACBA-specific vars."""
-    env_vars = ['YACBA_CONFIG', 'YACBA_PROFILE', 'LOGURU_LEVEL']
+    env_vars = ["YACBA_CONFIG", "YACBA_PROFILE", "LOGURU_LEVEL"]
     for var in env_vars:
         monkeypatch.delenv(var, raising=False)
     return monkeypatch
@@ -192,7 +203,7 @@ def clean_env(monkeypatch):
 @pytest.fixture
 def mock_env_with_profile(monkeypatch):
     """Set up environment with a test profile."""
-    monkeypatch.setenv('YACBA_PROFILE', 'test')
+    monkeypatch.setenv("YACBA_PROFILE", "test")
     return monkeypatch
 
 
@@ -200,10 +211,12 @@ def mock_env_with_profile(monkeypatch):
 # Async Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def event_loop():
     """Create an event loop for async tests."""
     import asyncio
+
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
@@ -212,6 +225,7 @@ def event_loop():
 # ============================================================================
 # Mock repl-toolkit Components
 # ============================================================================
+
 
 @pytest.fixture
 def mock_async_repl():
@@ -235,6 +249,7 @@ def mock_backend():
 # Completion Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_document():
     """Mock prompt_toolkit Document."""
@@ -255,6 +270,7 @@ def mock_complete_event():
 # Configuration for pytest
 # ============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "unit: Unit tests (fast, isolated)")
@@ -266,9 +282,11 @@ def pytest_configure(config):
 # Utilities
 # ============================================================================
 
+
 @pytest.fixture
 def capture_logs(caplog):
     """Fixture to capture and analyze logs."""
     import logging
+
     caplog.set_level(logging.DEBUG)
     return caplog

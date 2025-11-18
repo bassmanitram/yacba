@@ -7,6 +7,4 @@ and architecture to work with strands_agent_factory components.
 
 from .config_converter import YacbaToStrandsConfigConverter
 
-__all__ = [
-    'YacbaToStrandsConfigConverter'
-]
+__all__ = ["YacbaToStrandsConfigConverter"]

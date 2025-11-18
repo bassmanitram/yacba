@@ -42,29 +42,29 @@ PROFILE_CONFIG_PROFILE_FILE_NAME = "config"
 def _process_file_loadable_fields(config_dict: dict) -> dict:
     """
     Process @file syntax in file-loadable fields from profile/env configs.
-    
+
     dataclass-args' cli_file_loadable() only processes @file from CLI args,
     not from base_configs. We need to manually process @file syntax for
     values coming from profiles or environment variables.
-    
+
     Args:
         config_dict: Configuration dictionary
-        
+
     Returns:
         Configuration dictionary with @file values loaded
     """
     file_loadable_fields = [
-        'system_prompt', 
-        'initial_message', 
-        'custom_summarization_prompt',
-        'cli_prompt', 
-        'response_prefix'
+        "system_prompt",
+        "initial_message",
+        "custom_summarization_prompt",
+        "cli_prompt",
+        "response_prefix",
     ]
-    
+
     for field in file_loadable_fields:
         if field in config_dict:
             value = config_dict[field]
-            if isinstance(value, str) and value.startswith('@'):
+            if isinstance(value, str) and value.startswith("@"):
                 try:
                     # Strip @ prefix before loading
                     file_path = value[1:]
@@ -73,31 +73,33 @@ def _process_file_loadable_fields(config_dict: dict) -> dict:
                     config_dict[field] = loaded_content
                     logger.debug("file_loaded", field=field, length=len(loaded_content))
                 except Exception as e:
-                    logger.warning("file_load_failed", field=field, path=value, error=str(e))
-    
+                    logger.warning(
+                        "file_load_failed", field=field, path=value, error=str(e)
+                    )
+
     return config_dict
 
 
 def parse_config() -> YacbaConfig:
     """
     Main configuration parsing entry point.
-    
+
     Orchestrates configuration from multiple sources using dataclass-args'
     base_configs feature for automatic precedence handling.
-    
+
     Returns:
         YacbaConfig: Fully validated configuration object
-        
+
     Raises:
         SystemExit: On configuration errors or early-exit commands
     """
     try:
         # Handle --help very early (before any profile resolution)
-        if '--help' in sys.argv or '-h' in sys.argv:
+        if "--help" in sys.argv or "-h" in sys.argv:
             # Temporarily override sys.argv[0] for help display
             original_argv0 = sys.argv[0]
-            sys.argv[0] = 'yacba'
-            
+            sys.argv[0] = "yacba"
+
             try:
                 # Use dataclass-args to show help (with defaults only)
                 # This will call sys.exit() after showing help
@@ -105,10 +107,12 @@ def parse_config() -> YacbaConfig:
             except SystemExit:
                 # Catch the exit from build_config to add our subcommand help
                 sys.argv[0] = original_argv0
-                
+
                 print("\nSubcommands (use without dash prefix):")
                 print("  version           Show version information")
-                print("  doctor            Run health check and show installation status")
+                print(
+                    "  doctor            Run health check and show installation status"
+                )
                 print("  list-extras       Show available model providers and tools")
                 print("  install-extras    Install additional providers or tools")
                 print("  link              Create symlink to launcher")
@@ -120,58 +124,59 @@ def parse_config() -> YacbaConfig:
                 print("  yacba doctor")
                 print("  yacba list-extras")
                 print("  yacba install-extras anthropic openai")
-                
+
                 sys.exit(0)
-        
+
         # Parse arguments using custom parser that includes meta-arguments
         cli_args, profile_name = _parse_args_with_meta()
-        
+
         # Handle early-exit commands
-        if hasattr(cli_args, 'list_profiles') and cli_args.list_profiles:
+        if hasattr(cli_args, "list_profiles") and cli_args.list_profiles:
             _handle_list_profiles()
             sys.exit(0)
-            
-        if hasattr(cli_args, 'init_config') and cli_args.init_config:
+
+        if hasattr(cli_args, "init_config") and cli_args.init_config:
             _handle_init_config(cli_args.init_config)
             sys.exit(0)
-        
+
         # 1. Resolve profile + environment variables
         # This gives us: DEFAULTS < PROFILE < ENVVARS
         profile_config = _resolve_profile_and_env(profile_name)
-        
+
         # 2. Process @file syntax in profile/env values
         # (dataclass-args only processes @file from CLI, not base_configs)
         profile_config = _process_file_loadable_fields(profile_config)
-        
+
         # 3. Use dataclass-args with base_configs
         # This gives us: profile_config < --config < CLI args
         # Temporarily override sys.argv[0] for better help output
         original_argv0 = sys.argv[0]
-        sys.argv[0] = 'yacba'
-        
+        sys.argv[0] = "yacba"
+
         try:
             config = build_config(
                 YacbaConfig,
                 args=_filter_meta_args(sys.argv[1:]),
-                base_configs=profile_config
+                base_configs=profile_config,
             )
         finally:
             sys.argv[0] = original_argv0
-        
+
         # 4. YACBA-specific post-processing (BEFORE show-config)
         config = _post_process_config(config, profile_config)
-        
+
         # Handle --show-config (after post-processing so we see full config)
-        if hasattr(cli_args, 'show_config') and cli_args.show_config:
+        if hasattr(cli_args, "show_config") and cli_args.show_config:
             _handle_show_config(config)
             sys.exit(0)
-        
+
         logger.debug("configuration_parsing_completed")
         return config
 
     except Exception as e:
         log_error(logger, "configuration_parsing_failed", error=str(e))
         import traceback
+
         traceback.print_exc()
         sys.exit(ExitCode.CONFIG_ERROR)
 
@@ -179,90 +184,90 @@ def parse_config() -> YacbaConfig:
 def _parse_args_with_meta():
     """
     Parse CLI arguments including meta-arguments not in YacbaConfig.
-    
+
     Returns:
         Tuple of (args_namespace, profile_name)
     """
     # Create a minimal parser for meta-arguments only
     meta_parser = argparse.ArgumentParser(add_help=False)
-    meta_parser.add_argument('--profile', type=str, default=None)
-    meta_parser.add_argument('--list-profiles', action='store_true')
-    meta_parser.add_argument('--show-config', action='store_true')
-    meta_parser.add_argument('--init-config', type=str, default=None)
-    
+    meta_parser.add_argument("--profile", type=str, default=None)
+    meta_parser.add_argument("--list-profiles", action="store_true")
+    meta_parser.add_argument("--show-config", action="store_true")
+    meta_parser.add_argument("--init-config", type=str, default=None)
+
     # Parse only the meta-arguments (ignore unknown)
     meta_args, _ = meta_parser.parse_known_args()
-    
+
     # Extract profile name (CLI > env > 'default')
     profile_name = meta_args.profile
     if not profile_name:
-        profile_name = os.environ.get('YACBA_PROFILE', 'default')
-    
+        profile_name = os.environ.get("YACBA_PROFILE", "default")
+
     return meta_args, profile_name
 
 
 def _filter_meta_args(argv):
     """
     Filter out meta-arguments that aren't part of YacbaConfig.
-    
+
     Args:
         argv: Command-line arguments list
-        
+
     Returns:
         Filtered arguments list
     """
     filtered = []
     skip_next = False
-    
+
     for arg in argv:
         if skip_next:
             skip_next = False
             continue
-            
-        if arg in ['--profile', '--init-config']:
+
+        if arg in ["--profile", "--init-config"]:
             skip_next = True  # Skip the value too
             continue
-        elif arg in ['--list-profiles', '--show-config']:
+        elif arg in ["--list-profiles", "--show-config"]:
             continue  # Skip flag
         else:
             filtered.append(arg)
-    
+
     return filtered
 
 
 def _extract_profile_name() -> str:
     """Extract profile name from CLI arguments or environment."""
     # Check CLI first
-    if '--profile' in sys.argv:
-        idx = sys.argv.index('--profile')
+    if "--profile" in sys.argv:
+        idx = sys.argv.index("--profile")
         if idx + 1 < len(sys.argv):
             return sys.argv[idx + 1]
-    
+
     # Check environment
-    profile = os.environ.get('YACBA_PROFILE', 'default')
+    profile = os.environ.get("YACBA_PROFILE", "default")
     return profile
 
 
 def _resolve_profile_and_env(profile_name: str) -> dict:
     """
     Resolve configuration from profile file and environment variables.
-    
+
     Returns a dictionary with precedence: DEFAULTS < PROFILE < ENVVARS
-    
+
     Args:
         profile_name: Name of profile to load
-        
+
     Returns:
         Dictionary with merged configuration
     """
     # Build overrides list for profile-config
     overrides_list = []
-    
+
     # Add environment variables
     if ARGUMENTS_FROM_ENV_VARS:
         overrides_list.append(ARGUMENTS_FROM_ENV_VARS)
         logger.debug("environment_variables_added", count=len(ARGUMENTS_FROM_ENV_VARS))
-    
+
     # Resolve with profile-config
     try:
         resolver = ProfileConfigResolver(
@@ -271,7 +276,7 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
             profile=profile_name,
             extensions=["yaml", "yml"],
             search_home=True,
-            overrides=overrides_list if overrides_list else None
+            overrides=overrides_list if overrides_list else None,
         )
         profile_config = resolver.resolve()
         logger.info("profile_resolved", profile=profile_name)
@@ -279,7 +284,7 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
         # No profile file found, use defaults + env vars
         logger.debug("no_config_file_found_using_defaults")
         profile_config = ARGUMENT_DEFAULTS.copy()
-        
+
         # Apply env vars manually
         if ARGUMENTS_FROM_ENV_VARS:
             for key, value in ARGUMENTS_FROM_ENV_VARS.items():
@@ -288,55 +293,55 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
     except ProfileNotFoundError:
         logger.error("profile_not_found", profile=profile_name)
         sys.exit(ExitCode.CONFIG_ERROR)
-    
+
     # Apply defaults as fallbacks (only for missing keys)
     for key, default_value in ARGUMENT_DEFAULTS.items():
         if key not in profile_config:
             profile_config[key] = default_value
             logger.debug("default_applied", key=key)
-    
+
     return profile_config
 
 
 def _post_process_config(config: YacbaConfig, profile_config: dict) -> YacbaConfig:
     """
     Apply YACBA-specific post-processing to configuration.
-    
+
     Args:
         config: Configuration from dataclass-args
         profile_config: Profile configuration for comparison
-        
+
     Returns:
         Updated configuration with post-processing applied
     """
     # Determine system prompt source
     prompt_source = "default"
-    if config.system_prompt != ARGUMENT_DEFAULTS.get('system_prompt'):
+    if config.system_prompt != ARGUMENT_DEFAULTS.get("system_prompt"):
         # Check if it came from CLI (would be different from profile)
-        if profile_config.get('system_prompt') != config.system_prompt:
+        if profile_config.get("system_prompt") != config.system_prompt:
             prompt_source = "command line"
-        elif ARGUMENTS_FROM_ENV_VARS.get('system_prompt'):
+        elif ARGUMENTS_FROM_ENV_VARS.get("system_prompt"):
             prompt_source = "environment"
         else:
             prompt_source = "configuration file"
-    
+
     # Tool discovery
     tool_config_paths = []
     tool_discovery_result = None
-    
+
     if config.tool_configs_dir:
         tool_config_paths, tool_discovery_result = discover_tool_configs(
             config.tool_configs_dir
         )
         logger.info("tools_discovered", count=len(tool_config_paths))
-    
+
     # Create updated config with post-processed fields
     # Note: dataclass is immutable, so we create a new instance
     config_dict = vars(config).copy()
-    config_dict['prompt_source'] = prompt_source
-    config_dict['tool_config_paths'] = tool_config_paths
-    config_dict['tool_discovery_result'] = tool_discovery_result
-    
+    config_dict["prompt_source"] = prompt_source
+    config_dict["tool_config_paths"] = tool_config_paths
+    config_dict["tool_discovery_result"] = tool_discovery_result
+
     return YacbaConfig(**config_dict)
 
 
@@ -346,7 +351,7 @@ def _handle_list_profiles():
         resolver = ProfileConfigResolver(
             config_name=PROFILE_CONFIG_NAME,
             profile_filename=PROFILE_CONFIG_PROFILE_FILE_NAME,
-            extensions=["yaml", "yml"]
+            extensions=["yaml", "yml"],
         )
         profiles = resolver.list_profiles()
         if profiles:
@@ -356,53 +361,52 @@ def _handle_list_profiles():
         else:
             print("No profiles found in configuration file.")
     except ConfigNotFoundError:
-        print(f"No configuration file found. Expected at ./{PROFILE_CONFIG_NAME}/config.yaml or ~/{PROFILE_CONFIG_NAME}/config.yaml")
+        print(
+            f"No configuration file found. Expected at ./{PROFILE_CONFIG_NAME}/config.yaml or ~/{PROFILE_CONFIG_NAME}/config.yaml"
+        )
 
 
 def _handle_init_config(output_path_str: str):
     """Handle --init-config command."""
     output_path = Path(output_path_str).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     sample_config = {
-        'default_profile': 'development',
-        'defaults': {
-            'conversation_manager_type': 'sliding_window',
-            'sliding_window_size': 40,
-            'max_files': 10
+        "default_profile": "development",
+        "defaults": {
+            "conversation_manager_type": "sliding_window",
+            "sliding_window_size": 40,
+            "max_files": 10,
         },
-        'profiles': {
-            'development': {
-                'model_string': 'litellm:gemini/gemini-1.5-flash',
-                'system_prompt': 'You are a helpful development assistant with access to tools.',
-                'tool_configs_dir': '~/.yacba/tools/',
-                'show_tool_use': True,
-                'model_config': {
-                    'temperature': 0.7,
-                    'max_tokens': 2000
-                }
+        "profiles": {
+            "development": {
+                "model_string": "litellm:gemini/gemini-1.5-flash",
+                "system_prompt": "You are a helpful development assistant with access to tools.",
+                "tool_configs_dir": "~/.yacba/tools/",
+                "show_tool_use": True,
+                "model_config": {"temperature": 0.7, "max_tokens": 2000},
             },
-            'production': {
-                'model_string': 'openai:gpt-4',
-                'system_prompt': '@~/.yacba/prompts/production.txt',
-                'tool_configs_dir': '~/.yacba/tools/production/',
-                'show_tool_use': False,
-                'conversation_manager_type': 'summarizing',
-                'session_name': 'prod-session'
+            "production": {
+                "model_string": "openai:gpt-4",
+                "system_prompt": "@~/.yacba/prompts/production.txt",
+                "tool_configs_dir": "~/.yacba/tools/production/",
+                "show_tool_use": False,
+                "conversation_manager_type": "summarizing",
+                "session_name": "prod-session",
             },
-            'coding': {
-                'inherits': 'development',
-                'model_string': 'anthropic:claude-3-sonnet',
-                'system_prompt': 'You are an expert programmer with access to development tools.',
-                'tool_configs_dir': '~/.yacba/tools/dev/',
-                'max_files': 50
-            }
-        }
+            "coding": {
+                "inherits": "development",
+                "model_string": "anthropic:claude-3-sonnet",
+                "system_prompt": "You are an expert programmer with access to development tools.",
+                "tool_configs_dir": "~/.yacba/tools/dev/",
+                "max_files": 50,
+            },
+        },
     }
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         yaml.dump(sample_config, f, default_flow_style=False, indent=2)
-    
+
     print(f"Sample configuration created at: {output_path}")
     print("Recommended locations:")
     print(f"  - ./{PROFILE_CONFIG_NAME}/config.yaml (project-specific)")
@@ -415,9 +419,9 @@ def _handle_show_config(config: YacbaConfig):
     config_dict = vars(config)
     for key, value in sorted(config_dict.items()):
         # Skip large/complex internal fields
-        if key in ['startup_files_content', 'tool_discovery_result']:
+        if key in ["startup_files_content", "tool_discovery_result"]:
             print(f"  {key}: <internal>")
-        elif key == 'system_prompt' and value and len(str(value)) > 100:
+        elif key == "system_prompt" and value and len(str(value)) > 100:
             # Truncate long system prompts
             print(f"  {key}: {repr(str(value)[:100])}... ({len(str(value))} chars)")
         else:

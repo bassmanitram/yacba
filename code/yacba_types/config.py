@@ -14,6 +14,7 @@ from .base import PathLike
 
 class ToolDiscoveryResult(NamedTuple):
     """Result of scanning for tool configuration files."""
+
     successful_configs: List[Dict[str, Any]]  # List of config dicts with file paths
     failed_configs: List[Dict[str, Any]]  # Include file path and error details
     total_files_scanned: int
@@ -29,6 +30,7 @@ class ToolDiscoveryResult(NamedTuple):
 
 class SessionData(TypedDict):
     """Session data that YACBA persists to disk."""
+
     messages: List[Dict[str, Any]]
     metadata: Dict[str, Any]
 
@@ -38,6 +40,7 @@ class SessionData(TypedDict):
 
 class FileUpload(TypedDict):
     """Type definition for file upload information."""
+
     path: PathLike
     mimetype: str
     size: int

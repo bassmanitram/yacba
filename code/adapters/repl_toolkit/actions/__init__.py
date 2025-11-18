@@ -13,8 +13,8 @@ from .info_actions import register_info_actions
 from .status_action import register_status_actions
 
 __all__ = [
-    'YacbaActionRegistry',
-    'register_session_actions',
-    'register_info_actions',
-    'register_status_actions',
+    "YacbaActionRegistry",
+    "register_session_actions",
+    "register_info_actions",
+    "register_status_actions",
 ]

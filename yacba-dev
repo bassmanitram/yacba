@@ -1,0 +1,9 @@
+#
+# Use THIS script to launch Yacba from its cloned repository
+#
+MYDIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")" 
+
+export YACBA_HOME="$MYDIR"
+export YACBA_REPO="$MYDIR"
+
+exec "$MYDIR/yacba" "${@}"

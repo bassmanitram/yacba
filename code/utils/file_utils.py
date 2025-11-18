@@ -33,13 +33,68 @@ def is_likely_text_file(file_path: PathLike) -> bool:
 
     # Common text file extensions
     text_extensions = {
-        '.txt', '.md', '.py', '.js', '.html', '.css', '.json', '.xml', '.yaml', '.yml',
-        '.ini', '.cfg', '.con', '.log', '.csv', '.tsv', '.sql', '.sh', '.bat', '.ps1',
-        '.c', '.cpp', '.h', '.hpp', '.java', '.cs', '.php', '.rb', '.go', '.rs', '.swift',
-        '.kt', '.scala', '.clj', '.hs', '.ml', '.fs', '.vb', '.pl', '.r', '.m', '.tex',
-        '.rst', '.adoc', '.org', '.wiki', '.dockerfile', '.gitignore', '.gitattributes',
-        '.editorconfig', '.eslintrc', '.prettierrc', '.babelrc', '.tsconfig', '.package',
-        '.lock', '.toml', '.properties', '.env', '.example', '.sample', '.template'
+        ".txt",
+        ".md",
+        ".py",
+        ".js",
+        ".html",
+        ".css",
+        ".json",
+        ".xml",
+        ".yaml",
+        ".yml",
+        ".ini",
+        ".cfg",
+        ".con",
+        ".log",
+        ".csv",
+        ".tsv",
+        ".sql",
+        ".sh",
+        ".bat",
+        ".ps1",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".java",
+        ".cs",
+        ".php",
+        ".rb",
+        ".go",
+        ".rs",
+        ".swift",
+        ".kt",
+        ".scala",
+        ".clj",
+        ".hs",
+        ".ml",
+        ".fs",
+        ".vb",
+        ".pl",
+        ".r",
+        ".m",
+        ".tex",
+        ".rst",
+        ".adoc",
+        ".org",
+        ".wiki",
+        ".dockerfile",
+        ".gitignore",
+        ".gitattributes",
+        ".editorconfig",
+        ".eslintrc",
+        ".prettierrc",
+        ".babelrc",
+        ".tsconfig",
+        ".package",
+        ".lock",
+        ".toml",
+        ".properties",
+        ".env",
+        ".example",
+        ".sample",
+        ".template",
     }
 
     # Check extension
@@ -49,8 +104,18 @@ def is_likely_text_file(file_path: PathLike) -> bool:
     # Check for files without extensions that are commonly text
     if not path.suffix:
         common_text_names = {
-            'readme', 'license', 'changelog', 'authors', 'contributors', 'makefile',
-            'dockerfile', 'jenkinsfile', 'vagrantfile', 'gemfile', 'rakefile', 'procfile'
+            "readme",
+            "license",
+            "changelog",
+            "authors",
+            "contributors",
+            "makefile",
+            "dockerfile",
+            "jenkinsfile",
+            "vagrantfile",
+            "gemfile",
+            "rakefile",
+            "procfile",
         }
         if path.name.lower() in common_text_names:
             return True
@@ -60,23 +125,25 @@ def is_likely_text_file(file_path: PathLike) -> bool:
         if path.stat().st_size > 1024 * 1024:  # Skip files larger than 1MB
             return False
 
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             chunk = f.read(1024)  # Read first 1KB
 
         # Check for null bytes (common in binary files)
-        if b'\x00' in chunk:
+        if b"\x00" in chunk:
             return False
 
         # Check if most bytes are printable ASCII or common UTF-8
         try:
-            chunk.decode('utf-8')
+            chunk.decode("utf-8")
             return True
         except UnicodeDecodeError:
             # Try to decode as latin-1 (more permissive)
             try:
-                chunk.decode('latin-1')
+                chunk.decode("latin-1")
                 # Check if it looks like text (mostly printable characters)
-                printable_count = sum(1 for b in chunk if 32 <= b <= 126 or b in (9, 10, 13))
+                printable_count = sum(
+                    1 for b in chunk if 32 <= b <= 126 or b in (9, 10, 13)
+                )
                 return printable_count / len(chunk) > 0.7
             except UnicodeDecodeError:
                 return False
@@ -84,12 +151,13 @@ def is_likely_text_file(file_path: PathLike) -> bool:
     except (OSError, IOError):
         return False
 
-_FILE_PARSER = {
-    "json": json.load,
-    "yaml": yaml.safe_load
-}
 
-def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict[str, Any]:
+_FILE_PARSER = {"json": json.load, "yaml": yaml.safe_load}
+
+
+def load_structured_file(
+    file_path: PathLike, file_format: str = "auto"
+) -> Dict[str, Any]:
     """
     Load and parse structured configuration files (JSON/YAML).
 
@@ -110,11 +178,11 @@ def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict
     if not path.exists():
         raise FileNotFoundError(f"Configuration file not found: {file_path}")
 
-    if file_format == 'auto':
-        file_format = 'yaml' if path.suffix.lower() in ('.yaml', '.yml') else 'json'
+    if file_format == "auto":
+        file_format = "yaml" if path.suffix.lower() in (".yaml", ".yml") else "json"
 
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             result = _FILE_PARSER[file_format](f)
             return result if result is not None else {}
     except yaml.YAMLError as e:
@@ -124,7 +192,10 @@ def load_structured_file(file_path: PathLike, file_format: str = 'auto') -> Dict
     except Exception as e:
         raise ValueError(f"Problem loading fir {file_path}: {e}")
 
-def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Union[bytes, str]:
+
+def load_file_content(
+    file_path: PathLike, content_type: str = "auto"
+) -> Union[bytes, str]:
     """
     Load file contents with format detection.
 
@@ -143,18 +214,19 @@ def load_file_content(file_path: PathLike, content_type: str = 'auto') -> Union[
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    if content_type == 'auto':
-        content_type = 'text' if is_likely_text_file(path) else 'binary'
+    if content_type == "auto":
+        content_type = "text" if is_likely_text_file(path) else "binary"
 
     try:
         if content_type == "text":
-            with open(path, 'r', errors='replace') as f:
+            with open(path, "r", errors="replace") as f:
                 return f.read()
         else:
-            with open(path, 'rb') as f:
+            with open(path, "rb") as f:
                 return f.read()
     except OSError as e:
         raise OSError(f"Error reading file {file_path}: {e}")
+
 
 def validate_file_path(file_path: PathLike) -> bool:
     """
@@ -172,6 +244,7 @@ def validate_file_path(file_path: PathLike) -> bool:
     except (OSError, ValueError):
         return False
 
+
 def get_file_size(file_path: PathLike) -> int:
     """
     Get the size of a file in bytes.
@@ -187,17 +260,19 @@ def get_file_size(file_path: PathLike) -> int:
     except (OSError, ValueError):
         return 0
 
+
 def _extract_glob_list(pattern: str) -> list:
     """Extract comma-separated patterns from [pattern1, pattern2,...] format"""
-    match = re.search(r'\[([^\]]+)\]', pattern)
+    match = re.search(r"\[([^\]]+)\]", pattern)
     if match:
-        return [p.strip() for p in match.group(1).split(',')]
+        return [p.strip() for p in match.group(1).split(",")]
     return [pattern]  # Return original if no brackets found
+
 
 def resolve_glob(pattern: str) -> list:
     """Resolve custom glob pattern like './dir1/dir2/[*.py, Readme.md]'"""
     # Extract the bracket part
-    bracket_match = re.search(r'^(.*?)\[([^\]]+)\](.*)$', pattern)
+    bracket_match = re.search(r"^(.*?)\[([^\]]+)\](.*)$", pattern)
 
     if not bracket_match:
         # No brackets, treat as regular glob

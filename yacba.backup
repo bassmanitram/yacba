@@ -9,11 +9,12 @@ set -eo pipefail
 # ============================================================================
 # Configuration
 # ============================================================================
+
 YACBA_HOME="${YACBA_HOME:-${HOME}/.yacba}"
 YACBA_VENV="${YACBA_HOME}/.venv"
-YACBA_REPO="${YACBA_REPO:-${YACBA_HOME}/repo}"
-YACBA_CLI="${YACBA_REPO}/code/cli"
-YACBA_PY="${YACBA_REPO}/code/yacba.py"
+YACBA_CODE="${YACBA_HOME}/code"
+YACBA_CLI="${YACBA_CODE}/code/cli"
+YACBA_PY="${YACBA_CODE}/code/yacba.py"
 YACBA_UPDATE_CHECK="${YACBA_HOME}/.last_update_check"
 
 # GitHub repository for code
@@ -119,7 +120,7 @@ _find_writable_path_dir() {
 }
 
 _prompt_symlink_creation() {
-    local target="$YACBA_REPO/code/yacba"
+    local target="$YACBA_CODE/code/yacba"
     local default_dir
     default_dir=$(_find_writable_path_dir)
     local link_path="${default_dir}/yacba"
@@ -248,12 +249,12 @@ _do_install() {
     # Move to target (strip top-level directory)
     local extracted_dir="${temp_dir}/${YACBA_REPO_NAME}-${YACBA_BRANCH}"
     if [[ -d "$extracted_dir" ]]; then
-        mv "$extracted_dir" "$YACBA_REPO"
+        mv "$extracted_dir" "$YACBA_CODE"
     else
         # Fallback: find first directory
         local first_dir=$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
         if [[ -n "$first_dir" ]]; then
-            mv "$first_dir" "$YACBA_REPO"
+            mv "$first_dir" "$YACBA_CODE"
         else
             log_error "Could not find extracted directory"
             rm -f "$temp_tar"
@@ -266,20 +267,13 @@ _do_install() {
     rm -f "$temp_tar"
     rm -rf "$temp_dir"
     
-    log_success "Code extracted to $YACBA_REPO"
+    log_success "Code extracted to $YACBA_CODE"
     echo
     
     # Install YACBA in editable mode
     echo "Installing YACBA (editable mode)..."
-    "$YACBA_VENV/bin/pip" install -q -e "$YACBA_REPO"
+    "$YACBA_VENV/bin/pip" install -q -e "$YACBA_CODE"
     log_success "YACBA installed"
-    
-    # Copy launcher to YACBA_HOME for symlinking
-    if [[ -f "$YACBA_REPO/yacba" ]]; then
-        cp "$YACBA_REPO/yacba" "$YACBA_HOME/yacba"
-        chmod +x "$YACBA_HOME/yacba"
-        log_success "Launcher copied to $YACBA_HOME"
-    fi
     echo
     
     # Call the install subcommand for interactive setup
@@ -321,8 +315,8 @@ check_for_updates() {
     (
         # Get local commit
         local local_sha=""
-        if [[ -f "$YACBA_REPO/.commit_info" ]]; then
-            local_sha=$(grep -o '"sha": "[^"]*"' "$YACBA_REPO/.commit_info" 2>/dev/null | head -1 | cut -d'"' -f4)
+        if [[ -f "$YACBA_CODE/.commit_info" ]]; then
+            local_sha=$(grep -o '"sha": "[^"]*"' "$YACBA_CODE/.commit_info" 2>/dev/null | head -1 | cut -d'"' -f4)
         fi
         
         if [[ -n "$local_sha" ]]; then
