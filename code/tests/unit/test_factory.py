@@ -157,11 +157,25 @@ class TestConfigResolution:
         """Test that ProfileNotFoundError is caught and handled properly."""
         from config.factory import _resolve_profile_and_env
 
-        # Ensure we're in a clean environment with no config files
-        monkeypatch.setenv("HOME", str(tmp_path))
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        # Create a config file with profiles but NOT the one we're looking for
+        config_dir = tmp_path / ".yacba"
+        config_dir.mkdir()
+        config_file = config_dir / "profiles.yaml"
+        config_file.write_text(
+            """
+profiles:
+  default:
+    model_string: "gpt-4"
+  another:
+    model_string: "claude-3"
+"""
+        )
 
-        # When profile doesn't exist, function should exit
+        # Set HOME to tmp_path so profile-config finds our test file
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+        # When profile doesn't exist in the file, function should exit
         with pytest.raises(SystemExit) as exc_info:
             _resolve_profile_and_env("definitely-nonexistent-profile-12345")
 
