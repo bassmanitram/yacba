@@ -3,6 +3,6 @@
 -e /home/jbartle9/tmp/repl-toolkit
 -e /home/jbartle9/tmp/profile-config
 -e /home/jbartle9/Development/git/repositories/personal/dataclass-args
+-e /home/jbartle9/tmp/envlog
 
-structlog
 pyyaml

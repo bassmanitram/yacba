@@ -131,7 +131,7 @@ yacba/
 │   │   ├── model_config_parser.py  # Model config parsing
 │   │   ├── general_utils.py        # General utility functions
 │   │   ├── startup_messages.py     # Welcome/info display
-│   │   └── logging.py              # Centralized logging (structlog)
+│   │   └── logging.py              # Centralized logging (envlog)
 │   ├── scripts/                    # Maintenance utilities
 │   │   └── fix_strands_session.py  # Session repair tool
 │   ├── yacba_types/                # Type definitions
@@ -627,12 +627,10 @@ async def _run_agent_lifecycle(config):
 - **startup_messages.py**: Welcome messages, status display
   - print_welcome_message()
   - print_startup_info()
-- **logging.py**: Centralized logging configuration (structlog)
-  - get_logger() - Get module-specific logger
-  - log_error() - Error logging with conditional tracebacks
-  - YACBA_LOG_LEVEL environment variable
-  - Per-module level control (YACBA_LOG_<MODULE>_LEVEL)
-  - JSON output mode (YACBA_LOG_JSON)
+- **logging.py**: Centralized logging configuration (envlog)
+  - get_logger() - Get module-specific logger with structlog-style support
+  - PTHN_LOG environment variable (Rust RUST_LOG syntax)
+  - Supports: `PTHN_LOG=error,yacba.config=debug,strands_agents=warn`
 
 ### Scripts Module
 
@@ -795,11 +793,11 @@ export YACBA_SESSION_NAME="my-session"
 export YACBA_SHOW_TOOL_USE="true"
 export YACBA_PROFILE="production"
 
-# Logging
-export YACBA_LOG_LEVEL="DEBUG"              # Global log level
-export YACBA_LOG_CONFIG_LEVEL="TRACE"       # Per-module level
-export YACBA_LOG_JSON="true"                # JSON output
-export YACBA_LOG_TRACEBACKS="false"         # Disable stack traces
+# Logging (Rust RUST_LOG syntax via PTHN_LOG)
+export PTHN_LOG="error"                                    # All loggers at ERROR
+export PTHN_LOG="error,yacba=info"                         # YACBA at INFO, rest ERROR
+export PTHN_LOG="error,yacba.config=debug"                 # Fine-grained control
+export PTHN_LOG="info,strands_agent_factory=warn"          # Suppress noisy libraries
 ```
 
 ---
@@ -905,8 +903,7 @@ class YacbaConfig:
     
     my_new_option: str = combine_annotations(
         cli_help("Description of my new option"),
-        default="default_value"
-    )
+        default="default_value")
 ```
 
 ### Adding New Commands
@@ -1003,31 +1000,39 @@ from utils.my_utils import my_utility_function
 
 ### Extending Logging
 
-Logging uses structlog with per-module control:
+Logging uses envlog with Rust RUST_LOG-style syntax via `PTHN_LOG`:
 
 ```python
 # Get module-specific logger
 from utils.logging import get_logger
 logger = get_logger(__name__)
 
-# Use structured logging
+# Traditional stdlib logging
+logger.info("Operation completed")
+logger.error("Operation failed", exc_info=True)
+
+# Structlog-style (backward compatible)
 logger.info("operation_completed", items=42, duration_ms=123)
-
-# Error logging with tracebacks
-from utils.logging import log_error
-try:
-    risky_operation()
-except Exception as e:
-    log_error(logger, "operation_failed", error=str(e))
+logger.debug("user_action", user_id="abc", action="login")
 ```
 
-Control levels:
+Control logging via `PTHN_LOG` environment variable:
 ```bash
-export YACBA_LOG_LEVEL="DEBUG"              # Global
-export YACBA_LOG_CONFIG_LEVEL="TRACE"       # Per-module
-export YACBA_LOG_JSON="true"                # JSON format
-export YACBA_LOG_TRACEBACKS="false"         # Disable traces
+# Set default level for everything
+export PTHN_LOG="error"
+
+# Set per-module levels (Rust RUST_LOG syntax)
+export PTHN_LOG="error,yacba=info"                         # YACBA at INFO
+export PTHN_LOG="error,yacba.config=debug"                 # Fine-grained
+export PTHN_LOG="info,strands_agent_factory=warn"          # Suppress noisy libs
+export PTHN_LOG="debug"                                    # Everything at DEBUG
 ```
+
+**Logging Features**:
+- Single environment variable controls all logging (YACBA + third-party)
+- Rust RUST_LOG syntax via envlog
+- Backward compatible with structlog-style kwargs
+- Standard library logging (no structlog dependency)
 
 ### Adding Session Repair Scripts
 
@@ -1163,7 +1168,6 @@ Common fixtures for testing:
 ### Configuration Loading
 
 - **Lazy loading**: Tool configs loaded on demand
-- **Lazy loading**: Tool configs loaded on demand
 - **Efficient parsing**: YAML parsing optimized (PyYAML)
 
 ### Completion System
@@ -1171,7 +1175,6 @@ Common fixtures for testing:
 - **Alphabetical sorting**: Commands sorted once at initialization
 - **Lazy file listing**: Path completion computed on-demand
 - **Shell timeout**: 2-second timeout prevents hanging
-- **Lazy file listing**: Path completion computed on-demand
 
 ### Memory Management
 
@@ -1190,8 +1193,8 @@ See [strands-agent-factory performance docs](https://github.com/bassmanitram/str
 ### Logging Performance
 
 - **Lazy evaluation**: Log messages only formatted if level enabled
-- **Conditional tracebacks**: Can disable via YACBA_LOG_TRACEBACKS
-- **JSON mode**: More efficient for production (YACBA_LOG_JSON)
+- **Minimal overhead**: Standard library logging is efficient
+- **Conditional formatting**: Structlog-style formatting only when logging occurs
 
 ---
 
@@ -1290,7 +1293,7 @@ COPY code/requirements.txt .
 RUN pip install -r requirements.txt
 COPY code/ .
 ENV OPENAI_API_KEY="..."
-ENV YACBA_LOG_LEVEL="INFO"
+ENV PTHN_LOG="info"
 CMD ["python", "yacba.py", "-H", "-i", "@/input/message.txt"]
 ```
 
@@ -1363,21 +1366,18 @@ Finds all `*.tools.json` files in directory.
 
 ### Logging
 
-Uses structlog for structured logging:
+Uses envlog for environment-based logging configuration:
 
 ```bash
-# Set log level
-export YACBA_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Set default level for everything
+export PTHN_LOG="error"
 
-# Per-module levels
-export YACBA_LOG_CONFIG_LEVEL=TRACE
-export YACBA_LOG_ADAPTERS_LEVEL=DEBUG
-
-# JSON output (production)
-export YACBA_LOG_JSON=true
-
-# Disable tracebacks
-export YACBA_LOG_TRACEBACKS=false
+# Set per-module levels (Rust RUST_LOG syntax)
+export PTHN_LOG="info"                                     # All at INFO
+export PTHN_LOG="error,yacba=info"                         # YACBA at INFO, rest ERROR
+export PTHN_LOG="error,yacba.config=debug"                 # Fine-grained control
+export PTHN_LOG="info,strands_agent_factory=warn"          # Suppress noisy libs
+export PTHN_LOG="debug"                                    # Everything at DEBUG
 
 python code/yacba.py -m "gpt-4o"
 ```
@@ -1388,11 +1388,17 @@ python code/yacba.py -m "gpt-4o"
 - **WARNING**: Recoverable issues (config missing, fallbacks)
 - **ERROR**: Fatal errors (config invalid, tool failure)
 
+**PTHN_LOG Syntax** (Rust RUST_LOG-style):
+- `error` - Set all loggers to ERROR
+- `error,yacba=info` - YACBA at INFO, rest at ERROR
+- `error,yacba.config=debug` - Specific module override
+- Comma-separated list of `module=level` pairs
+
 ### Debugging
 
 Enable trace logging:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG="debug"
 python code/yacba.py --show-config
 ```
 
@@ -1436,7 +1442,7 @@ yacba --help
 - **[repl-toolkit](https://pypi.org/project/repl-toolkit/)** - REPL architecture
 - **[dataclass-args](https://pypi.org/project/dataclass-args/)** - CLI generation
 - **[profile-config](https://pypi.org/project/profile-config/)** - Configuration management
-- **[structlog](https://www.structlog.org/)** - Structured logging
+- **[envlog](https://pypi.org/project/envlog/)** - Environment-based logging
 
 ---
 
@@ -1461,7 +1467,8 @@ yacba --help
 - **base_configs**: dataclass-args parameter for configuration precedence
 - **printer abstraction**: Output handler (auto-format vs plain)
 - **context manager**: Agent lifecycle management (with agent as ctx)
-- **structlog**: Structured logging library
+- **envlog**: Environment-based logging configuration (Rust RUST_LOG syntax)
+- **PTHN_LOG**: Environment variable for logging configuration
 
 ---
 
@@ -1474,7 +1481,7 @@ yacba --help
 - **Meta-arguments**: --profile, --list-profiles, --show-config, --init-config
 - **Modular completion**: Separate completers for commands, shell, files
 - **Session repair**: fix_strands_session.py utility
-- **Structured logging**: structlog with per-module control
+- **Simplified logging**: envlog with PTHN_LOG (Rust RUST_LOG syntax)
 - **HeadlessREPL**: Improved non-interactive mode
 
 ### v1.0
@@ -1485,5 +1492,5 @@ yacba --help
 
 ---
 
-Last Updated: 2025-01-15  
+Last Updated: 2025-01-19  
 Architecture Version: 2.0

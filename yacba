@@ -433,7 +433,7 @@ main() {
         # Set up environment
         export PYTHONWARNINGS=ignore
         export PYTHONPATH="${YACBA_REPO}/code:${PYTHONPATH}"
-        export YACBA_LOG_LEVEL=${YACBA_LOG_LEVEL:-ERROR}
+        export PTHN_LOG=${PTHN_LOG:-error,strands_agent_factory=warn,strands_agents=warn}
         
         # Filter noisy warnings
         FILTER_PATTERN="^Unclosed (client session|connector)|^client_session:|^connections:|^connector:"

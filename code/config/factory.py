@@ -21,7 +21,7 @@ import yaml
 import argparse
 from pathlib import Path
 
-from utils.logging import get_logger, log_error
+from utils.logging import get_logger
 from dataclass_args import build_config
 from dataclass_args.file_loading import load_file_content
 from profile_config import ProfileConfigResolver
@@ -174,7 +174,7 @@ def parse_config() -> YacbaConfig:
         return config
 
     except Exception as e:
-        log_error(logger, "configuration_parsing_failed", error=str(e))
+        logger.error("Configuration parsing failed: %s", str(e), exc_info=True)
         import traceback
 
         traceback.print_exc()

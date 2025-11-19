@@ -503,7 +503,7 @@ yacba --list-profiles
 
 For detailed logs:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=debug
 yacba
 ```
 
@@ -608,7 +608,7 @@ YACBA uses:
 - [profile-config](https://pypi.org/project/profile-config/) for profile-based configuration management
 - [repl-toolkit](https://pypi.org/project/repl-toolkit/) for the interactive interface
 - [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory) for agent functionality
-- [structlog](https://www.structlog.org/) for logging
+- [envlog](https://pypi.org/project/envlog/) for logging
 
 strands-agent-factory brings in strands-agents and LiteLLM.
 
@@ -626,4 +626,4 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Credits
 
-Built with [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), [strands-agents](https://github.com/pydantic/strands-agents), [dataclass-args](https://pypi.org/project/dataclass-args/), [profile-config](https://pypi.org/project/profile-config/), [repl-toolkit](https://pypi.org/project/repl-toolkit/), [structlog](https://www.structlog.org/), and [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).
+Built with [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), [strands-agents](https://github.com/pydantic/strands-agents), [dataclass-args](https://pypi.org/project/dataclass-args/), [profile-config](https://pypi.org/project/profile-config/), [repl-toolkit](https://pypi.org/project/repl-toolkit/), and [prompt_toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit).

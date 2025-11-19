@@ -158,7 +158,7 @@ python code/yacba.py --list-profiles
 ### Enable Debug Logging
 
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=debug
 python code/yacba.py
 ```
 

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keyboard shortcuts: F6 (accept suggestion), Escape+! (shell expansion)
 - Session repair utility (`scripts/fix_strands_session.py`)
 - Structured logging with per-module level control (structlog)
-- `YACBA_LOG_LEVEL`, `YACBA_LOG_JSON`, `YACBA_LOG_TRACEBACKS` environment variables
+- `PTHN_LOG` environment variable for logging control (Rust RUST_LOG syntax)
 - Context manager pattern for agent lifecycle management
 - Printer abstraction (auto-format vs plain output for interactive/headless modes)
 - HeadlessREPL mode with `/send` separator and EOF handling

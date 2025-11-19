@@ -1,279 +1,103 @@
-"""
-Centralized logging configuration for YACBA using structlog.
+"""Simple logging configuration for YACBA using envlog.
 
-This module provides a unified logging interface that supports:
-- Per-module logger hierarchies
-- Structured logging with context
-- Configurable output formats (console, JSON)
-- Integration with Python's stdlib logging
-- Easy per-module level control
-- Configurable exception tracebacks
+This module provides a minimal logging interface using envlog, which configures
+Python's standard library logging from the PTHN_LOG environment variable.
+
+The module provides a thin wrapper around stdlib logging to support structlog-style
+keyword argument logging for backward compatibility.
 
 Usage:
-    from utils.logging import get_logger, log_error
+    from utils.logging import get_logger
 
     logger = get_logger(__name__)
-    logger.info("operation_completed", item_count=42, duration_ms=123)
+    logger.info("Operation completed")
+    logger.info("operation_completed", count=42, duration_ms=123)  # structlog-style
+    logger.error("Operation failed")
 
-    # Error logging with automatic traceback handling
-    try:
-        risky_operation()
-    except Exception as e:
-        log_error(logger, "operation_failed", error=str(e))
+Configuration via environment variable:
+    # Set default level
+    PTHN_LOG=info
+
+    # Set module-specific levels
+    PTHN_LOG=error,yacba.config=debug
+
+    # Complex example with third-party suppression
+    PTHN_LOG=error,yacba=info,strands_agent_factory=warn,strands_agents=warn
 """
 
 import logging
-import logging.config
-import os
-import sys
-from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 
-import structlog
+import envlog
 
 
-# Module-level configuration
-_configured = False
-_default_level = logging.ERROR  # Default to ERROR level
-_include_tracebacks = True
-
-
-def configure_logging(
-    level: Optional[str] = None,
-    json_output: bool = False,
-    config_file: Optional[Path] = None,
-    include_tracebacks: bool = True,
-) -> None:
+class StructlogCompatLogger(logging.LoggerAdapter):
     """
-    Configure structlog with sensible defaults.
+    Logger adapter that provides structlog-style keyword argument support.
 
-    This should be called once at application startup. Subsequent calls
-    are no-ops.
-
-    Args:
-        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        json_output: If True, output JSON instead of console format
-        config_file: Optional path to logging config file (YAML or INI)
-        include_tracebacks: If True, include stack traces in error logs (default: True)
+    Allows both traditional and structlog-style logging:
+        logger.info("message %s", value)          # Traditional
+        logger.info("event", key=value, foo=bar)  # structlog-style
     """
-    global _configured, _default_level, _include_tracebacks
 
-    if _configured:
-        return
+    def process(self, msg: str, kwargs: dict[str, Any]) -> tuple[str, dict]:
+        """
+        Process log message to support structlog-style kwargs.
 
-    # Check environment variable for traceback control
-    env_tracebacks = os.environ.get("YACBA_LOG_TRACEBACKS", "").lower()
-    if env_tracebacks in ("0", "false", "no", "off"):
-        _include_tracebacks = False
-    else:
-        _include_tracebacks = include_tracebacks
+        Extracts any custom kwargs and formats them into the message.
+        """
+        # Extract standard logging kwargs
+        standard_keys = {"exc_info", "stack_info", "stacklevel", "extra"}
+        custom_kwargs = {k: v for k, v in kwargs.items() if k not in standard_keys}
+        standard_kwargs = {k: v for k, v in kwargs.items() if k in standard_keys}
 
-    # Determine log level
-    if level:
-        _default_level = getattr(logging, level.upper(), logging.ERROR)
-    elif os.environ.get("YACBA_LOG_LEVEL"):
-        _default_level = getattr(
-            logging, os.environ["YACBA_LOG_LEVEL"].upper(), logging.ERROR
-        )
-    else:
-        _default_level = logging.ERROR  # Default to ERROR
+        # If there are custom kwargs, format them into the message
+        if custom_kwargs:
+            # Build key=value pairs
+            pairs = [f"{k}={v!r}" for k, v in custom_kwargs.items()]
+            formatted_msg = f"{msg} [{', '.join(pairs)}]"
+            return formatted_msg, standard_kwargs
 
-    # Configure stdlib logging first
-    if config_file and config_file.exists():
-        # Load from config file if provided
-        if config_file.suffix in [".yaml", ".yml"]:
-            import yaml
+        return msg, kwargs
 
-            with open(config_file) as f:
-                config_dict = yaml.safe_load(f)
-                logging.config.dictConfig(config_dict)
-        elif config_file.suffix == ".ini":
-            logging.config.fileConfig(config_file)
-    else:
-        # Use basic configuration
-        logging.basicConfig(
-            format="%(message)s",
-            stream=sys.stdout,
-            level=_default_level,
-        )
 
-    # Configure per-module levels from environment
-    _configure_module_levels()
+def configure_logging() -> None:
+    """
+    Configure logging from PTHN_LOG environment variable.
 
-    # Build processor chain
-    processors = [
-        # Add timestamp
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt="iso"),
-        # Stack info for errors
-        structlog.processors.StackInfoRenderer(),
-        # Exception formatting
-        structlog.processors.format_exc_info,
-        # Unicode handling
-        structlog.processors.UnicodeDecoder(),
-    ]
+    Uses envlog to parse RUST_LOG-style specifications and configure
+    Python's standard library logging. Called automatically on import.
 
-    # Choose renderer based on output format
-    if json_output or os.environ.get("YACBA_LOG_JSON", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    ):
-        # Production: JSON output
-        processors.append(structlog.processors.JSONRenderer())
-    else:
-        # Development: Colored console output
-        processors.append(
-            structlog.dev.ConsoleRenderer(
-                colors=sys.stdout.isatty(),  # Only color if outputting to terminal
-                exception_formatter=structlog.dev.plain_traceback,
-            )
-        )
-
-    # Configure structlog
-    structlog.configure(
-        processors=processors,
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+    All logging levels are controlled via PTHN_LOG. Examples:
+        PTHN_LOG=error                           # All loggers at ERROR
+        PTHN_LOG=error,yacba=debug               # YACBA at DEBUG, rest ERROR
+        PTHN_LOG=error,strands_agent_factory=warn # Suppress strands to WARN
+    """
+    envlog.init(
+        log_format="%(asctime)s [%(levelname)8s] %(name)s: %(message)s",
+        date_format="%Y-%m-%d %H:%M:%S",
     )
 
-    _configured = True
 
-
-def _configure_module_levels() -> None:
-    """Configure per-module log levels from environment variables."""
-    # Check for module-specific environment variables
-    # Format: YACBA_LOG_<MODULE>_LEVEL=DEBUG
-    for key, value in os.environ.items():
-        if key.startswith("YACBA_LOG_") and key.endswith("_LEVEL"):
-            # Extract module name: YACBA_LOG_CONFIG_LEVEL -> yacba.config
-            module_part = key[10:-6]  # Strip YACBA_LOG_ and _LEVEL
-            module_name = f"yacba.{module_part.lower()}"
-
-            level = getattr(logging, value.upper(), None)
-            if level:
-                logging.getLogger(module_name).setLevel(level)
-
-
-def get_logger(name: str) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str) -> StructlogCompatLogger:
     """
-    Get a logger instance for the given name.
-
-    This is the primary interface for getting loggers in YACBA.
-    Pass __name__ to get a logger with the module's hierarchy.
+    Get a logger for the given name with structlog-style support.
 
     Args:
         name: Logger name (typically __name__)
 
     Returns:
-        Configured structlog logger
+        StructlogCompatLogger instance that supports both traditional
+        and structlog-style logging
 
     Example:
         logger = get_logger(__name__)
-        logger.info("user_login", user_id=123, session="abc")
+        logger.info("Application started")
+        logger.debug("user_logged_in", user_id=123, session="abc")
     """
-    # Ensure logging is configured
-    if not _configured:
-        configure_logging()
-
-    return structlog.get_logger(name)
+    base_logger = logging.getLogger(name)
+    return StructlogCompatLogger(base_logger, {})
 
 
-def set_module_level(module: str, level: str) -> None:
-    """
-    Set the logging level for a specific module at runtime.
-
-    Args:
-        module: Module name (e.g., "yacba.config" or "yacba.adapters.repl_toolkit")
-        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-    Example:
-        set_module_level("yacba.config", "DEBUG")
-        set_module_level("yacba.adapters", "WARNING")
-    """
-    log_level = getattr(logging, level.upper(), logging.ERROR)
-    logging.getLogger(module).setLevel(log_level)
-
-
-def get_module_level(module: str) -> str:
-    """
-    Get the current logging level for a module.
-
-    Args:
-        module: Module name
-
-    Returns:
-        Level name (e.g., "DEBUG", "INFO")
-    """
-    logger = logging.getLogger(module)
-    return logging.getLevelName(logger.getEffectiveLevel())
-
-
-def should_include_traceback() -> bool:
-    """
-    Check if tracebacks should be included in error logs.
-
-    Returns:
-        bool: True if tracebacks should be included
-
-    Example:
-        if should_include_traceback():
-            logger.error("error", error=str(e), exc_info=True)
-        else:
-            logger.error("error", error=str(e))
-    """
-    return _include_tracebacks
-
-
-def log_error(logger: structlog.stdlib.BoundLogger, event: str, **kwargs: Any) -> None:
-    """
-    Log an error with conditional traceback inclusion.
-
-    This is the recommended way to log errors in YACBA. It automatically
-    includes stack traces based on the global configuration.
-
-    Args:
-        logger: The logger instance
-        event: Event name (e.g., "operation_failed")
-        **kwargs: Additional context (error=str(e), operation="parse", etc.)
-
-    Example:
-        logger = get_logger(__name__)
-        try:
-            risky_operation()
-        except Exception as e:
-            log_error(logger, "operation_failed",
-                     operation="parse_config",
-                     error=str(e))
-    """
-    if _include_tracebacks:
-        kwargs["exc_info"] = True
-    logger.error(event, **kwargs)
-
-
-def set_traceback_mode(enabled: bool) -> None:
-    """
-    Enable or disable traceback inclusion at runtime.
-
-    Args:
-        enabled: If True, include tracebacks in error logs
-
-    Example:
-        from utils.logging import set_traceback_mode
-
-        # Disable tracebacks for cleaner output
-        set_traceback_mode(False)
-
-        # Re-enable for debugging
-        set_traceback_mode(True)
-    """
-    global _include_tracebacks
-    _include_tracebacks = enabled
-
-
-# Pre-configure on import with sensible defaults
-# This ensures logging works even if configure_logging() is never called
+# Configure on import
 configure_logging()

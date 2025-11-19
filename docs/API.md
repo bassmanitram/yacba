@@ -743,7 +743,7 @@ class ContentType(str, Enum):
 
 - `YACBA_CONFIG`: Path to configuration file
 - `YACBA_PROFILE`: Profile to use
-- `YACBA_LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+- `PTHN_LOG`: Logging level control (Rust RUST_LOG syntax, e.g., `error,yacba=info`)
 
 #### Configuration Defaults
 

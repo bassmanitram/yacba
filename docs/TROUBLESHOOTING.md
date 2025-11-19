@@ -77,11 +77,7 @@ python code/yacba.py -m "gpt-4o" -H -i "test"
 
 ```bash
 # Debug level
-export YACBA_LOG_LEVEL=DEBUG
-python code/yacba.py --model gpt-4o
-
-# Trace level (very verbose)
-export YACBA_LOG_LEVEL=TRACE
+export PTHN_LOG=DEBUG
 python code/yacba.py --model gpt-4o
 ```
 
@@ -264,7 +260,7 @@ export YACBA_TIMEOUT=120
 
 4. **Enable debug logging**:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --model gpt-4o
 # Look for where it hangs
 ```
@@ -465,7 +461,7 @@ ls /path/to/tools/*.{json,yaml}
 
 4. **Test tool discovery**:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --tool-configs-dir /path/to/tools --show-config
 # Check debug output for tool discovery
 ```
@@ -578,7 +574,7 @@ netstat -an | grep 8080
 
 4. **Check server logs**:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --tool-configs-dir /path/to/tools
 # Look for MCP server startup logs
 ```
@@ -707,7 +703,7 @@ python code/yacba.py --model gpt-4o --headless --initial-message "test"
 
 4. **Enable debug logging**:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --model gpt-4o
 # Check request/response in logs
 ```
@@ -1045,15 +1041,15 @@ python code/yacba.py --session my-session  # Resume
 
 ```bash
 # Debug level
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --model gpt-4o
 
 # Trace level (very verbose)
-export YACBA_LOG_LEVEL=TRACE
+export PTHN_LOG=TRACE
 python code/yacba.py --model gpt-4o
 
 # Log to file
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --model gpt-4o 2>&1 | tee yacba.log
 ```
 
@@ -1163,7 +1159,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee error.log
 
 6. **Debug logs**:
 ```bash
-export YACBA_LOG_LEVEL=DEBUG
+export PTHN_LOG=DEBUG
 python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 ```
 
@@ -1301,7 +1297,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 ### Before Reporting
 
 1. **Check existing issues** in the appropriate repository
-2. **Enable debug logging**: `export YACBA_LOG_LEVEL=DEBUG`
+2. **Enable debug logging**: `export PTHN_LOG=DEBUG`
 3. **Test with minimal config**: Remove customizations
 4. **Verify versions**: Check strands-agent-factory and repl-toolkit versions
 
@@ -1312,7 +1308,7 @@ python code/yacba.py --model gpt-4o 2>&1 | tee debug.log
 - YACBA version (git commit hash)
 - Full command that failed
 - Output of `--show-config`
-- Debug logs (`YACBA_LOG_LEVEL=DEBUG`)
+- Debug logs (`PTHN_LOG=DEBUG`)
 - Operating system
 
 **For strands-agent-factory issues**:
