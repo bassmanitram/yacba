@@ -153,14 +153,21 @@ class TestHelperFunctions:
 class TestConfigResolution:
     """Tests for configuration resolution logic."""
 
-    def test_resolve_profile_catches_not_found(self):
+    def test_resolve_profile_catches_not_found(self, tmp_path, monkeypatch):
         """Test that ProfileNotFoundError is caught and handled properly."""
         from config.factory import _resolve_profile_and_env
-
-        # When profile doesn't exist, function exits
-        # This is expected behavior - test should expect SystemExit
-        with pytest.raises(SystemExit):
+        
+        # Ensure we're in a clean environment with no config files
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        
+        # When profile doesn't exist, function should exit
+        with pytest.raises(SystemExit) as exc_info:
             _resolve_profile_and_env("definitely-nonexistent-profile-12345")
+        
+        # Should exit with CONFIG_ERROR code
+        from yacba_types import ExitCode
+        assert exc_info.value.code == ExitCode.CONFIG_ERROR
 
     def test_resolve_profile_with_config_not_found(self):
         """Test resolving when no config file exists at all."""
