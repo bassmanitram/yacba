@@ -22,10 +22,10 @@ from prompt_toolkit.completion import merge_completers  # noqa: E402
 # YACBA core functionality - configuration and startup
 from adapters.repl_toolkit.completer import YacbaCompleter  # noqa: E402
 from config import parse_config, YacbaConfig  # noqa: E402
-from utils.startup_messages import (
+from utils.startup_messages import (  # noqa: E402
     print_startup_info,
     print_welcome_message,
-)  # noqa: E402
+)
 from yacba_types import ExitCode  # noqa: E402
 
 # strands_agent_factory integration
@@ -35,10 +35,10 @@ from adapters.strands_factory import YacbaToStrandsConfigConverter  # noqa: E402
 
 # repl_toolkit integration
 from repl_toolkit import AsyncREPL, HeadlessREPL  # noqa: E402
-from repl_toolkit.completion import (
+from repl_toolkit.completion import (  # noqa: E402
     PrefixCompleter,
     ShellExpansionCompleter,
-)  # noqa: E402
+)
 from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry  # noqa: E402
 
 
