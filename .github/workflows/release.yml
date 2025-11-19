@@ -70,13 +70,21 @@ jobs:
           ## Installation
 
           ```bash
-          pip install "https://github.com/bassmanitram/strands-agent-factory/releases/download/v${{ env.VERSION }}/strands_agent_factory-${{ env.VERSION }}-py3-none-any.whl"
+          pip install "https://github.com/bassmanitram/yacba/releases/download/v${{ env.VERSION }}/yacba-${{ env.VERSION }}-py3-none-any.whl"
           ```
 
           Or install from Git:
 
           ```bash
-          pip install "git+https://github.com/bassmanitram/strands-agent-factory.git@v${{ env.VERSION }}"
+          pip install "git+https://github.com/bassmanitram/yacba.git@v${{ env.VERSION }}"
+          ```
+
+          Or use the no-git installer:
+
+          ```bash
+          curl -o yacba https://raw.githubusercontent.com/bassmanitram/yacba/main/yacba
+          chmod +x yacba
+          ./yacba
           ```
 
           See [CHANGELOG.md](CHANGELOG.md) for full version history.

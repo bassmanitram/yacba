@@ -37,8 +37,8 @@ jobs:
     - name: Security check with bandit
       run: |
         pip install bandit
-        bandit -r strands_agent_factory/ -f json -o bandit-report.json || true
-        bandit -r strands_agent_factory/ -f txt || true
+        bandit -r code/ -f json -o bandit-report.json || true
+        bandit -r code/ -f txt || true
 
     - name: Upload bandit report
       if: always()
@@ -58,4 +58,4 @@ jobs:
     - name: Test package installation
       run: |
         pip install dist/*.whl
-        python -c "import strands_agent_factory; print('Package installed successfully')"
+        python -c "import code; print('Package installed successfully')"

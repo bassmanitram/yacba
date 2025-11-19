@@ -32,20 +32,16 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev,all-providers,all-tools]"
+        pip install -e ".[dev,all]"
 
     - name: Lint with black
       run: |
-        black --check strands_agent_factory/ tests/
+        black --check code/
 
-    - name: Sort imports with isort
+    - name: Lint with ruff
       run: |
-        isort --check-only strands_agent_factory/ tests/
-
-    - name: Type check with mypy
-      run: |
-        mypy --python-version=${{ matrix.python-version }} strands_agent_factory/
+        ruff check code/
 
     - name: Test with pytest
       run: |
-        pytest tests/ --cov=strands_agent_factory --cov-report=xml --cov-report=term-missing
+        pytest code/tests/ --cov=code --cov-report=xml --cov-report=term-missing

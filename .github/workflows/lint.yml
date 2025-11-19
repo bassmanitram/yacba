@@ -31,15 +31,11 @@ jobs:
 
     - name: Lint with black
       run: |
-        black --check --diff strands_agent_factory/ tests/
+        black --check --diff code/
 
-    - name: Sort imports with isort
+    - name: Lint with ruff
       run: |
-        isort --check-only --diff strands_agent_factory/ tests/
-
-    - name: Type check with mypy
-      run: |
-        mypy --python-version=3.10 strands_agent_factory/
+        ruff check code/
 
     - name: Check package metadata
       run: |

@@ -9,7 +9,7 @@ on:
       - 'CONTRIBUTING.md'
       - 'docs/**'
       - 'examples/**'
-      - 'strands_agent_factory/**'
+      - 'code/**'
 
 jobs:
   validate-docs:
@@ -26,52 +26,26 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev,all-providers,all-tools]"
+        pip install -e ".[dev,all]"
 
     - name: Validate documentation structure
       run: |
         # Check that required documentation files exist
         test -f README.md || (echo "README.md missing" && exit 1)
         test -f CHANGELOG.md || (echo "CHANGELOG.md missing" && exit 1)
-        test -f CONTRIBUTING.md || (echo "CONTRIBUTING.md missing" && exit 1)
-        test -f docs/ARCHITECTURE.md || (echo "docs/ARCHITECTURE.md missing" && exit 1)
-        test -f docs/FRAMEWORK_ADAPTERS.md || (echo "docs/FRAMEWORK_ADAPTERS.md missing" && exit 1)
         echo "✓ All documentation files present"
 
-    - name: Validate examples compile
+    - name: Test basic imports
       run: |
-        cd examples
-        python -m py_compile *.py
-        echo "✓ All examples compile successfully"
-
-    - name: Test documentation examples
-      run: |
-        # Test that README examples work
+        export PYTHONPATH="${GITHUB_WORKSPACE}/code:${PYTHONPATH}"
         python -c "
-        import asyncio
-        from strands_agent_factory import AgentFactoryConfig, AgentFactory
-
-        async def main():
-            config = AgentFactoryConfig(
-                model='gpt-4o',
-                system_prompt='You are a helpful assistant.'
-            )
-            # Just test config creation
-            assert config.model == 'gpt-4o'
-            print('✓ README examples work correctly')
-
-        asyncio.run(main())
+        from config import YacbaConfig
+        print('✓ Basic imports work correctly')
         "
 
-    - name: Check documentation links
+    - name: Validate code examples compile
       run: |
-        # Verify cross-references
-        grep -q "docs/ARCHITECTURE.md" README.md || (echo "README doesn't link to docs/ARCHITECTURE.md" && exit 1)
-        grep -q "docs/FRAMEWORK_ADAPTERS.md" README.md || (echo "README doesn't link to docs/FRAMEWORK_ADAPTERS.md" && exit 1)
-        grep -q "README.md" docs/ARCHITECTURE.md || (echo "docs/ARCHITECTURE.md doesn't link to README.md" && exit 1)
-        echo "✓ Documentation links are correct"
-
-    - name: Validate code examples in docs
-      run: |
-        # Extract and validate Python code blocks from docs
-        echo "✓ Documentation validation complete"
+        # Test that Python files compile
+        python -m py_compile yacba
+        python -m compileall code/
+        echo "✓ All code compiles successfully"
