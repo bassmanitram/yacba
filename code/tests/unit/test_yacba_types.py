@@ -75,8 +75,11 @@ class TestTypeAliases:
 
         # Should work with string
         assert accepts_path_like("string/path") == "string/path"
-        # Should work with Path
-        assert accepts_path_like(Path("/test")) == "/test"
+        # Should work with Path (normalize for platform)
+        test_path = Path("/test")
+        result = accepts_path_like(test_path)
+        # On Windows, Path("/test") becomes "\\test", on Unix it stays "/test"
+        assert result in ["/test", "\\test", str(test_path)]
 
 
 class TestContentTypes:
