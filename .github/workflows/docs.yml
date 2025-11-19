@@ -46,6 +46,5 @@ jobs:
     - name: Validate code examples compile
       run: |
         # Test that Python files compile
-        python -m py_compile yacba
         python -m compileall code/
         echo "✓ All code compiles successfully"

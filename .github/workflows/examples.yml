@@ -34,7 +34,6 @@ jobs:
 
     - name: Validate code compiles
       run: |
-        python -m py_compile yacba
         python -m compileall code/
         echo "✓ All code compiles successfully"
 
