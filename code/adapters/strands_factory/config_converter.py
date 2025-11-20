@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Literal
 
 from utils.logging import get_logger
+from utils.session_utils import get_sessions_home
 
 from strands_agent_factory import AgentFactoryConfig
 from config.dataclass import YacbaConfig
@@ -162,13 +163,14 @@ class YacbaToStrandsConfigConverter:
         Determine the sessions home directory.
 
         Returns:
-            Optional[Path]: Sessions directory path if session persistence is enabled
+            Optional[Path]: Sessions directory path if session persistence is enabled,
+                          or None for ephemeral sessions
         """
         if not self.yacba_config.has_session:
             return None
 
-        # Use a default sessions directory - could be made configurable
-        return Path.home() / ".yacba" / "sessions"
+        # Use centralized session path utility
+        return get_sessions_home()
 
     def _build_initial_message(self) -> Optional[str]:
         """

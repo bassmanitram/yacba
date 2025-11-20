@@ -7,12 +7,12 @@ and tool usage, with support for multiple model providers and conversation manag
 
 import asyncio
 import sys
-from pathlib import Path
 from typing import NoReturn
 
 # Configure logging early
 from utils.logging import get_logger  # noqa: E402
 from utils.exceptions import log_exception  # noqa: E402
+from utils.session_utils import get_history_path  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -187,13 +187,8 @@ async def _run_interactive_mode(
     # Merge completers: commands first, then shell expansion, then file paths
     completer = merge_completers([command_completer, shell_completer, file_completer])
 
-    # Prepare history path
-    if config.session_name:
-        sessions_dir = Path.home() / ".yacba" / "sessions"
-        sessions_dir.mkdir(parents=True, exist_ok=True)
-        history_path = sessions_dir / f"{config.session_name}_history.txt"
-    else:
-        history_path = Path.home() / ".yacba/history.txt"  # No session, no history file
+    # Get history path using centralized utility
+    history_path = get_history_path(config.session_name)
 
     repl = AsyncREPL(
         action_registry=action_registry,
