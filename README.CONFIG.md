@@ -153,8 +153,8 @@ All CLI options can be specified in configuration files. Field names match the Y
 - `agent_id`: Agent identifier for session management
 
 ### Output & UI
-- `cli_prompt`: Custom CLI prompt string or `"@path/to/file"`
-- `response_prefix`: Custom response prefix or `"@path/to/file"`
+- `cli_prompt`: Custom CLI prompt string. This can contain prompt_toolkit formatting, such as `<b><ansigreen>You:</ansigreen></b>`
+- `response_prefix`: Custom response prefix string. This too can contain prompt_toolkit formatting, such as `<b><darkcyan>Chatbot:</darkcyan></b>`
 
 ## File Loading Syntax
 

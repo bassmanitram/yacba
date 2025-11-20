@@ -46,12 +46,10 @@ def get_history_path(session_name: Optional[str]) -> Path:
 
     Returns:
         Path: Path to history file
-              - With session: ~/.yacba/strands/sessions/session_{name}/history.txt
+              - With session: ~/.yacba/session_{session_name}_history.txt
               - Without session: ~/.yacba/history.txt
     """
     if session_name:
-        session_dir = get_session_directory(session_name)
-        session_dir.mkdir(parents=True, exist_ok=True)
-        return session_dir / "history.txt"
+        return Path.home() / ".yacba" / f"session_{session_name}_history.txt"
     else:
         return Path.home() / ".yacba" / "history.txt"
