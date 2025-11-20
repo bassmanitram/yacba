@@ -71,6 +71,7 @@ class YacbaToStrandsConfigConverter:
             model=self.yacba_config.model_string,
             system_prompt=self.yacba_config.system_prompt,
             model_config=self.yacba_config.model_config,
+            agent_id=self.yacba_config.agent_id,
             emulate_system_prompt=self.yacba_config.emulate_system_prompt,
             # NOTE: disable_context_repair parameter will be added when strands_agent_factory is updated
             # disable_context_repair=self.yacba_config.disable_context_repair,

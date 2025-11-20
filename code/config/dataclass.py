@@ -171,7 +171,7 @@ class YacbaConfig:
     # Session & Agent Management (grouped together)
     # ========================================================================
 
-    agent_id: Optional[str] = cli_help("Agent ID for session management", default=None)
+    agent_id: str = cli_help("Agent ID for session management", default="yacba_agent")
 
     # ========================================================================
     # Output & UI Customization (grouped together)

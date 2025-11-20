@@ -91,6 +91,68 @@ class TestYacbaToStrandsConfigConverter:
         minimal_yacba_config.tool_config_paths = []
         converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
 
+    def test_convert_agent_id_default(self, minimal_yacba_config):
+        """Test that agent_id defaults to yacba_agent."""
+        from adapters.strands_factory import YacbaToStrandsConfigConverter
+
+        converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
+        result = converter.convert()
+
+        assert result.agent_id == "yacba_agent"
+
+    def test_convert_agent_id_custom(self, minimal_yacba_config):
+        """Test that custom agent_id is passed through."""
+        from adapters.strands_factory import YacbaToStrandsConfigConverter
+
+        minimal_yacba_config.agent_id = "custom_agent"
+        converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
+        result = converter.convert()
+
+        assert result.agent_id == "custom_agent"
+
+    def test_convert_agent_id_in_full_config(self, tmp_path):
+        """Test agent_id in fully populated configuration."""
+        from adapters.strands_factory import YacbaToStrandsConfigConverter
+        from config import YacbaConfig
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("test content")
+
+        full_config = YacbaConfig(
+            model_string="gpt-4o",
+            tool_config_paths=[],
+            startup_files_content=None,
+            prompt_source="cli",
+            system_prompt="Test",
+            emulate_system_prompt=False,
+            model_config=None,
+            summarization_model_config=None,
+            files_to_upload=[],
+            max_files=20,
+            tool_configs_dir=None,
+            tool_discovery_result=None,
+            session_name="test_session",
+            agent_id="test_agent_123",
+            conversation_manager_type="sliding_window",
+            sliding_window_size=40,
+            preserve_recent_messages=10,
+            summary_ratio=0.3,
+            summarization_model=None,
+            custom_summarization_prompt=None,
+            should_truncate_results=True,
+            headless=False,
+            initial_message=None,
+            show_tool_use=False,
+            cli_prompt=None,
+            response_prefix=None,
+            disable_context_repair=False,
+        )
+
+        converter = YacbaToStrandsConfigConverter(full_config)
+        result = converter.convert()
+
+        assert result.agent_id == "test_agent_123"
+
         result = converter._convert_tool_configs()
         assert result == []
 

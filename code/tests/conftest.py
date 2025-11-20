@@ -100,7 +100,7 @@ def minimal_yacba_config():
         tool_configs_dir=None,
         tool_discovery_result=None,
         session_name=None,
-        agent_id=None,
+        agent_id="yacba_agent",
         conversation_manager_type="sliding_window",
         sliding_window_size=40,
         preserve_recent_messages=10,

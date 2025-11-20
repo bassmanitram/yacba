@@ -36,7 +36,7 @@ ARGUMENT_DEFAULTS: Dict[str, Any] = {
     "tool_configs_dir": None,
     # Session management
     "session_name": None,
-    "agent_id": None,
+    "agent_id": "yacba_agent",
     # Conversation management
     "conversation_manager_type": "sliding_window",
     "sliding_window_size": 40,
