@@ -25,6 +25,7 @@ def print_startup_info(
     tools: List[Dict[str, Any]],
     startup_files: List[tuple[str, str]],
     conversation_manager_info: Optional[str] = None,
+    session_name: Optional[str] = None,
     output_file: TextIO = sys.stdout,
 ):
     """
@@ -37,6 +38,7 @@ def print_startup_info(
         tools: List of tool specification dictionaries
         startup_files: List of uploaded files
         conversation_manager_info: Information about conversation manager configuration
+        session_name: Session name if persistence is enabled
         output_file: Output stream for messages
     """
 
@@ -46,7 +48,7 @@ def print_startup_info(
     write("-" * 50)
 
     # Display basic configuration
-    _print_basic_config(write, model_id, system_prompt, prompt_source)
+    _print_basic_config(write, model_id, system_prompt, prompt_source, session_name)
 
     # Display conversation manager configuration
     if conversation_manager_info:
@@ -65,18 +67,37 @@ def print_startup_info(
 
 
 def _print_basic_config(
-    write_func, model_id: str, system_prompt: str, prompt_source: str
+    write_func, model_id: str, system_prompt: str, prompt_source: str, session_name: Optional[str]
 ):
     """Print basic configuration information."""
+    write_func(f"Model: {model_id}")
     first_line = system_prompt.split("\n")[0]
     ellipsis = "..." if "\n" in system_prompt else ""
     write_func(f'System Prompt (from {prompt_source}): "{first_line}{ellipsis}"')
-    write_func(f"Model: {model_id}")
+    if session_name:
+        write_func(f"Session: {session_name}")
 
 
 def _print_conversation_manager_info(write_func, conversation_manager_info: str):
     """Print conversation manager configuration information."""
     write_func(f"{conversation_manager_info}")
+
+
+def _pluralize(count: int, singular: str, plural: str = None) -> str:
+    """Return singular or plural form based on count.
+    
+    Args:
+        count: The count to check
+        singular: Singular form of the word
+        plural: Plural form (defaults to singular + 's')
+        
+    Returns:
+        Formatted string with count and appropriate word form
+    """
+    if plural is None:
+        plural = singular + "s"
+    word = singular if count == 1 else plural
+    return f"{count} {word}"
 
 
 def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
@@ -104,7 +125,7 @@ def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
             f"  Tools successfully loaded: {sum(len(t['tool_names']) for t in [t for t in tools if 'tool_names' in t and t['tool_names']])}"
         )
 
-        # Report successful tool loading (excluding A2A)
+        # Report successful tool loading (excluding A2A) - without tool names
         if successful_loads:
             write_func("  Successful tool loading:")
             for spec in successful_loads:
@@ -112,7 +133,7 @@ def _print_tool_status(write_func, tools: List[EnhancedToolSpec]):
                 source_file = spec.get("source_file", "unknown")
                 tool_names = spec.get("tool_names", [])
                 write_func(
-                    f"    {tool_id} ({Path(source_file).name}): {len(tool_names)} tools - {', '.join(tool_names)}"
+                    f"    {tool_id} ({Path(source_file).name}): {_pluralize(len(tool_names), 'tool')}"
                 )
 
         # Report configurations with no usable tools (excluding A2A)

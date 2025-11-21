@@ -92,6 +92,34 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         sys.exit(ExitCode.FATAL_ERROR)
 
 
+def _build_conversation_manager_info(config: YacbaConfig) -> str:
+    """
+    Build detailed conversation manager information string.
+
+    Args:
+        config: YACBA configuration
+
+    Returns:
+        str: Formatted conversation manager information
+    """
+    cm_type = config.conversation_manager_type
+    
+    if cm_type == "null":
+        return "Conversation Manager: null (no management)"
+    elif cm_type == "sliding_window":
+        return f"Conversation Manager: sliding_window (size: {config.sliding_window_size} messages)"
+    elif cm_type == "summarizing":
+        summary_model = config.summarization_model or config.model_string
+        return (
+            f"Conversation Manager: summarizing "
+            f"(preserve: {config.preserve_recent_messages} messages, "
+            f"ratio: {config.summary_ratio}, "
+            f"model: {summary_model})"
+        )
+    else:
+        return f"Conversation Manager: {cm_type}"
+
+
 def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
     """
     Print startup information using YACBA's existing startup message system.
@@ -106,6 +134,9 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
         system_prompt = config.system_prompt or "No system prompt"
         prompt_source = config.prompt_source or "configuration"
 
+        # Build detailed conversation manager info
+        cm_info = _build_conversation_manager_info(config)
+
         # Use YACBA's existing startup message function
         print_startup_info(
             model_id=model_id,
@@ -113,7 +144,8 @@ def _print_startup_info(config: YacbaConfig, agent_proxy) -> None:
             prompt_source=prompt_source,
             tools=agent_proxy.tool_specs or [],
             startup_files=config.files_to_upload or [],
-            conversation_manager_info=f"Conversation Manager: {config.conversation_manager_type}",
+            conversation_manager_info=cm_info,
+            session_name=config.session_name,
         )
 
     except Exception as e:
