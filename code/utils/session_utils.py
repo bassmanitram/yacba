@@ -53,3 +53,21 @@ def get_history_path(session_name: Optional[str]) -> Path:
         return Path.home() / ".yacba" / f"session_{session_name}_history.txt"
     else:
         return Path.home() / ".yacba" / "history.txt"
+
+
+def get_log_path(session_name: Optional[str]) -> Path:
+    """
+    Get the log file path for YACBA logging.
+
+    Args:
+        session_name: Session name, or None for default log
+
+    Returns:
+        Path: Path to log file
+              - With session: ~/.yacba/session_{session_name}.log
+              - Without session: ~/.yacba/yacba.log
+    """
+    if session_name:
+        return Path.home() / ".yacba" / f"session_{session_name}.log"
+    else:
+        return Path.home() / ".yacba" / "yacba.log"

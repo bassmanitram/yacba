@@ -9,12 +9,17 @@ import asyncio
 import sys
 from typing import NoReturn
 
-# Configure logging early
-from utils.logging import get_logger  # noqa: E402
-from utils.exceptions import log_exception  # noqa: E402
-from utils.session_utils import get_history_path  # noqa: E402
+# Configure logging early (before session is known)
+from utils.logging import configure_logging, get_logger  # noqa: E402
+from utils.session_utils import get_log_path, get_history_path  # noqa: E402
+
+# Early logging setup with default log file
+configure_logging(get_log_path(None))
 
 logger = get_logger(__name__)
+
+# Now safe to import everything else
+from utils.exceptions import log_exception  # noqa: E402
 
 # Completion imports
 from prompt_toolkit.completion import merge_completers  # noqa: E402
@@ -63,6 +68,9 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         Exception: Any error during agent lifecycle
     """
     try:
+        # Reconfigure logging with session-specific log file
+        configure_logging(get_log_path(config.session_name))
+        
         # Convert YACBA config to strands-agents format
         config_converter = YacbaToStrandsConfigConverter(config)
         strands_config = config_converter.convert()
