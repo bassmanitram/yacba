@@ -1,8 +1,11 @@
 # YACBA - Yet Another ChatBot Agent
 
-[![Tests](https://github.com/bassmanitram/yacba/workflows/Test/badge.svg?branch=main)](https://github.com/bassmanitram/yacba/actions/workflows/test.yml)
-[![Lint](https://github.com/bassmanitram/yacba/workflows/Lint/badge.svg?branch=main)](https://github.com/bassmanitram/yacba/actions/workflows/lint.yml)
+[![Tests](https://github.com/bassmanitram/yacba/actions/workflows/test.yml/badge.svg)](https://github.com/bassmanitram/yacba/actions/workflows/test.yml)
+[![Lint](https://github.com/bassmanitram/yacba/actions/workflows/lint.yml/badge.svg)](https://github.com/bassmanitram/yacba/actions/workflows/lint.yml)
+[![Code Quality](https://github.com/bassmanitram/yacba/actions/workflows/quality.yml/badge.svg)](https://github.com/bassmanitram/yacba/actions/workflows/quality.yml)
+[![Examples](https://github.com/bassmanitram/yacba/actions/workflows/examples.yml/badge.svg)](https://github.com/bassmanitram/yacba/actions/workflows/examples.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 YACBA is a command-line interface for chatting with AI models. It provides configuration management, tool integration, and saves your conversation sessions. The underlying AI capabilities come from [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), which is built on [strands-agents](https://github.com/pydantic/strands-agents).
 
