@@ -1,5 +1,9 @@
 # YACBA - Yet Another ChatBot Agent
 
+[![Tests](https://github.com/bassmanitram/yacba/workflows/Test/badge.svg?branch=main)](https://github.com/bassmanitram/yacba/actions/workflows/test.yml)
+[![Lint](https://github.com/bassmanitram/yacba/workflows/Lint/badge.svg?branch=main)](https://github.com/bassmanitram/yacba/actions/workflows/lint.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+
 YACBA is a command-line interface for chatting with AI models. It provides configuration management, tool integration, and saves your conversation sessions. The underlying AI capabilities come from [strands-agent-factory](https://github.com/bassmanitram/strands-agent-factory), which is built on [strands-agents](https://github.com/pydantic/strands-agents).
 
 You can run it interactively for chat sessions, or in headless mode for automation and scripting. Configuration can be done through command-line arguments, config files with named profiles, or environment variables.

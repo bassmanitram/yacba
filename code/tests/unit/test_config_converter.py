@@ -89,7 +89,7 @@ class TestYacbaToStrandsConfigConverter:
         from adapters.strands_factory import YacbaToStrandsConfigConverter
 
         minimal_yacba_config.tool_config_paths = []
-        converter = YacbaToStrandsConfigConverter(minimal_yacba_config)
+        _ = YacbaToStrandsConfigConverter(minimal_yacba_config)
 
     def test_convert_agent_id_default(self, minimal_yacba_config):
         """Test that agent_id defaults to yacba_agent."""

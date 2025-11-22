@@ -174,38 +174,40 @@ class YacbaBackend(AsyncBackend):
         """
         try:
             tool_details = []
-            
+
             # Get tool specs from strands Agent's tool_registry (authoritative source)
             # AgentProxy is a full proxy - we can call methods directly without context manager
             tool_spec_map = {}
             try:
                 tool_specs_list = self.agent_proxy.tool_registry.get_all_tool_specs()
                 tool_spec_map = {spec.get("name"): spec for spec in tool_specs_list}
-                logger.debug("loaded_tool_specs_from_registry", count=len(tool_spec_map))
+                logger.debug(
+                    "loaded_tool_specs_from_registry", count=len(tool_spec_map)
+                )
             except Exception as e:
                 logger.debug("could_not_load_tool_specs_from_registry", error=str(e))
-            
+
             # Get enhanced tool specs from agent proxy
             enhanced_specs = getattr(self.agent_proxy, "tool_specs", [])
-            
+
             if not enhanced_specs:
                 return []
-            
+
             # Process each enhanced tool spec
             for spec in enhanced_specs:
                 if not isinstance(spec, dict):
                     continue
-                
+
                 # Get source info
                 source_type = spec.get("type", "unknown")
                 source_id = spec.get("id", "unknown")
-                
+
                 # Get tool_names - this is the authoritative list
                 tool_names = spec.get("tool_names", [])
-                
+
                 # Get the actual tool objects (may be None or contain modules/functions)
                 tools = spec.get("tools")
-                
+
                 # Try to match tool_names with tool objects for descriptions
                 if tools and len(tools) == len(tool_names):
                     # We have matching tool objects - extract details
@@ -223,27 +225,29 @@ class YacbaBackend(AsyncBackend):
                             desc = tool_spec_map[name].get("description")
                             if desc:
                                 description = desc
-                        
-                        tool_details.append({
-                            "name": name,
-                            "description": description,
-                            "source_type": source_type,
-                            "source_id": source_id,
-                        })
-            
+
+                        tool_details.append(
+                            {
+                                "name": name,
+                                "description": description,
+                                "source_type": source_type,
+                                "source_id": source_id,
+                            }
+                        )
+
             return tool_details
-            
+
         except Exception as e:
             log_exception(logger, "error_getting_tool_details", e)
             return []
 
     def _extract_tool_info_with_name(
-        self, 
-        name: str, 
-        tool: Any, 
-        source_type: str, 
+        self,
+        name: str,
+        tool: Any,
+        source_type: str,
         source_id: str,
-        tool_spec_map: Dict[str, Dict[str, Any]]
+        tool_spec_map: Dict[str, Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
         Extract information from a tool object, using the provided name as authoritative.
@@ -260,7 +264,7 @@ class YacbaBackend(AsyncBackend):
         """
         try:
             description = "No description available"
-            
+
             # First priority: Get description from strands tool registry (ToolSpec)
             if name in tool_spec_map:
                 desc = tool_spec_map[name].get("description")
@@ -272,7 +276,7 @@ class YacbaBackend(AsyncBackend):
                         "source_type": source_type,
                         "source_id": source_id,
                     }
-            
+
             # Fallback: Check for MCP tool with tool_spec (JSON Schema document)
             if hasattr(tool, "tool_spec"):
                 tool_spec = tool.tool_spec
@@ -284,7 +288,7 @@ class YacbaBackend(AsyncBackend):
                 # Fallback: check if it's an object with description attribute
                 elif hasattr(tool_spec, "description") and tool_spec.description:
                     description = tool_spec.description
-            
+
             # If tool is a module, try to get the function from it
             elif isinstance(tool, types.ModuleType):
                 # Try to get a function with the same name from the module
@@ -296,34 +300,34 @@ class YacbaBackend(AsyncBackend):
                     # Try to get module docstring
                     if hasattr(tool, "__doc__") and tool.__doc__:
                         description = tool.__doc__.strip().split("\n")[0]
-            
+
             # If tool is a callable, get its docstring
             elif callable(tool):
                 if hasattr(tool, "__doc__") and tool.__doc__:
                     description = tool.__doc__.strip().split("\n")[0]
-            
+
             # If tool has explicit name and description attributes
             elif hasattr(tool, "name") and hasattr(tool, "description"):
                 if tool.description:
                     description = tool.description
-            
+
             # If tool has a function attribute
             elif hasattr(tool, "function"):
                 func = tool.function
                 if hasattr(func, "__doc__") and func.__doc__:
                     description = func.__doc__.strip().split("\n")[0]
-            
+
             # If tool is a dict
             elif isinstance(tool, dict):
                 description = tool.get("description", description)
-            
+
             return {
                 "name": name,
                 "description": description,
                 "source_type": source_type,
                 "source_id": source_id,
             }
-            
+
         except Exception as e:
             logger.debug("error_extracting_tool_info", error=str(e))
             return {

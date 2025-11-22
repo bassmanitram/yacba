@@ -70,7 +70,7 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
     try:
         # Reconfigure logging with session-specific log file
         configure_logging(get_log_path(config.session_name))
-        
+
         # Convert YACBA config to strands-agents format
         config_converter = YacbaToStrandsConfigConverter(config)
         strands_config = config_converter.convert()
@@ -111,7 +111,7 @@ def _build_conversation_manager_info(config: YacbaConfig) -> str:
         str: Formatted conversation manager information
     """
     cm_type = config.conversation_manager_type
-    
+
     if cm_type == "null":
         return "Conversation Manager: null (no management)"
     elif cm_type == "sliding_window":

@@ -67,7 +67,11 @@ def print_startup_info(
 
 
 def _print_basic_config(
-    write_func, model_id: str, system_prompt: str, prompt_source: str, session_name: Optional[str]
+    write_func,
+    model_id: str,
+    system_prompt: str,
+    prompt_source: str,
+    session_name: Optional[str],
 ):
     """Print basic configuration information."""
     write_func(f"Model: {model_id}")
@@ -85,12 +89,12 @@ def _print_conversation_manager_info(write_func, conversation_manager_info: str)
 
 def _pluralize(count: int, singular: str, plural: str = None) -> str:
     """Return singular or plural form based on count.
-    
+
     Args:
         count: The count to check
         singular: Singular form of the word
         plural: Plural form (defaults to singular + 's')
-        
+
     Returns:
         Formatted string with count and appropriate word form
     """
