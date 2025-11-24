@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 import envlog
+from utils.error_intelligence import ErrorIntelligenceFilter
 
 
 class NoTracebackConsoleFormatter(logging.Formatter):
@@ -142,6 +143,10 @@ def configure_logging(log_file: Path) -> Path:
             NoTracebackConsoleFormatter("%(levelname)s: %(message)s")
         )
         root_logger.addHandler(console_handler)
+
+    # Add Error Intelligence filter to enhance error messages
+    error_intelligence_filter = ErrorIntelligenceFilter()
+    console_handler.addFilter(error_intelligence_filter)
 
     # Add file handler for complete logs
     file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
