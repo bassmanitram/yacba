@@ -140,9 +140,9 @@ _prompt_symlink_creation() {
     if [[ $? -eq 0 ]]; then
         log_success "Symlink created: ${link_path}"
         echo
-        echo "You can now run: ${BOLD}yacba --help${NC}"
+        echo -e "You can now run: ${BOLD}yacba --help${NC}"
         echo
-        echo "(To install to a different location, run: ${BOLD}yacba link${NC})"
+        echo -e "(To install to a different location, run: ${BOLD}yacba link${NC})"
     fi
 }
 
@@ -154,7 +154,7 @@ bootstrap_install() {
     echo
     echo "YACBA is not installed."
     echo
-    echo "YACBA will be installed to: ${BOLD}${YACBA_HOME}${NC}"
+    echo -e "YACBA will be installed to: ${BOLD}${YACBA_HOME}${NC}"
     echo "You can customize this by setting YACBA_HOME environment variable."
     echo
     read -r -p "Continue with installation? [Y/n]: " confirm
