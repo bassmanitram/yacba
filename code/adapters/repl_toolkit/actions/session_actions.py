@@ -13,42 +13,44 @@ from repl_toolkit import Action, ActionContext, ActionRegistry
 def handle_session(context: ActionContext) -> None:
     """Handle the /session action."""
     args = context.args
+    printer = context.printer
 
     try:
         if not args:
-            print("Session management not fully implemented yet.")
-            print("Current session: default")
+            printer("Session management not fully implemented yet.")
+            printer("Current session: default")
             return
 
         session_name = args[0]
 
         # Validate the session name format
         if not re.match(r"^[a-z][a-z0-9_-]*$", session_name):
-            print(f"Invalid session name: '{session_name}'.")
-            print(
+            printer(f"Invalid session name: '{session_name}'.")
+            printer(
                 "Name must be lowercase, start with a letter, and contain "
                 "only letters, numbers, '-', or '_'."
             )
             return
 
-        print(f"Session switching to '{session_name}' not fully implemented yet.")
+        printer(f"Session switching to '{session_name}' not fully implemented yet.")
 
     except Exception as e:
-        print(f"Unexpected error in /session: {e}")
+        printer(f"Unexpected error in /session: {e}")
 
 
 def handle_clear(context: ActionContext) -> None:
     """Handle the /clear action."""
     backend = context.backend
+    printer = context.printer
 
     try:
         success = backend.clear_conversation()
         if success:
-            print("Conversation messages cleared")
+            printer("Conversation messages cleared")
         else:
-            print("Failed to clear conversation")
+            printer("Failed to clear conversation")
     except Exception as e:
-        print(f"Unexpected error in /clear: {e}")
+        printer(f"Unexpected error in /clear: {e}")
 
 
 def register_session_actions(registry: ActionRegistry) -> None:

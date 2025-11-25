@@ -21,10 +21,11 @@ def handle_history(context: ActionContext) -> None:
     """Display the current conversation history as JSON."""
     backend = context.backend
     args = context.args
+    printer = context.printer
 
     try:
         if args:
-            print("The /history command takes no arguments.")
+            printer("The /history command takes no arguments.")
             return
 
         # Access messages through the agent proxy
@@ -32,7 +33,7 @@ def handle_history(context: ActionContext) -> None:
         messages = getattr(agent_proxy, "messages", [])
 
         if not messages:
-            print("No conversation history available.")
+            printer("No conversation history available.")
             return
 
         # Format the history nicely
@@ -42,30 +43,31 @@ def handle_history(context: ActionContext) -> None:
             ensure_ascii=False,
             default=custom_json_serializer_for_display,
         )
-        print("Current conversation history:")
-        print(history_json)
+        printer("Current conversation history:")
+        printer(history_json)
 
     except (TypeError, ValueError) as e:
-        print(f"Failed to serialize conversation history: {e}")
+        printer(f"Failed to serialize conversation history: {e}")
     except Exception as e:
-        print(f"Failed to display history: {e}")
+        printer(f"Failed to display history: {e}")
 
 
 def handle_tools(context: ActionContext) -> None:
     """List all currently loaded tools in a friendly, organized format."""
     backend = context.backend
     args = context.args
+    printer = context.printer
 
     try:
         if args:
-            print("The /tools command takes no arguments.")
+            printer("The /tools command takes no arguments.")
             return
 
         # Get tool details from backend
         tool_details = backend.get_tool_details()
 
         if not tool_details:
-            print("No tools are currently loaded.")
+            printer("No tools are currently loaded.")
             return
 
         # Group tools by category
@@ -74,12 +76,12 @@ def handle_tools(context: ActionContext) -> None:
         # Count total tools
         total_tools = sum(len(tools) for tools in grouped_tools.values())
 
-        print(f"\nCurrently loaded tools ({total_tools}):")
-        print()
+        printer(f"\nCurrently loaded tools ({total_tools}):")
+        printer("")
 
         # Display each category
         for category, tools in sorted(grouped_tools.items()):
-            print(f"{category}:")
+            printer(f"{category}:")
 
             # Find max tool name length for alignment
             max_name_len = max(len(tool["name"]) for tool in tools)
@@ -92,12 +94,12 @@ def handle_tools(context: ActionContext) -> None:
                 description = _truncate_description(description, max_length=80)
 
                 # Align descriptions
-                print(f"  {name:<{max_name_len}}  - {description}")
+                printer(f"  {name:<{max_name_len}}  - {description}")
 
-            print()
+            printer("")
 
     except Exception as e:
-        print(f"Failed to list tools: {e}")
+        printer(f"Failed to list tools: {e}")
 
 
 def _truncate_description(description: str, max_length: int = 80) -> str:
@@ -222,40 +224,42 @@ def _categorize_python_tool(tool_name: str, source_id: str) -> str:
 def handle_conversation_manager(context: ActionContext) -> None:
     """Show information about the current conversation manager configuration."""
     args = context.args
+    printer = context.printer
 
     try:
         if args:
-            print("The /conversation-manager command takes no arguments.")
+            printer("The /conversation-manager command takes no arguments.")
             return
 
-        print("Conversation Manager Configuration:")
-        print("  Type: strands_agent_factory managed")
-        print("  (Detailed configuration info not yet implemented)")
+        printer("Conversation Manager Configuration:")
+        printer("  Type: strands_agent_factory managed")
+        printer("  (Detailed configuration info not yet implemented)")
 
     except Exception as e:
-        print(f"Failed to show conversation manager info: {e}")
+        printer(f"Failed to show conversation manager info: {e}")
 
 
 def handle_conversation_stats(context: ActionContext) -> None:
     """Show conversation statistics and current memory usage."""
     backend = context.backend
     args = context.args
+    printer = context.printer
 
     try:
         if args:
-            print("The /conversation-stats command takes no arguments.")
+            printer("The /conversation-stats command takes no arguments.")
             return
 
         stats = backend.get_conversation_stats()
 
-        print("Conversation Statistics:")
-        print(f"  Current Messages: {stats.get('message_count', 0)}")
-        print(f"  Available Tools: {stats.get('tool_count', 0)}")
+        printer("Conversation Statistics:")
+        printer(f"  Current Messages: {stats.get('message_count', 0)}")
+        printer(f"  Available Tools: {stats.get('tool_count', 0)}")
 
         # Additional stats can be added as backend provides more info
 
     except Exception as e:
-        print(f"Failed to show conversation stats: {e}")
+        printer(f"Failed to show conversation stats: {e}")
 
 
 def register_info_actions(registry: ActionRegistry) -> None:

@@ -13,8 +13,8 @@ from typing import NoReturn
 from utils.logging import configure_logging, get_logger  # noqa: E402
 from utils.session_utils import get_log_path, get_history_path  # noqa: E402
 
-# Early logging setup with default log file
-configure_logging(get_log_path(None))
+# Early logging setup with default log file (interactive mode default)
+configure_logging(get_log_path(None), headless=False)
 
 logger = get_logger(__name__)
 
@@ -47,12 +47,12 @@ from repl_toolkit.completion import (  # noqa: E402
 from adapters.repl_toolkit import YacbaBackend, YacbaActionRegistry  # noqa: E402
 
 
-def _create_stdout_printer():
-    """Create a simple stdout printer for headless mode."""
+def _create_stderr_printer():
+    """Create a stderr printer for headless mode action output."""
     import sys
 
     def printer(text: str) -> None:
-        print(text, file=sys.stdout, flush=True)
+        print(text, file=sys.stderr, flush=True)
 
     return printer
 
@@ -68,8 +68,8 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
         Exception: Any error during agent lifecycle
     """
     try:
-        # Reconfigure logging with session-specific log file
-        configure_logging(get_log_path(config.session_name))
+        # Reconfigure logging with session-specific log file and correct mode
+        configure_logging(get_log_path(config.session_name), headless=config.headless)
 
         # Convert YACBA config to strands-agents format
         config_converter = YacbaToStrandsConfigConverter(config)
@@ -84,9 +84,10 @@ async def _run_agent_lifecycle(config: YacbaConfig) -> None:
             factory.create_agent()
         )  # This should be synchronous after initialization
 
-        # Create action registry with backend
         # Create action registry with appropriate printer
-        printer = _create_stdout_printer() if config.headless else print
+        # In headless mode: actions go to stderr, agent output goes to stdout
+        # In interactive mode: both go to stdout (default print)
+        printer = _create_stderr_printer() if config.headless else print
         action_registry = YacbaActionRegistry(printer=printer)
 
         # Run in appropriate mode

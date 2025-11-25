@@ -11,20 +11,21 @@ def handle_status(context: ActionContext) -> None:
     """Display current YACBA session status and statistics."""
     backend = context.backend
     args = context.args
+    printer = context.printer
 
     try:
         if args:
-            print("The /status command takes no arguments.")
+            printer("The /status command takes no arguments.")
             return
 
         # Gather status information
         status_info = _gather_status_info(backend)
 
         # Format and display
-        _display_status(status_info)
+        _display_status(status_info, printer)
 
     except Exception as e:
-        print(f"Error gathering status: {e}")
+        printer(f"Error gathering status: {e}")
 
 
 def _gather_status_info(backend) -> dict:
@@ -75,10 +76,10 @@ def _gather_status_info(backend) -> dict:
     return status
 
 
-def _display_status(status: dict) -> None:
+def _display_status(status: dict, printer) -> None:
     """Display formatted status information."""
     content = _build_status_content(status)
-    print(content)
+    printer(content)
 
 
 def _build_status_content(status: dict) -> str:

@@ -1,18 +1,22 @@
 """Logging configuration for YACBA.
 
 This module configures dual-output logging:
-- Console: Succinct, colored output to stderr (NO tracebacks)
-- File: Complete logs with timestamps and full tracebacks
+- Interactive mode:
+  - Console: Succinct, colored output to stderr (NO tracebacks)
+  - File: Complete logs with timestamps and full tracebacks
+- Headless mode:
+  - Console: Full error output with tracebacks to stderr
+  - File: Complete logs with timestamps and full tracebacks
 
 Usage:
     from utils.logging import configure_logging, get_logger
     from utils.session_utils import get_log_path
 
     # Early initialization (before session known)
-    configure_logging(get_log_path(None))
+    configure_logging(get_log_path(None), headless=False)
 
     # Later, after session is known
-    configure_logging(get_log_path(session_name))
+    configure_logging(get_log_path(session_name), headless=config.headless)
 
     # Use logger
     logger = get_logger(__name__)
@@ -34,7 +38,7 @@ from utils.error_intelligence import ErrorIntelligenceFilter
 
 
 class NoTracebackConsoleFormatter(logging.Formatter):
-    """Formatter that adds color and suppresses tracebacks on console."""
+    """Formatter that adds color and suppresses tracebacks on console (interactive mode)."""
 
     COLORS = {
         "DEBUG": "\033[36m",  # Cyan
@@ -72,6 +76,15 @@ class NoTracebackConsoleFormatter(logging.Formatter):
         return result
 
 
+class FullTracebackConsoleFormatter(logging.Formatter):
+    """Formatter that includes full tracebacks on console (headless mode)."""
+
+    def format(self, record):
+        """Format log record with full traceback, no color."""
+        # Use default formatting which includes tracebacks
+        return super().format(record)
+
+
 class StructlogCompatLogger(logging.LoggerAdapter):
     """
     Logger adapter that provides structlog-style keyword argument support.
@@ -102,15 +115,21 @@ class StructlogCompatLogger(logging.LoggerAdapter):
         return msg, kwargs
 
 
-def configure_logging(log_file: Path) -> Path:
+def configure_logging(log_file: Path, headless: bool = False) -> Path:
     """
     Configure dual-output logging for YACBA.
 
+    Interactive mode:
     - Console: Succinct, colored output (stderr), NO tracebacks
+    - File: Complete logs with timestamps and full tracebacks
+
+    Headless mode:
+    - Console: Full error output with tracebacks (stderr)
     - File: Complete logs with timestamps and full tracebacks
 
     Args:
         log_file: Path to log file (use utils.session_utils.get_log_path())
+        headless: Whether running in headless mode (default: False)
 
     Returns:
         Path to the log file
@@ -132,21 +151,53 @@ def configure_logging(log_file: Path) -> Path:
             break
 
     if console_handler:
-        # Modify existing console handler for succinct output WITHOUT tracebacks
-        console_handler.setFormatter(
-            NoTracebackConsoleFormatter("%(levelname)s: %(message)s")
-        )
+        # Modify existing console handler based on mode
+        if headless:
+            # Headless mode: full tracebacks on stderr
+            console_handler.setFormatter(
+                FullTracebackConsoleFormatter(
+                    fmt="%(levelname)s: %(message)s",
+                )
+            )
+        else:
+            # Interactive mode: succinct output WITHOUT tracebacks
+            console_handler.setFormatter(
+                NoTracebackConsoleFormatter("%(levelname)s: %(message)s")
+            )
     else:
         # Create console handler if none exists
         console_handler = logging.StreamHandler(sys.stderr)
-        console_handler.setFormatter(
-            NoTracebackConsoleFormatter("%(levelname)s: %(message)s")
-        )
+        if headless:
+            # Headless mode: full tracebacks on stderr
+            console_handler.setFormatter(
+                FullTracebackConsoleFormatter(
+                    fmt="%(levelname)s: %(message)s",
+                )
+            )
+        else:
+            # Interactive mode: succinct output WITHOUT tracebacks
+            console_handler.setFormatter(
+                NoTracebackConsoleFormatter("%(levelname)s: %(message)s")
+            )
         root_logger.addHandler(console_handler)
 
-    # Add Error Intelligence filter to enhance error messages
-    error_intelligence_filter = ErrorIntelligenceFilter()
-    console_handler.addFilter(error_intelligence_filter)
+    # Add Error Intelligence filter only in interactive mode
+    # In headless mode, we want raw errors, not enhanced messages
+    if not headless:
+        # Remove existing ErrorIntelligenceFilter if present
+        console_handler.filters = [
+            f for f in console_handler.filters
+            if not isinstance(f, ErrorIntelligenceFilter)
+        ]
+        # Add Error Intelligence filter to enhance error messages
+        error_intelligence_filter = ErrorIntelligenceFilter()
+        console_handler.addFilter(error_intelligence_filter)
+    else:
+        # Remove ErrorIntelligenceFilter in headless mode
+        console_handler.filters = [
+            f for f in console_handler.filters
+            if not isinstance(f, ErrorIntelligenceFilter)
+        ]
 
     # Add file handler for complete logs
     file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
@@ -183,7 +234,10 @@ def get_logger(name: str) -> StructlogCompatLogger:
 
 def log_exception(exc: Exception, context: str = "") -> None:
     """
-    Log an exception with full traceback to file, clean message to console.
+    Log an exception with full traceback to file, and to console based on mode.
+
+    In interactive mode: clean message to console, full traceback to file
+    In headless mode: full traceback to console (stderr) and file
 
     Args:
         exc: Exception to log
@@ -194,6 +248,10 @@ def log_exception(exc: Exception, context: str = "") -> None:
     message = f"{context}: {exc}" if context else str(exc)
 
     # This will:
-    # - Print clean message to console: "ERROR: API call failed: Connection timeout"
-    # - Write full traceback to file with timestamp and location
+    # Interactive mode:
+    #   - Print clean message to console: "ERROR: API call failed: Connection timeout"
+    #   - Write full traceback to file with timestamp and location
+    # Headless mode:
+    #   - Print full traceback to stderr
+    #   - Write full traceback to file with timestamp and location
     logger.error(message, exc_info=True)
