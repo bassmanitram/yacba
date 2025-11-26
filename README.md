@@ -322,11 +322,14 @@ When you run YACBA without `-H`, you get an interactive chat session with these 
 - `/tools` - List available tools
 - `/history` - Show conversation history
 - `/clear` - Clear conversation history
+- `/echo <text>` - Echo text to stdout (useful for FIFO synchronization)
 - `/session save [name]` - Save current session
 - `/session load <name>` - Load saved session
 - `/session list` - List saved sessions
 - `/conversation-manager [type]` - Change conversation strategy
 - `/exit` or `/quit` - Exit
+
+The `/echo` command always writes to stdout, making it useful for synchronization markers when running YACBA from a FIFO or in scripts.
 
 The REPL provides tab completion for commands, file paths, shell variables, and command substitution.
 
@@ -361,6 +364,46 @@ $(whoami)<Tab>       # Expands to current username
 $(pwd)<Tab>          # Expands to current directory path
 ```
 Sessions are stored in `~/.yacba/sessions/` by default.
+
+---
+
+## Headless Mode
+
+In headless mode (`-H`), YACBA processes input non-interactively. The `/echo` command is particularly useful here for marking lifecycle points in the output stream.
+
+### Example: FIFO Synchronization
+
+```bash
+# Create FIFO
+mkfifo /tmp/yacba.in
+
+# Start YACBA reading from FIFO
+yacba -H -m "gpt-4o" < /tmp/yacba.in > output.txt 2> errors.txt &
+
+# Send commands with markers
+{
+  echo "/echo START_PROCESSING"
+  echo "Analyze this data..."
+  echo "/echo END_PROCESSING"
+} > /tmp/yacba.in
+
+# Post-process using markers
+awk '/START_PROCESSING/,/END_PROCESSING/' output.txt
+```
+
+### Example: Pipeline with Sections
+
+```bash
+{
+  echo "/echo === SECTION 1 ==="
+  echo "First query..."
+  echo "/echo === SECTION 2 ==="
+  echo "Second query..."
+} | yacba -H -m "gpt-4o" > results.txt
+
+# Extract sections
+sed -n '/=== SECTION 1 ===/,/=== SECTION 2 ===/p' results.txt
+```
 
 ---
 

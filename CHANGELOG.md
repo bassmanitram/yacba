@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/echo` command for outputting synchronization markers to stdout
+- Utility actions module for general-purpose commands
+- Support for FIFO-based workflow synchronization
+
 ## [2.0.0] - 2025-01-15
 
 ### Added
