@@ -17,6 +17,8 @@ from repl_toolkit import iter_content_parts
 from repl_toolkit.ptypes import AsyncBackend
 import base64
 
+from .tag_manager import TagManager
+
 logger = get_logger(__name__)
 
 
@@ -41,6 +43,11 @@ class YacbaBackend(AsyncBackend):
         """
         self.agent_proxy = agent_proxy
         self.config = config
+        self.tag_manager = TagManager()
+        
+        # Initialize session start tag at position 0
+        self.tag_manager.create_session_start_tag(0)
+        
         logger.debug("yacba_backend_initialized")
 
     async def handle_input(self, user_input: str, images=None) -> bool:
@@ -114,14 +121,19 @@ class YacbaBackend(AsyncBackend):
 
     def clear_conversation(self) -> bool:
         """
-        Clear the conversation history.
+        Clear the conversation history and reset tags.
 
         Returns:
             bool: True if successful, False otherwise
         """
         try:
-            # Access the underlying agent and clear messages using synchronous context manager
+            # Clear messages
             self.agent_proxy.clear_messages()
+            
+            # Clear user tags and recreate session start
+            self.tag_manager.clear_user_tags()
+            self.tag_manager.create_session_start_tag(0)
+            
             logger.debug("conversation_history_cleared")
             return True
         except Exception as e:

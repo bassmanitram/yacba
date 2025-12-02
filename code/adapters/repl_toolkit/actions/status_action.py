@@ -15,7 +15,7 @@ def handle_status(context: ActionContext) -> None:
 
     try:
         if args:
-            printer("The /status command takes no arguments.")
+            printer("The /info command takes no arguments.")
             return
 
         # Gather status information
@@ -58,11 +58,11 @@ def _gather_status_info(backend) -> dict:
         "preserve_recent": config.preserve_recent_messages,
     }
 
-    # Tool information
-    tool_names = backend.get_tool_names()
+    # Tool information - get detailed info
+    tool_details = backend.get_tool_details()
     status["tools"] = {
-        "available_count": len(tool_names),
-        "tool_names": tool_names,
+        "available_count": len(tool_details),
+        "tool_details": tool_details,
     }
 
     # Configuration
@@ -124,15 +124,34 @@ def _build_status_content(status: dict) -> str:
 
     # Tool information
     tools = status["tools"]
-    lines.append("Tools:")
-    lines.append(f"  Available: {tools['available_count']} tools")
+    lines.append(f"Tools: {tools['available_count']} available")
 
-    if tools["tool_names"]:
-        # Show first few tool names
-        tool_preview = tools["tool_names"][:5]
-        if len(tools["tool_names"]) > 5:
-            tool_preview.append(f"... and {len(tools['tool_names']) - 5} more")
-        lines.append(f"  Tools: {', '.join(tool_preview)}")
+    if tools["tool_details"]:
+        # Group by source
+        by_source = {}
+        for tool in tools["tool_details"]:
+            source_type = tool.get("source_type", "unknown")
+            source_id = tool.get("source_id", "")
+            
+            if source_type == "python":
+                key = "Python Tools"
+            elif source_type == "mcp":
+                key = f"MCP: {source_id}"
+            elif source_type == "a2a":
+                key = f"A2A: {source_id}"
+            else:
+                key = "Other"
+            
+            if key not in by_source:
+                by_source[key] = []
+            by_source[key].append(tool["name"])
+        
+        # Display grouped tools with multi-line format
+        for source_key in sorted(by_source.keys()):
+            tool_names = sorted(by_source[source_key])
+            lines.append(f"  {source_key}:")
+            for tool_name in tool_names:
+                lines.append(f"      {tool_name}")
 
     lines.append("")
 
@@ -157,36 +176,15 @@ def _build_status_content(status: dict) -> str:
 
 
 def register_status_actions(registry: ActionRegistry) -> None:
-    """Register status display actions."""
+    """Register status display action."""
 
-    status_action = Action(
-        name="status",
-        command="/status",
-        handler=handle_status,
-        category="Information",
-        description="Display comprehensive YACBA session status",
-        command_usage="/status - Show session info, conversation state, tools, and configuration",
-    )
-
-    # Register aliases
     info_action = Action(
         name="info",
         command="/info",
         handler=handle_status,
         category="Information",
-        description="Display comprehensive YACBA session status (alias for /status)",
+        description="Display comprehensive YACBA session status",
         command_usage="/info - Show session info, conversation state, tools, and configuration",
     )
 
-    stats_action = Action(
-        name="stats",
-        command="/stats",
-        handler=handle_status,
-        category="Information",
-        description="Display comprehensive YACBA session status (alias for /status)",
-        command_usage="/stats - Show session info, conversation state, tools, and configuration",
-    )
-
-    registry.register_action(status_action)
     registry.register_action(info_action)
-    registry.register_action(stats_action)

@@ -1,15 +1,18 @@
 # Session Doctor
 
-A professional bash/jq tool for analyzing, diagnosing, and repairing AI agent session message sequences.
+A bash/jq tool for analyzing, diagnosing, and repairing AI agent session message sequences.
 
 ## Quick Start
 
-### Installation
 ```bash
+# Make executable
 chmod +x session-doctor.sh
 
-# Test it
-./session-doctor.sh stats ~/.yacba/strands/sessions/YOUR_SESSION/agents/AGENT/messages
+# Check health
+./session-doctor.sh diagnose yacba-3
+
+# View statistics
+./session-doctor.sh stats yacba-3 -v
 ```
 
 ### Dependencies
@@ -25,113 +28,290 @@ brew install jq bc
 
 | Command | Description | Modifies Files |
 |---------|-------------|----------------|
-| `stats` | Show session metrics | No |
-| `diagnose` | Detect corruption | No |
-| `list` | View all messages | No |
-| `validate` | Check JSON integrity | No |
+| `stats` | Show session metrics and tool usage | No |
+| `diagnose` | Detect corruption and integrity issues | No |
+| `list` | View all messages with previews | No |
+| `validate` | Check JSON and structure validity | No |
 | `backup` | Create timestamped backup | No |
-| `rollback` | Remove N user messages | **Yes** |
-| `fix` | Auto-repair corruptions | **Yes** |
+| `rollback` | Remove N user messages and their responses | **Yes** |
+| `fix` | Auto-repair orphaned tool calls | **Yes** |
 
-## Example Usage
+## Usage
 
 ```bash
-SESSION="~/.yacba/strands/sessions/YOUR_SESSION/agents/AGENT/messages"
-
-# Check health
-./session-doctor.sh diagnose "$SESSION"
-
-# View statistics with tool breakdown
-./session-doctor.sh stats "$SESSION" -v
-
-# List all messages
-./session-doctor.sh list "$SESSION"
-
-# Create backup (always do this first!)
-./session-doctor.sh backup "$SESSION"
-
-# Roll back last user message
-./session-doctor.sh rollback "$SESSION" -n 1
-
-# Auto-fix corruption
-./session-doctor.sh fix "$SESSION"
+./session-doctor.sh <command> <session_name> [agent_name] [options]
 ```
 
-## Real-World Example Output
+### Arguments
+- **session_name**: Session name like `yacba-3` (required)
+- **agent_name**: Specific agent name (optional, auto-detects first if omitted)
 
-From an actual session analysis:
+### Options
+- `-s, --session-base <DIR>` - Session base directory (default: `~/.yacba/strands/sessions`)
+- `-n, --number <N>` - Number of messages to roll back
+- `-b, --backup-dir <DIR>` - Backup directory (default: `./session-backups`)
+- `-y, --yes` - Skip confirmation prompts
+- `-v, --verbose` - Verbose output with tool breakdown
+- `-h, --help` - Show help
 
-```
-=== SESSION STATISTICS ===
+## Examples
 
-Total Messages:                166
-  User Messages (text):        9
-  Tool Results:                74
-  Assistant Messages (text):   34
-  Tool Uses:                   74
-  Multi-block Messages:        25
-  Parse Errors:                0
-
-Session Duration:              3545s (00:59:05)
-
-✓ Tool uses and results balanced (74 = 74)
-
-=== TOOL USAGE BREAKDOWN ===
-     56 shell
-      9 file_write
-      9 file_read
-
-=== MULTI-BLOCK MESSAGES ===
-Found 25 message(s) with multiple content blocks
-(This is normal - assistant can send text + tool use together)
-```
-
-## Documentation
-
-| File | Purpose |
-|------|---------|
-| [README.md](README.md) | This file - quick start |
-| [SESSION-DOCTOR-README.md](SESSION-DOCTOR-README.md) | Comprehensive documentation |
-| [QUICK-REFERENCE.md](QUICK-REFERENCE.md) | Command cheat sheet |
-| [MESSAGE-FLOW-DIAGRAMS.md](MESSAGE-FLOW-DIAGRAMS.md) | Visual diagrams |
-
-## Common Use Cases
-
-### Session Crashed During Tool Execution
 ```bash
-./session-doctor.sh diagnose "$SESSION"  # Confirm issue
-./session-doctor.sh fix "$SESSION"       # Auto-repair
+# Diagnose session health
+./session-doctor.sh diagnose yacba-3
+
+# Get statistics with tool breakdown
+./session-doctor.sh stats yacba-3 -v
+
+# List recent messages
+./session-doctor.sh list yacba-3 | tail -20
+
+# Create backup before making changes
+./session-doctor.sh backup yacba-3
+
+# Roll back last user message (with confirmation)
+./session-doctor.sh rollback yacba-3 -n 1
+
+# Auto-fix orphaned tool calls
+./session-doctor.sh fix yacba-3
+
+# Specify agent and custom session base
+./session-doctor.sh stats yacba-3 my_agent -s /custom/sessions
 ```
 
-### Undo Last User Request  
+## Common Workflows
+
+### Session Crashed Mid-Execution
 ```bash
-./session-doctor.sh rollback "$SESSION" -n 1
+./session-doctor.sh diagnose yacba-3  # Identify issue
+./session-doctor.sh fix yacba-3       # Remove orphaned tool calls
+./session-doctor.sh diagnose yacba-3  # Verify fix
+```
+
+### Undo Last User Request
+```bash
+./session-doctor.sh list yacba-3 | tail -20  # Review recent messages
+./session-doctor.sh rollback yacba-3 -n 1    # Remove last interaction
 ```
 
 ### Regular Maintenance
 ```bash
-# Before important work
-./session-doctor.sh backup "$SESSION"
+./session-doctor.sh backup yacba-3           # Backup before work
+./session-doctor.sh diagnose yacba-3         # Check health
+./session-doctor.sh stats yacba-3 -v         # Review activity
+```
 
-# Weekly health check
-./session-doctor.sh diagnose "$SESSION"
+### Multiple Agents
+```bash
+./session-doctor.sh stats yacba-3 agent_primary -v
+./session-doctor.sh stats yacba-3 agent_backup -v
+```
+
+### Custom Session Storage
+```bash
+./session-doctor.sh diagnose yacba-3 -s /mnt/data/sessions
+```
+
+## Understanding Output
+
+### Statistics
+```
+=== TARGET AGENT SESSION ===
+/home/user/.yacba/strands/sessions/session_yacba-3/agents/agent_strands/messages
+
+=== SESSION STATISTICS ===
+Total Messages:                166
+  User Messages (text):        9      # Actual user inputs
+  Tool Results:                74     # Tool execution results
+  Assistant Messages (text):   34     # AI text responses
+  Tool Uses:                   74     # AI tool calls
+  Multi-block Messages:        25     # Messages with multiple content blocks
+
+Session Duration:              3545s (00:59:05)
+
+✓ Tool uses and results balanced (74 = 74)
+```
+
+### Diagnosis Errors
+
+**Orphaned Tool Use** - Tool called but no result exists:
+```
+ERROR: [45] Orphaned tool use: tooluse_abc... (no matching result)
+```
+**Fix**: Run `./session-doctor.sh fix yacba-3`
+
+**Orphaned Tool Result** - Result exists but no matching call:
+```
+ERROR: [23] Tool result has no matching tool use (toolUseId: tooluse_xyz...)
+```
+**Fix**: Typically requires manual cleanup after backup
+
+**Tool Use/Result Mismatch** - Counts don't match:
+```
+WARNING: Tool use/result mismatch: 49 uses vs 74 results
+```
+**Note**: May be normal if tools return multiple results per call
+
+## Message Flow Examples
+
+### Healthy Sequence
+```
+0: user (text)       → "Please analyze the code"
+1: assistant (text)  → "I'll analyze it"
+2: assistant (toolUse) → file_read
+3: user (toolResult) → [file contents]
+4: assistant (text)  → "Here's my analysis..."
+```
+
+### Orphaned Tool Use (Error)
+```
+0: user (text)       → "Read file"
+1: assistant (toolUse) → file_read
+2: assistant (text)  → "Based on the file..."  ← ERROR: Expected toolResult
+```
+
+## Session Path Resolution
+
+The script resolves session names automatically:
+
+```
+Input:        yacba-3
+Base:         ~/.yacba/strands/sessions (default)
+Full path:    ~/.yacba/strands/sessions/session_yacba-3/agents/<agent>/messages
+Agent:        [first agent alphabetically or specified]
+```
+
+Override with `-s`:
+```bash
+./session-doctor.sh stats yacba-3 -s /custom/path
+# Resolves to: /custom/path/session_yacba-3/agents/<agent>/messages
+```
+
+## Safety Features
+
+- **Read-only by default**: Most commands don't modify files
+- **Automatic backups**: `rollback` and `fix` create backups before changes
+- **Confirmation prompts**: Destructive operations require explicit confirmation
+- **Preview changes**: Shows what will be deleted before doing it
+- **Path transparency**: Always displays which session is being operated on
+
+## Rollback Behavior
+
+Rollback removes the target user message AND everything that follows:
+
+```
+BEFORE rollback -n 1:
+  message_0-4: [earlier conversation]
+  message_5: user "Do Y"        ← Target
+  message_6-9: [Y conversation] ← All deleted
+
+AFTER:
+  message_0-4: [earlier conversation]
+  [session ends here]
+```
+
+## Fix Behavior
+
+Fix removes from the first orphaned tool call onwards:
+
+```
+BEFORE:
+  message_0-45: [healthy messages]
+  message_46: assistant toolUse ← ORPHANED
+  message_47-52: [subsequent messages]
+
+AFTER fix:
+  message_0-45: [healthy messages]
+  [messages 46-52 deleted]
+```
+
+## Advanced Usage
+
+### Scripting
+```bash
+#!/bin/bash
+SESSION="yacba-3"
+
+# Health check and auto-fix
+if ! ./session-doctor.sh diagnose "$SESSION" &>/dev/null; then
+  echo "Issues found, fixing..."
+  ./session-doctor.sh fix "$SESSION" -y
+fi
+
+# Backup before starting work
+./session-doctor.sh backup "$SESSION"
+```
+
+### Check All Agents
+```bash
+#!/bin/bash
+SESSION="yacba-3"
+BASE="$HOME/.yacba/strands/sessions"
+AGENTS_DIR="$BASE/session_${SESSION}/agents"
+
+for agent_dir in "$AGENTS_DIR"/*; do
+  agent=$(basename "$agent_dir")
+  echo "=== $agent ==="
+  ./session-doctor.sh diagnose "$SESSION" "$agent"
+done
+```
+
+### Shell Aliases
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+alias sd='./session-doctor.sh'
+alias sd-check='sd diagnose'
+alias sd-fix='sd fix'
+alias sd-stats='sd stats'
+
+# Quick health check
+function sd-quick() {
+    sd stats "$1" && sd diagnose "$1"
+}
+```
+
+## Troubleshooting
+
+### "Missing required dependencies"
+Install jq and bc:
+```bash
+sudo apt-get install jq bc  # Ubuntu/Debian
+brew install jq bc          # macOS
+```
+
+### "Session directory does not exist"
+Check session name and base path. Sessions must be named `session_<name>`.
+
+### "No agent directories found"
+Verify agents exist:
+```bash
+ls ~/.yacba/strands/sessions/session_yacba-3/agents/
+```
+
+### "No message files found"
+Directory exists but contains no `message_*.json` files.
+
+### Restore from Backup
+```bash
+# Find backup
+ls -lt ./session-backups/
+
+# Restore
+cp -r ./session-backups/session_yacba-3-20231128-150000/* \
+  ~/.yacba/strands/sessions/session_yacba-3/agents/agent_name/messages/
 ```
 
 ## Message Structure
 
-Session Doctor understands these content types:
+**User messages** contain:
+- `text` - User input
+- `toolResult` - Tool execution results
 
-**User messages** can contain:
-- `text` - user input
-- `image` - uploaded images
-- `document` - attached documents  
-- `toolResult` - system-generated tool execution results
+**Assistant messages** contain:
+- `text` - Explanations and responses
+- `toolUse` - Tool invocations
 
-**Assistant messages** can contain:
-- `text` - explanations and responses
-- `toolUse` - tool invocations
-
-**Multi-block messages** (normal and healthy):
+**Multi-block messages** (normal):
 ```json
 {
   "message": {
@@ -144,36 +324,19 @@ Session Doctor understands these content types:
 }
 ```
 
-## Key Features
+## Exit Codes
 
-✅ Handles multi-block content correctly  
-✅ Accurate tool use/result counting  
-✅ Detects 7+ types of corruption  
-✅ Automatic backups before destructive operations  
-✅ Confirmation prompts for safety  
-✅ Color-coded output  
-✅ Zero external dependencies (except jq/bc)  
+- `0` - Success, no issues found
+- `1` - Errors found or operation failed
 
-## Safety
+## Limitations
 
-- **Read-only by default**: Most commands don't modify files
-- **Automatic backups**: `rollback` and `fix` create backups first
-- **Confirmation prompts**: Destructive operations ask for confirmation
-- **Preview changes**: Shows what will be modified before doing it
+- Diagnosis doesn't modify files
+- Fix removes from first problem onwards (conservative approach)
+- No undo for rollback (must restore from backup)
+- Assumes sequential message numbering (`message_0.json`, `message_1.json`, etc.)
+- Assumes session naming convention: `session_<name>`
 
 ## License
 
 Provided as-is for session management and repair.
-
-## Getting Help
-
-```bash
-# Built-in help
-./session-doctor.sh --help
-
-# Full documentation
-cat SESSION-DOCTOR-README.md | less
-
-# Quick reference
-cat QUICK-REFERENCE.md
-```

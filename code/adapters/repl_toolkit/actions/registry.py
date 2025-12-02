@@ -9,6 +9,7 @@ from .session_actions import register_session_actions
 from .info_actions import register_info_actions
 from .status_action import register_status_actions
 from .utility_actions import register_utility_actions
+from .tag_actions import register_tag_actions
 
 logger = get_logger(__name__)
 
@@ -33,4 +34,5 @@ class YacbaActionRegistry(ActionRegistry):
         register_info_actions(self)
         register_status_actions(self)
         register_utility_actions(self)
+        register_tag_actions(self)
         logger.debug("yacba_actions_registered", action_count=len(self.actions))

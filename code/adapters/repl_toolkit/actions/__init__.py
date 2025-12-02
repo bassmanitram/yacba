@@ -12,6 +12,7 @@ from .session_actions import register_session_actions
 from .info_actions import register_info_actions
 from .status_action import register_status_actions
 from .utility_actions import register_utility_actions
+from .tag_actions import register_tag_actions
 
 __all__ = [
     "YacbaActionRegistry",
@@ -19,4 +20,5 @@ __all__ = [
     "register_info_actions",
     "register_status_actions",
     "register_utility_actions",
+    "register_tag_actions",
 ]

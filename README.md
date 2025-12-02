@@ -317,17 +317,56 @@ See **[README.CONFIG.md](README.CONFIG.md)** for the complete configuration guid
 
 When you run YACBA without `-H`, you get an interactive chat session with these commands:
 
+### Core Commands
+
 - `/help` - Show available commands
-- `/status` - Show session information
+- `/info` - Show session information
 - `/tools` - List available tools
 - `/history` - Show conversation history
 - `/clear` - Clear conversation history
-- `/echo <text>` - Echo text to stdout (useful for FIFO synchronization)
-- `/session save [name]` - Save current session
-- `/session load <name>` - Load saved session
-- `/session list` - List saved sessions
-- `/conversation-manager [type]` - Change conversation strategy
 - `/exit` or `/quit` - Exit
+
+### Conversation Tagging
+
+YACBA provides a tagging system for bookmarking conversation positions and enabling non-linear exploration:
+
+```bash
+# Create anonymous tag at current position
+/tag
+
+# Create named tag at current position
+/tag experiment
+
+# Create tag at specific position
+/tag baseline 0
+
+# List all tags
+/tags
+
+# Undo last user message
+/undo
+
+# Undo last 3 user messages
+/undo 3
+
+# Revert to a tagged position
+/undo experiment
+```
+
+**Use Cases:**
+- Save state before experiments: `/tag stable` then `/undo stable` if it fails
+- Create checkpoints: `/tag step1`, `/tag step2`, etc.
+- Quick rollback: `/undo` removes last message
+
+Tags validate against message content, and invalid tags (from conversation management or edits) are automatically detected and removed.
+
+See **[docs/TAG_SYSTEM.md](docs/TAG_SYSTEM.md)** for complete tagging documentation, or **[docs/TAG_QUICK_REFERENCE.md](docs/TAG_QUICK_REFERENCE.md)** for a quick guide.
+
+### Other Commands
+
+- `/echo <text>` - Echo text to stdout (useful for FIFO synchronization)
+- `/conv` - Show conversation manager configuration and statistics
+- `/shortcuts` - List keyboard shortcuts
 
 The `/echo` command always writes to stdout, making it useful for synchronization markers when running YACBA from a FIFO or in scripts.
 
@@ -349,7 +388,7 @@ The REPL provides intelligent completion:
 ```bash
 # Command completion
 /h<Tab>              # Completes to /help, /history
-/se<Tab>             # Completes to /session
+/ta<Tab>             # Completes to /tag, /tags
 
 # File path completion
 file("/tmp/<Tab>     # Shows directory contents
