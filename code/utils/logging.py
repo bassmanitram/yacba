@@ -252,7 +252,7 @@ def get_logger(name: str) -> StructlogCompatLogger:
     return StructlogCompatLogger(base_logger, {})
 
 
-def log_exception(exc: Exception, context: str = "") -> None:
+def log_exception(logger, context: str, exc: Exception) -> None:
     """
     Log an exception with full traceback to file, and to console based on mode.
 
@@ -261,11 +261,10 @@ def log_exception(exc: Exception, context: str = "") -> None:
     In debug mode (YACBA_SHOW_ALL_ERRORS=1): full traceback to console and file
 
     Args:
+        logger: Logger instance to use
+        context: Context string (event name)
         exc: Exception to log
-        context: Optional context string
     """
-    logger = logging.getLogger("yacba")
-
     message = f"{context}: {exc}" if context else str(exc)
 
     # This will:

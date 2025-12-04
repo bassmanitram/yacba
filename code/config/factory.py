@@ -19,7 +19,10 @@ import os
 import sys
 import yaml
 import argparse
+import mimetypes
+import re
 from pathlib import Path
+from typing import List, Tuple
 
 from utils.logging import get_logger
 from dataclass_args import build_config
@@ -27,8 +30,9 @@ from dataclass_args.file_loading import load_file_content
 from profile_config import ProfileConfigResolver
 from profile_config.exceptions import ConfigNotFoundError, ProfileNotFoundError
 
-from yacba_types import ExitCode
+from yacba_types import ExitCode, FileUpload
 from utils.config_utils import discover_tool_configs
+from utils.file_utils import validate_file_path, get_file_size, resolve_glob
 
 from .arguments import ARGUMENT_DEFAULTS, ARGUMENTS_FROM_ENV_VARS
 from .dataclass import YacbaConfig
@@ -37,6 +41,111 @@ logger = get_logger(__name__)
 
 PROFILE_CONFIG_NAME = ".yacba"
 PROFILE_CONFIG_PROFILE_FILE_NAME = "config"
+
+# Regex for validating MIME type format (type/subtype)
+_MT_CHARS = r"[a-zA-Z0-9][a-zA-Z0-9!#$&^_.+-]*"
+_BASIC_MT = re.compile(fr"^{_MT_CHARS}/{_MT_CHARS}$", re.IGNORECASE)
+
+
+def _validate_and_expand_files(files_args: List[List[str]]) -> List[Tuple[str, str]]:
+    """
+    Validate and expand file arguments from -f flags.
+    
+    Each entry in files_args is [FILE_GLOB] or [FILE_GLOB, MIMETYPE].
+    - Validates mimetype format if provided
+    - Expands glob patterns using resolve_glob() (supports bracket syntax)
+    - Guesses mimetype if not provided
+    
+    Args:
+        files_args: List of argument lists from cli_append
+        
+    Returns:
+        List of (path, mimetype) tuples
+    """
+    result = []
+    
+    for file_spec in files_args:
+        file_glob = file_spec[0]
+        mimetype = file_spec[1] if len(file_spec) == 2 else None
+        
+        # Validate mimetype format if provided
+        if mimetype:
+            if not _BASIC_MT.fullmatch(mimetype):
+                logger.warning(
+                    "invalid_mimetype_format",
+                    mimetype=mimetype,
+                    pattern=file_glob,
+                    message=f"Mimetype '{mimetype}' must be in format 'type/subtype'. Skipping this file spec."
+                )
+                continue
+        
+        # Expand glob pattern
+        try:
+            globbed_files = resolve_glob(file_glob)
+            if not globbed_files:
+                # No matches - add the pattern as-is (will error later if file doesn't exist)
+                globbed_files = [file_glob]
+        except Exception as e:
+            logger.warning(
+                "glob_expansion_failed",
+                pattern=file_glob,
+                error=str(e),
+                message=f"Failed to expand glob pattern '{file_glob}': {e}. Skipping."
+            )
+            continue
+        
+        # Add each file with mimetype
+        for file_path in globbed_files:
+            if mimetype:
+                result.append((file_path, mimetype))
+            else:
+                # Guess mimetype
+                guessed, _ = mimetypes.guess_type(file_path)
+                result.append((file_path, guessed or "text/plain"))
+    
+    return result
+
+
+def _process_file_uploads(file_tuples: List[Tuple[str, str]]) -> List[FileUpload]:
+    """
+    Process file (path, mimetype) tuples and create FileUpload objects.
+
+    Args:
+        file_tuples: List of (path, mimetype) tuples
+
+    Returns:
+        List of FileUpload objects
+
+    Raises:
+        FileNotFoundError: If a file doesn't exist
+        ValueError: If a file is not readable
+    """
+    uploads = []
+
+    for path_str, mimetype in file_tuples:
+        try:
+            # Validate the path
+            path = Path(path_str).expanduser().resolve()
+            if not validate_file_path(path):
+                raise FileNotFoundError(
+                    f"File not found or not accessible: {path_str}")
+
+            # Get file information
+            size = get_file_size(path)
+
+            # Create FileUpload object
+            upload = FileUpload(
+                path=str(path),
+                mimetype=mimetype,
+                size=size
+            )
+            uploads.append(upload)
+
+        except Exception as e:
+            logger.error(f"Error processing file '{path_str}': {e}")
+            raise
+
+    return uploads
 
 
 def _process_file_loadable_fields(config_dict: dict) -> dict:
@@ -335,12 +444,34 @@ def _post_process_config(config: YacbaConfig, profile_config: dict) -> YacbaConf
         )
         logger.info("tools_discovered", count=len(tool_config_paths))
 
+    # Process file uploads from -f arguments
+    # config.files is List[List[str]] from cli_append(nargs="+")
+    files_to_upload = []
+    if config.files:
+        # Validate and expand globs
+        files_list = _validate_and_expand_files(config.files)
+        logger.debug("files_expanded", count=len(files_list))
+        
+        # Create FileUpload objects
+        files_to_upload = _process_file_uploads(files_list)
+        logger.info("files_processed", count=len(files_to_upload))
+        
+        # Enforce max_files limit
+        if len(files_to_upload) > config.max_files:
+            logger.warning(
+                "file_limit_exceeded",
+                provided=len(files_to_upload),
+                max=config.max_files
+            )
+            files_to_upload = files_to_upload[:config.max_files]
+
     # Create updated config with post-processed fields
     # Note: dataclass is immutable, so we create a new instance
     config_dict = vars(config).copy()
     config_dict["prompt_source"] = prompt_source
     config_dict["tool_config_paths"] = tool_config_paths
     config_dict["tool_discovery_result"] = tool_discovery_result
+    config_dict["files_to_upload"] = files_to_upload
 
     return YacbaConfig(**config_dict)
 

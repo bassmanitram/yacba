@@ -22,6 +22,7 @@ from dataclass_args import (
     cli_short,
     cli_choices,
     cli_file_loadable,
+    cli_append,
     combine_annotations,
 )
 
@@ -45,6 +46,7 @@ class YacbaConfig:
     - Validation (choices for enums)
     - Boolean flags (--flag / --no-flag)
     - Dict overrides (--mc key:value)
+    - Append actions (-f can be repeated)
 
     Fields marked with cli_exclude() are not exposed to CLI - they're internal fields
     populated by configuration factory or runtime logic.
@@ -90,6 +92,17 @@ class YacbaConfig:
 
     session_name: Optional[str] = cli_help(
         "Session name for conversation persistence", default=None
+    )
+
+    # ========================================================================
+    # File Upload (uses cli_append with min_args=1, max_args=2)
+    # ========================================================================
+
+    files: List[List[str]] = combine_annotations(
+        cli_short("f"),
+        cli_append(min_args=1, max_args=2, metavar="FILE_GLOB [MIMETYPE]"),
+        cli_help("Upload files with optional mimetype (e.g., -f file.pdf -f data*.csv text/csv)"),
+        default_factory=list,
     )
 
     # ========================================================================

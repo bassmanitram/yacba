@@ -8,6 +8,7 @@ import sys
 from typing import Any, Dict, List, TextIO, Optional
 from pathlib import Path
 from strands_agent_factory.tools import EnhancedToolSpec
+from yacba_types import FileUpload
 
 
 def print_welcome_message():
@@ -23,7 +24,7 @@ def print_startup_info(
     system_prompt: str,
     prompt_source: str,
     tools: List[Dict[str, Any]],
-    startup_files: List[tuple[str, str]],
+    startup_files: List[FileUpload],
     conversation_manager_info: Optional[str] = None,
     session_name: Optional[str] = None,
     output_file: TextIO = sys.stdout,
@@ -36,7 +37,7 @@ def print_startup_info(
         system_prompt: System prompt text
         prompt_source: Source of the system prompt
         tools: List of tool specification dictionaries
-        startup_files: List of uploaded files
+        startup_files: List of FileUpload objects
         conversation_manager_info: Information about conversation manager configuration
         session_name: Session name if persistence is enabled
         output_file: Output stream for messages
@@ -180,11 +181,26 @@ def _print_a2a_servers(write_func, tools: List[EnhancedToolSpec]):
                 write_func(f"    - {url}")
 
 
-def _print_startup_files(write_func, startup_files: List[tuple[str, str]]):
-    """Print information about uploaded startup files."""
+def _print_startup_files(write_func, startup_files: List[FileUpload]):
+    """Print information about uploaded startup files.
+    
+    Args:
+        write_func: Function to write output
+        startup_files: List of FileUpload objects (TypedDict with path, mimetype, size)
+    """
     if startup_files:
         write_func(f"\nUploaded Files ({len(startup_files)}):")
-        for path, media_type in startup_files:
-            write_func(f"  - {path} ({media_type})")
+        for file_upload in startup_files:
+            path = file_upload['path']
+            mimetype = file_upload['mimetype']
+            size = file_upload['size']
+            # Format size nicely
+            if size < 1024:
+                size_str = f"{size}B"
+            elif size < 1024 * 1024:
+                size_str = f"{size / 1024:.1f}KB"
+            else:
+                size_str = f"{size / (1024 * 1024):.1f}MB"
+            write_func(f"  - {path} ({mimetype}, {size_str})")
     else:
         write_func("Uploaded Files: None")
