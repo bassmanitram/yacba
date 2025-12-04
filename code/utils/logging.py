@@ -2,10 +2,14 @@
 
 This module configures dual-output logging:
 - Interactive mode:
-  - Console: Succinct, colored output to stderr (NO tracebacks)
+  - Console: Succinct, colored output to stderr (NO tracebacks by default)
   - File: Complete logs with timestamps and full tracebacks
 - Headless mode:
   - Console: Full error output with tracebacks to stderr
+  - File: Complete logs with timestamps and full tracebacks
+- Debug mode (YACBA_SHOW_ALL_ERRORS=1):
+  - Console: Full error output with tracebacks (even in interactive mode)
+  - Shows suppressed errors
   - File: Complete logs with timestamps and full tracebacks
 
 Usage:
@@ -26,9 +30,11 @@ Usage:
 Configuration via environment variable:
     PTHN_LOG=info                    # Set default level
     PTHN_LOG=error,yacba.config=debug # Set module-specific levels
+    YACBA_SHOW_ALL_ERRORS=1           # Show full tracebacks and suppressed errors on console
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -77,7 +83,7 @@ class NoTracebackConsoleFormatter(logging.Formatter):
 
 
 class FullTracebackConsoleFormatter(logging.Formatter):
-    """Formatter that includes full tracebacks on console (headless mode)."""
+    """Formatter that includes full tracebacks on console (headless mode or debug mode)."""
 
     def format(self, record):
         """Format log record with full traceback, no color."""
@@ -119,12 +125,17 @@ def configure_logging(log_file: Path, headless: bool = False) -> Path:
     """
     Configure dual-output logging for YACBA.
 
-    Interactive mode:
+    Interactive mode (default):
     - Console: Succinct, colored output (stderr), NO tracebacks
     - File: Complete logs with timestamps and full tracebacks
 
     Headless mode:
     - Console: Full error output with tracebacks (stderr)
+    - File: Complete logs with timestamps and full tracebacks
+
+    Debug mode (YACBA_SHOW_ALL_ERRORS=1):
+    - Console: Full error output with tracebacks (even in interactive mode)
+    - Shows suppressed errors
     - File: Complete logs with timestamps and full tracebacks
 
     Args:
@@ -133,9 +144,16 @@ def configure_logging(log_file: Path, headless: bool = False) -> Path:
 
     Returns:
         Path to the log file
+    
+    Environment Variables:
+        PTHN_LOG: Set log levels (e.g., "info" or "error,yacba.config=debug")
+        YACBA_SHOW_ALL_ERRORS: If "1", show full tracebacks and suppressed errors on console
     """
     # Initialize envlog for environment-based config
     envlog.init(env_var="PTHN_LOG")
+    
+    # Check if user wants full error output (debug mode)
+    show_all_errors = os.environ.get("YACBA_SHOW_ALL_ERRORS") == "1"
 
     # Ensure log directory exists
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -152,8 +170,8 @@ def configure_logging(log_file: Path, headless: bool = False) -> Path:
 
     if console_handler:
         # Modify existing console handler based on mode
-        if headless:
-            # Headless mode: full tracebacks on stderr
+        if headless or show_all_errors:
+            # Headless mode or debug mode: full tracebacks on stderr
             console_handler.setFormatter(
                 FullTracebackConsoleFormatter(
                     fmt="%(levelname)s: %(message)s",
@@ -167,8 +185,8 @@ def configure_logging(log_file: Path, headless: bool = False) -> Path:
     else:
         # Create console handler if none exists
         console_handler = logging.StreamHandler(sys.stderr)
-        if headless:
-            # Headless mode: full tracebacks on stderr
+        if headless or show_all_errors:
+            # Headless mode or debug mode: full tracebacks on stderr
             console_handler.setFormatter(
                 FullTracebackConsoleFormatter(
                     fmt="%(levelname)s: %(message)s",
@@ -181,9 +199,10 @@ def configure_logging(log_file: Path, headless: bool = False) -> Path:
             )
         root_logger.addHandler(console_handler)
 
-    # Add Error Intelligence filter only in interactive mode
-    # In headless mode, we want raw errors, not enhanced messages
-    if not headless:
+    # Add Error Intelligence filter only in interactive mode (when not in debug mode)
+    # In headless mode or debug mode, we want raw errors, not enhanced messages
+    if not headless and not show_all_errors:
+        # Normal interactive mode: enhance error messages
         # Remove existing ErrorIntelligenceFilter if present
         console_handler.filters = [
             f for f in console_handler.filters
@@ -193,7 +212,8 @@ def configure_logging(log_file: Path, headless: bool = False) -> Path:
         error_intelligence_filter = ErrorIntelligenceFilter()
         console_handler.addFilter(error_intelligence_filter)
     else:
-        # Remove ErrorIntelligenceFilter in headless mode
+        # Remove ErrorIntelligenceFilter in headless mode or debug mode
+        # (debug mode users want to see raw errors with full tracebacks)
         console_handler.filters = [
             f for f in console_handler.filters
             if not isinstance(f, ErrorIntelligenceFilter)
@@ -238,6 +258,7 @@ def log_exception(exc: Exception, context: str = "") -> None:
 
     In interactive mode: clean message to console, full traceback to file
     In headless mode: full traceback to console (stderr) and file
+    In debug mode (YACBA_SHOW_ALL_ERRORS=1): full traceback to console and file
 
     Args:
         exc: Exception to log
@@ -251,7 +272,7 @@ def log_exception(exc: Exception, context: str = "") -> None:
     # Interactive mode:
     #   - Print clean message to console: "ERROR: API call failed: Connection timeout"
     #   - Write full traceback to file with timestamp and location
-    # Headless mode:
+    # Headless mode or debug mode (YACBA_SHOW_ALL_ERRORS=1):
     #   - Print full traceback to stderr
     #   - Write full traceback to file with timestamp and location
     logger.error(message, exc_info=True)
