@@ -438,8 +438,10 @@ main() {
         # Filter noisy warnings
         FILTER_PATTERN="^Unclosed (client session|connector)|^client_session:|^connections:|^connector:"
         
-        # Execute yacba.py
-        exec "$YACBA_VENV/bin/python3" -Wi "$YACBA_PY" "$@" 2> >(grep --line-buffered -vE "$FILTER_PATTERN" >&2)
+        # Execute yacba.py 
+        # (uncomment grep line to filter warnings if needed - 
+        #  but it may mess with sub-shell prompts)
+        exec "$YACBA_VENV/bin/python3" -Wi "$YACBA_PY" "$@" # 2> >(grep --line-buffered -vE "$FILTER_PATTERN" >&2)
     fi
 }
 

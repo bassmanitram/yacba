@@ -212,3 +212,4 @@ backups*/**
 docs/research/
 local/
 .last_update_check
+.python-version
