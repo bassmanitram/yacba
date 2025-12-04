@@ -366,6 +366,12 @@ class ErrorIntelligenceFilter(logging.Filter):
         self.suppressed_count = 0
         self.show_all = os.environ.get("YACBA_SHOW_ALL_ERRORS") == "1"
 
+
+    def _should_show_all(self) -> bool:
+        """Check if YACBA_SHOW_ALL_ERRORS is set (checked dynamically)."""
+        return os.environ.get("YACBA_SHOW_ALL_ERRORS") == "1"
+
+
     def filter(self, record: logging.LogRecord) -> bool:
         """
         Process log record and potentially enhance or suppress message.
@@ -391,7 +397,7 @@ class ErrorIntelligenceFilter(logging.Filter):
             return True  # No pattern, show original error
 
         # Check if should suppress from console (unless override set)
-        if not pattern.show_console and not self.show_all:
+        if not pattern.show_console and not self._should_show_all():
             self.suppressed_count += 1
             return False  # Suppress from console
 

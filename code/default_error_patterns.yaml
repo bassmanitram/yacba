@@ -1,0 +1,262 @@
+# YACBA Default Error Patterns
+#
+# This file defines patterns for matching exceptions and providing user-friendly
+# error messages with actionable advice.
+#
+# Pattern matching:
+# - exception_type: Class name of the exception
+# - message_pattern: Optional regex to match exception message (with capture groups)
+# - priority: Higher priority patterns checked first
+# - show_console: If false, error is suppressed from console (still in log)
+#
+# Advice templates support variables:
+# - {message}: Full exception message
+# - {excerpt}: First 100 chars of exception message
+# - {type}: Exception type name
+# - {1}, {2}, {3}, ...: Regex capture groups
+
+patterns:
+  # ==========================================================================
+  # Bedrock/AWS Errors
+  # ==========================================================================
+  
+  - exception_type: "ValidationException"
+    message_pattern: 'Unsupported MIME type: (.+?)\. .* supported file type: (.+)'
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "UnsupportedFileType"
+      summary: "File type '{1}' not supported by this model"
+      action: "Use one of these file types: {2}"
+  
+  - exception_type: "ValidationException"
+    priority: 9
+    show_console: true
+    advice:
+      error_type: "ValidationError"
+      summary: "Invalid request: {message}"
+      action: "Check your input and try again"
+
+  - exception_type: "ThrottlingException"
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "RateLimitExceeded"
+      summary: "Rate limit exceeded"
+      action: "Wait ~60 seconds and try again, or use a different model"
+
+  - exception_type: "ModelStreamError"
+    priority: 9
+    show_console: true
+    advice:
+      error_type: "ModelStreamingError"
+      summary: "Model streaming failed: {message}"
+      action: "Check the log file for details"
+
+  # ==========================================================================
+  # Authentication Errors
+  # ==========================================================================
+  
+  - exception_type: "AuthenticationError"
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "AuthenticationFailed"
+      summary: "Invalid API key or authentication failed"
+      action: "Check your API key environment variables (ANTHROPIC_API_KEY, OPENAI_API_KEY, AWS credentials)"
+
+  - exception_type: "PermissionDeniedError"
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "PermissionDenied"
+      summary: "Access denied: {message}"
+      action: "Verify your API key has the necessary permissions"
+
+  # ==========================================================================
+  # Rate Limiting
+  # ==========================================================================
+  
+  - exception_type: "RateLimitError"
+    message_pattern: 'retry.*?after (\\d+)'
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "RateLimitExceeded"
+      summary: "Rate limit exceeded"
+      action: "Wait {1} seconds, then send 'continue' to resume"
+
+  - exception_type: "RateLimitError"
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "RateLimitExceeded"
+      summary: "Rate limit exceeded"
+      action: "Wait ~60 seconds, then send 'continue' to resume"
+
+  # ==========================================================================
+  # Model Errors
+  # ==========================================================================
+  
+  - exception_type: "ModelNotFoundError"
+    message_pattern: '[Mm]odel.*?"(.+?)"'
+    priority: 10
+    show_console: true
+    advice:
+      error_type: "InvalidModel"
+      summary: "Model \"{1}\" not found"
+      action: "Run 'yacba list-models' to see available models, or check model name spelling"
+
+  - exception_type: "ValueError"
+    message_pattern: '[Mm]odel.*?not (found|available)'
+    priority: 9
+    show_console: true
+    advice:
+      error_type: "InvalidModel"
+      summary: "Model not found or not available"
+      action: "Check available models or verify model name"
+
+  # ==========================================================================
+  # Network Errors
+  # ==========================================================================
+  
+  - exception_type: "ConnectionError"
+    priority: 8
+    show_console: true
+    advice:
+      error_type: "NetworkError"
+      summary: "Network connection failed"
+      action: "Check your internet connection and API endpoint configuration"
+
+  - exception_type: "TimeoutError"
+    priority: 8
+    show_console: true
+    advice:
+      error_type: "RequestTimeout"
+      summary: "Request timed out"
+      action: "The model is taking too long. Try a simpler request or different model"
+
+  - exception_type: "HTTPError"
+    message_pattern: '(\\d{3})'
+    priority: 8
+    show_console: true
+    advice:
+      error_type: "HTTPError{1}"
+      summary: "HTTP {1} error from API"
+      action: "Check API status and your configuration"
+
+  # ==========================================================================
+  # Session/Storage Errors
+  # ==========================================================================
+  
+  - exception_type: "OSError"
+    message_pattern: '[Dd]isk.*?full|No space left'
+    priority: 9
+    show_console: true
+    advice:
+      error_type: "DiskFull"
+      summary: "Disk full - cannot save session"
+      action: "Free up disk space or run without session (--no-session)"
+
+  - exception_type: "PermissionError"
+    message_pattern: '[Ss]ession'
+    priority: 9
+    show_console: true
+    advice:
+      error_type: "SessionPermissionError"
+      summary: "Cannot write to session directory"
+      action: "Check file permissions or run without session"
+
+  # ==========================================================================
+  # Agent Processing Errors (from strands/strands-agent-factory)
+  # ==========================================================================
+  
+  - exception_type: "Exception"
+    message_pattern: 'cycle failed'
+    priority: 7
+    show_console: true
+    advice:
+      error_type: "AgentCycleError"
+      summary: "Agent processing cycle failed"
+      action: "An error occurred during agent processing. Check the log file for full details. Common causes: unsupported content, API errors, tool failures"
+
+  - exception_type: "Exception"
+    message_pattern: '[Ee]rror in agent stream'
+    priority: 7
+    show_console: true
+    advice:
+      error_type: "AgentStreamError"
+      summary: "Agent encountered an error while streaming"
+      action: "Check the log file for details. Common causes: API errors, rate limits, unsupported content"
+
+  - exception_type: "Exception"
+    message_pattern: 'content_adaptation_failed'
+    priority: 7
+    show_console: true
+    advice:
+      error_type: "ContentError"
+      summary: "Failed to process message content"
+      action: "Try simplifying your message or removing special characters/files"
+
+  - exception_type: "Exception"
+    message_pattern: 'model_streaming_failed'
+    priority: 7
+    show_console: true
+    advice:
+      error_type: "ModelStreamingError"
+      summary: "Model failed to process the request"
+      action: "Check log for details. Try sending 'continue' to retry, or use a different model"
+
+  - exception_type: "Exception"
+    message_pattern: 'tool_execution_failed'
+    priority: 7
+    show_console: true
+    advice:
+      error_type: "ToolError"
+      summary: "A tool failed to execute"
+      action: "Check tool configuration and permissions. Review tool output in log file"
+
+  # ==========================================================================
+  # Content & Input Errors
+  # ==========================================================================
+  
+  - exception_type: "ValueError"
+    message_pattern: '[Ii]mage.*?format'
+    priority: 8
+    show_console: true
+    advice:
+      error_type: "InvalidImageFormat"
+      summary: "Unsupported image format"
+      action: "Use PNG, JPEG, GIF, or WebP format"
+
+  - exception_type: "ValueError"
+    message_pattern: '[Ii]mage.*?size|too large'
+    priority: 8
+    show_console: true
+    advice:
+      error_type: "ImageTooLarge"
+      summary: "Image file too large"
+      action: "Reduce image size or resolution"
+
+  # ==========================================================================
+  # Internal Errors (suppress from console in normal mode)
+  # ==========================================================================
+  
+  - exception_type: "CacheError"
+    priority: 5
+    show_console: false
+    advice:
+      error_type: "CacheMiss"
+      summary: "Cache miss (internal)"
+
+  # ==========================================================================
+  # Fallback Pattern
+  # ==========================================================================
+  
+  - exception_type: "Exception"
+    priority: 1
+    show_console: true
+    advice:
+      error_type: "Error"
+      summary: "{excerpt}"
+      action: "Check the log file for complete error details. Set YACBA_SHOW_ALL_ERRORS=1 to see full tracebacks"
