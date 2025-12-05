@@ -12,18 +12,10 @@ from utils.logging import get_logger
 from utils.session_utils import get_sessions_home
 
 from strands_agent_factory import AgentFactoryConfig
+from repl_toolkit import print_formatted_text, auto_format
 from config.dataclass import YacbaConfig
 
 logger = get_logger(__name__)
-
-# Import create_auto_printer - available in project virtual environment
-try:
-    from repl_toolkit import create_auto_printer
-except ImportError:
-    # Fallback for testing outside project venv
-    def create_auto_printer():
-        return print
-
 
 # Define the type locally since it's just a literal
 ConversationManagerType = Literal["null", "sliding_window", "summarizing"]
@@ -94,10 +86,10 @@ class YacbaToStrandsConfigConverter:
             should_truncate_results=self.yacba_config.should_truncate_results,
             # UI customization
             show_tool_use=self.yacba_config.show_tool_use,
-            response_prefix=self.yacba_config.response_prefix,
+            response_prefix=auto_format(self.yacba_config.response_prefix),
             output_printer=(
-                create_auto_printer() if not self.yacba_config.headless else print
-            ),  # Auto-format HTML/ANSI in interactive mode
+                print_formatted_text if not self.yacba_config.headless else print
+            ),
         )
 
         logger.debug(
