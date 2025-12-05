@@ -518,12 +518,16 @@ class YacbaActionRegistry:
 Output handling abstracted for different modes:
 
 ```python
-# Interactive: HTML/ANSI formatting
-output_printer = create_auto_printer()
+# Interactive: HTML/ANSI formatting via print_formatted_text
+# Response prefix is pre-formatted with auto_format() to prevent XML parsing issues
+response_prefix = auto_format(response_prefix_string)
+output_printer = print_formatted_text
 
 # Headless: Plain text
 output_printer = print
 ```
+
+**Note**: The response_prefix is pre-formatted using `auto_format()` before being passed to AgentFactory. This prevents XML parsing crashes that occurred when dynamic formatting was attempted later in the pipeline.
 
 ---
 
@@ -838,12 +842,10 @@ class YacbaToStrandsConfigConverter:
             summarization_model=self.yacba_config.summarization_model,
             summarization_model_config=self.yacba_config.summarization_model_config,
             custom_summarization_prompt=self.yacba_config.custom_summarization_prompt,
-            should_truncate_results=self.yacba_config.should_truncate_results,
-            
-            # Output
+            should_truncate_results=self.yacba_config.should_truncate_results,            # Output
             show_tool_use=self.yacba_config.show_tool_use,
-            response_prefix=self.yacba_config.response_prefix,
-            output_printer=create_auto_printer() if not self.yacba_config.headless else print,
+            response_prefix=auto_format(self.yacba_config.response_prefix),  # Pre-format to prevent XML parsing issues
+            output_printer=print_formatted_text if not self.yacba_config.headless else print,
             
             # callback_handler not used by YACBA
         )
@@ -853,7 +855,8 @@ class YacbaToStrandsConfigConverter:
 - `tool_configs_dir` (str) → `tool_config_paths` (List[Path])
 - `files_to_upload` (various) → `file_paths` (List[Tuple[Path, Optional[str]]])
 - `session_name` → `session_id` + `sessions_home` calculation
-- Printer selection: `create_auto_printer()` (interactive) vs `print` (headless)
+- `response_prefix` → Pre-formatted with `auto_format()` to prevent XML parsing issues
+- Printer selection: `print_formatted_text` (interactive) vs `print` (headless)
 
 ### Backend Adapter
 
@@ -1492,5 +1495,5 @@ yacba --help
 
 ---
 
-Last Updated: 2025-01-19  
+Last Updated: 2024-12-05  
 Architecture Version: 2.0

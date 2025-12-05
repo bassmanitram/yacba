@@ -24,12 +24,13 @@ YACBA is a **CLI wrapper** for AI chatbot agents. It provides:
 ## Current Status
 
 **Branch**: `feature/tagging`  
-**Clean Status**: One modified file (see Known Issues)  
-**Recent Work**: Tagging and undo functionality (checkpointing system)  
+**Clean Status**: Clean working directory  
+**Recent Work**: Tagging and undo functionality (checkpointing system), XML parsing fix  
 **Version**: 2.0.0 (major rewrite with profile system)
 
 ### Recent Commits (most recent first):
 ```
+[current] - Fixed XML parsing crash by pre-formatting response_prefix with auto_format()
 291a0c3 - Fixes
 c805052 - Merge branch 'main' into feature/tagging
 d09034e - Fix reporting of uploaded files
@@ -39,37 +40,14 @@ ee6d94c - Allow verbose errors in the console
 76f8b0e - Some seriously cool joojoo - tagging and undoing (cf checkpointing in copilot)
 ```
 
----
+### Recent Fixes
 
-## Known Issues
-
-### CRITICAL: XML Parsing Crashes
-
-**File**: `code/adapters/strands_factory/config_converter.py`  
-**Status**: MODIFIED (uncommitted changes)  
-**Problem**: The `create_auto_printer()` function causes XML parsing crashes  
-**Temporary Fix**: Using `print_formatted_text` instead of `create_auto_printer()`  
-
-**Code Location**: Lines 90-105 in config_converter.py
-```python
-# CURRENT WORKAROUND (enabled):
-output_printer=(
-    print_formatted_text if not self.yacba_config.headless else print
-),
-
-# ORIGINAL CODE (disabled due to crashes):
-#output_printer=(
-#    create_auto_printer() if not self.yacba_config.headless else print
-#),
-```
-
-**Impact**: Output formatting may be degraded in interactive mode  
-**Priority**: HIGH - needs proper fix, not workaround  
-**Action Required**: 
-1. Investigate why `create_auto_printer()` causes XML parsing crashes
-2. Fix the root cause in repl-toolkit or strands-agent-factory
-3. Re-enable `create_auto_printer()` once stable
-4. Remove workaround comments
+**XML Parsing Crash (RESOLVED)**:
+- **Problem**: `create_auto_printer()` was causing XML parsing crashes in interactive mode
+- **Solution**: Pre-format the `response_prefix` using `auto_format()` before passing to AgentFactory
+- **Implementation**: Changed line 89 in `config_converter.py` to use `auto_format(self.yacba_config.response_prefix)`
+- **Benefit**: Cleaner solution that prevents XML parsing issues while maintaining proper formatting
+- **File**: `code/adapters/strands_factory/config_converter.py`
 
 ---
 
@@ -269,7 +247,7 @@ python code/yacba.py --list-profiles
 4. **Tool Discovery**: Automatic for directories, manual for individual files
 5. **Session Storage**: Location depends on session_name (yes/no)
 6. **Printer Abstraction**: Different for interactive vs headless mode
-7. **XML Parsing Crash**: See Known Issues above - use print_formatted_text for now
+7. **Response Prefix Formatting**: Pre-formatted with `auto_format()` to prevent XML parsing issues
 
 ---
 
@@ -313,7 +291,7 @@ git diff
 When resuming work:
 
 1. **Check git status** - `git status` to see modified files
-2. **Review this doc** - Re-read the Known Issues section
+2. **Review this doc** - Re-read the Recent Fixes section
 3. **Check recent commits** - `git log --oneline -10`
 4. **Review CHANGELOG** - See what changed recently
 5. **Run tests** - `cd code && pytest` to verify nothing broken
@@ -322,7 +300,7 @@ When resuming work:
 
 ## Notes for Future Sessions
 
-- The XML parsing crash workaround is **temporary** and needs a proper fix
+- The XML parsing crash has been **FIXED** via pre-formatting with `auto_format()`
 - The tagging feature is recent (feature/tagging branch)
 - Configuration system was completely rewritten in v2.0 (profile-config integration)
 - YACBA is a thin wrapper - most complexity is in strands-agent-factory
