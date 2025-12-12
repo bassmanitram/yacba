@@ -2,12 +2,14 @@
 Default values and environment variable mappings for YACBA.
 
 This module provides:
-- ARGUMENT_DEFAULTS: Fallback values for all configuration fields
+- ARGUMENT_DEFAULTS: Fallback values for YACBA configuration (nested structure)
 - ARGUMENTS_FROM_ENV_VARS: Environment variable integration (YACBA_* prefix)
 
-All CLI argument parsing is handled automatically by dataclass-args via
-the YacbaConfig dataclass annotations. This module only provides defaults
-and environment variable mappings that feed into the configuration resolution.
+With cli_nested, defaults come from:
+- AgentFactoryConfig (from strands-agent-factory)
+- YacbaREPLConfig (YACBA-specific fields)
+
+Environment variables use YACBA_AGENT_* and YACBA_REPL_* prefixes for nested structure.
 """
 
 from os import environ
@@ -15,44 +17,21 @@ from typing import Dict, Any, Optional
 
 
 # ============================================================================
-# Default Values (Fallback Only)
+# Default Values (Nested Structure)
 # ============================================================================
 
 ARGUMENT_DEFAULTS: Dict[str, Any] = {
-    # Core
-    "model_string": "litellm:gemini/gemini-2.5-flash",
-    "system_prompt": (
-        "You are a highly capable AI assistant with access to various tools "
-        "and the ability to read and analyze files. Provide helpful, accurate, "
-        "and contextual responses."
-    ),
-    # Model configuration
-    "model_config": {},
-    "summarization_model_config": {},
-    "emulate_system_prompt": False,
-    "disable_context_repair": False,
-    # File handling
-    "max_files": 20,
-    "tool_configs_dir": None,
-    # Session management
-    "session_name": None,
-    "agent_id": "yacba_agent",
-    # Conversation management
-    "conversation_manager_type": "sliding_window",
-    "sliding_window_size": 40,
-    "preserve_recent_messages": 10,
-    "summary_ratio": 0.3,
-    "summarization_model": None,
-    "custom_summarization_prompt": None,
-    "should_truncate_results": True,
-    # Execution mode
-    "headless": False,
-    "initial_message": None,
-    # Output control
-    "show_tool_use": False,
-    # UI customization
-    "cli_prompt": None,
-    "response_prefix": None,
+    "agent": {
+        # AgentFactoryConfig defaults are defined in strands-agent-factory
+        # Only specify overrides if needed
+        "agent_id": "yacba_agent"
+    },
+    "repl": {
+        # YacbaREPLConfig defaults
+        "headless": False,
+        "cli_prompt": None,
+        "max_files": 20,
+    },
 }
 
 
@@ -61,65 +40,124 @@ ARGUMENT_DEFAULTS: Dict[str, Any] = {
 # ============================================================================
 
 
-def _get_env_var(key: str) -> Optional[str]:
+def _get_env_var(section: str, key: str) -> Optional[str]:
     """
-    Get environment variable with YACBA_ prefix.
+    Get environment variable with YACBA_SECTION_KEY format.
 
     Args:
+        section: Configuration section (agent, repl)
         key: Configuration key name
 
     Returns:
         Environment variable value or None
+        
+    Examples:
+        _get_env_var("agent", "model") checks for YACBA_AGENT_MODEL
+        _get_env_var("repl", "headless") checks for YACBA_REPL_HEADLESS
     """
-    env_key = f"YACBA_{key.upper()}"
+    env_key = f"YACBA_{section.upper()}_{key.upper()}"
     return environ.get(env_key)
 
 
 def _build_env_vars() -> Dict[str, Any]:
     """
-    Build dictionary of environment variable overrides.
+    Build dictionary of environment variable overrides using nested structure.
 
-    Checks for YACBA_* environment variables for each default key.
-    Only includes variables that are actually set.
-    Only processes scalar values (not dicts/objects).
+    Checks for YACBA_AGENT_* and YACBA_REPL_* environment variables.
+    
+    Examples:
+        YACBA_AGENT_MODEL="gpt-4" → {"agent": {"model": "gpt-4"}}
+        YACBA_REPL_HEADLESS="true" → {"repl": {"headless": True}}
 
     Returns:
-        Dictionary of environment variable overrides
+        Dictionary of environment variable overrides (nested structure)
     """
-    env_vars = {}
+    env_vars: Dict[str, Dict[str, Any]] = {"agent": {}, "repl": {}}
 
-    # Skip object-type configs that can't be set via environment variables
-    # These must be provided via configuration files or CLI arguments
-    SKIP_KEYS = {"model_config", "summarization_model_config"}
+    # Agent fields that can be set via environment
+    agent_str_keys = [
+        "model",
+        "session_id",
+        "system_prompt",
+        "initial_message",
+        "agent_id",
+        "summarization_model",
+        "custom_summarization_prompt",
+        "response_prefix",
+    ]
+    
+    agent_int_keys = [
+        "sliding_window_size",
+        "preserve_recent_messages",
+    ]
+    
+    agent_float_keys = [
+        "summary_ratio",
+    ]
+    
+    agent_bool_keys = [
+        "should_truncate_results",
+        "emulate_system_prompt",
+        "disable_context_repair",
+        "show_tool_use",
+    ]
 
-    for key in ARGUMENT_DEFAULTS.keys():
-        if key in SKIP_KEYS:
-            continue
+    # REPL fields that can be set via environment
+    repl_str_keys = ["cli_prompt"]
+    repl_int_keys = ["max_files"]
+    repl_bool_keys = ["headless"]
 
-        value = _get_env_var(key)
+    # Process agent fields
+    for key in agent_str_keys:
+        value = _get_env_var("agent", key)
         if value is not None:
-            # Type conversion for known types
-            if key in ["max_files", "sliding_window_size", "preserve_recent_messages"]:
-                try:
-                    env_vars[key] = int(value)
-                except ValueError:
-                    pass  # Skip invalid values
-            elif key in ["summary_ratio"]:
-                try:
-                    env_vars[key] = float(value)
-                except ValueError:
-                    pass
-            elif key in [
-                "headless",
-                "show_tool_use",
-                "emulate_system_prompt",
-                "should_truncate_results",
-                "disable_context_repair",
-            ]:
-                # Boolean conversion
-                env_vars[key] = value.lower() in ("true", "1", "yes", "on")
-            else:
-                env_vars[key] = value
+            env_vars["agent"][key] = value
+
+    for key in agent_int_keys:
+        value = _get_env_var("agent", key)
+        if value is not None:
+            try:
+                env_vars["agent"][key] = int(value)
+            except ValueError:
+                pass  # Skip invalid values
+
+    for key in agent_float_keys:
+        value = _get_env_var("agent", key)
+        if value is not None:
+            try:
+                env_vars["agent"][key] = float(value)
+            except ValueError:
+                pass  # Skip invalid values
+
+    for key in agent_bool_keys:
+        value = _get_env_var("agent", key)
+        if value is not None:
+            env_vars["agent"][key] = value.lower() in ("true", "1", "yes", "on")
+
+    # Process REPL fields
+    for key in repl_str_keys:
+        value = _get_env_var("repl", key)
+        if value is not None:
+            env_vars["repl"][key] = value
+
+    for key in repl_int_keys:
+        value = _get_env_var("repl", key)
+        if value is not None:
+            try:
+                env_vars["repl"][key] = int(value)
+            except ValueError:
+                pass  # Skip invalid values
+
+    for key in repl_bool_keys:
+        value = _get_env_var("repl", key)
+        if value is not None:
+            env_vars["repl"][key] = value.lower() in ("true", "1", "yes", "on")
+
+    # Remove empty sections
+    if not env_vars["agent"]:
+        del env_vars["agent"]
+    if not env_vars["repl"]:
+        del env_vars["repl"]
 
     return env_vars
 

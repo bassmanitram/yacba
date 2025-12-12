@@ -1,81 +1,37 @@
 """
 YACBA Configuration Dataclass
 
-Central configuration dataclass for YACBA with rich annotations for automatic
-CLI generation via dataclass-args.
+Central configuration dataclass for YACBA using cli_nested to compose
+AgentFactoryConfig directly, eliminating the need for a converter.
 
-This dataclass serves as the single source of truth for all configuration,
-with annotations that drive both CLI argument generation and validation.
-
-Field order determines --help output order: common options first, then grouped by functionality.
+This uses dataclass-args cli_nested feature to flatten both AgentFactoryConfig
+and YACBA-specific config into a single CLI surface.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional
+from typing import List, Optional
 
-from yacba_types import FileUpload, Message, PathLike
+from strands_agent_factory import AgentFactoryConfig
+from yacba_types import FileUpload, Message
 
 # Import dataclass-args annotations
 from dataclass_args import (
     cli_help,
     cli_exclude,
     cli_short,
-    cli_choices,
     cli_file_loadable,
-    cli_append,
+    cli_nested,
     combine_annotations,
 )
 
-# Type alias for conversation manager
-ConversationManagerType = Literal["null", "sliding_window", "summarizing"]
-
 
 @dataclass
-class YacbaConfig:
-    """YACBA - Yet Another ChatBot Agent
-
-    A flexible chatbot system with support for multiple AI providers,
-    conversation management, and tool usage.
-
-    Fields are annotated with dataclass-args annotations to automatically generate:
-    - CLI arguments (--model-string, --system-prompt, etc.)
-    - Short aliases (-m, -s, -i, -H)
-    - Help text
-    - Type handling (str, int, bool, dict, Path, Optional, etc.)
-    - File loading (@file.txt syntax)
-    - Validation (choices for enums)
-    - Boolean flags (--flag / --no-flag)
-    - Dict overrides (--mc key:value)
-    - Append actions (-f can be repeated)
-
-    Fields marked with cli_exclude() are not exposed to CLI - they're internal fields
-    populated by configuration factory or runtime logic.
-
-    Field order determines help output order - most common options are listed first.
+class YacbaREPLConfig:
+    """YACBA-specific REPL and UI configuration.
+    
+    These are the only fields that are truly YACBA-specific and not part of
+    the AgentFactoryConfig from strands-agent-factory.
     """
-
-    # ========================================================================
-    # Common Options (shown first in --help)
-    # ========================================================================
-
-    model_string: str = combine_annotations(
-        cli_short("m"),
-        cli_help(
-            "The model to use (format: framework:model_name, e.g., 'litellm:gpt-4', 'bedrock:anthropic.claude-v2')"
-        ),
-        default="litellm:gemini/gemini-2.5-flash",
-    )
-
-    system_prompt: str = combine_annotations(
-        cli_short("s"),
-        cli_file_loadable(),
-        cli_help("System prompt for the agent"),
-        default=(
-            "You are a highly capable AI assistant with access to various tools "
-            "and the ability to read and analyze files. Provide helpful, accurate, "
-            "and contextual responses."
-        ),
-    )
 
     headless: bool = combine_annotations(
         cli_short("H"),
@@ -83,134 +39,66 @@ class YacbaConfig:
         default=False,
     )
 
-    initial_message: Optional[str] = combine_annotations(
-        cli_short("i"),
-        cli_file_loadable(),
-        cli_help("Initial message to send to the agent"),
-        default=None,
-    )
-
-    session_name: Optional[str] = cli_help(
-        "Session name for conversation persistence", default=None
-    )
-
-    # ========================================================================
-    # File Upload (uses cli_append with min_args=1, max_args=2)
-    # ========================================================================
-
-    files: List[List[str]] = combine_annotations(
-        cli_short("f"),
-        cli_append(min_args=1, max_args=2, metavar="FILE_GLOB [MIMETYPE]"),
-        cli_help("Upload files with optional mimetype (e.g., -f file.pdf -f data*.csv text/csv)"),
-        default_factory=list,
-    )
-
-    # ========================================================================
-    # Tools Configuration (grouped together)
-    # ========================================================================
-
-    tool_configs_dir: Optional[str] = combine_annotations(
-        cli_short("t"),
-        cli_help("Directory containing tool configuration files"),
-        default=None,
-    )
-
-    # ========================================================================
-    # Model Configuration (grouped together)
-    # ========================================================================
-
-    model_config: Dict[str, Any] = cli_help(
-        "Model configuration file (JSON or YAML)", default_factory=dict
-    )
-
-    emulate_system_prompt: bool = combine_annotations(
-        cli_help(
-            "Emulate system prompt via user message (for models without system prompt support)"
-        ),
-        default=False,
-    )
-
-    disable_context_repair: bool = combine_annotations(
-        cli_help("Disable automatic context repair when token limits are exceeded"),
-        default=False,
-    )
-
-    # ========================================================================
-    # Conversation Management (grouped together)
-    # ========================================================================
-
-    conversation_manager_type: ConversationManagerType = combine_annotations(
-        cli_choices(["null", "sliding_window", "summarizing"]),
-        cli_help("Conversation management strategy"),
-        default="sliding_window",
-    )
-
-    sliding_window_size: int = cli_help(
-        "Number of messages to keep in sliding window", default=40
-    )
-
-    preserve_recent_messages: int = cli_help(
-        "Number of recent messages to always preserve when summarizing", default=10
-    )
-
-    summary_ratio: float = cli_help(
-        "Ratio of summary length to original (0.0-1.0) when summarizing", default=0.3
-    )
-
-    summarization_model: Optional[str] = cli_help(
-        "Model to use for summarization (defaults to main model if not specified)",
-        default=None,
-    )
-
-    summarization_model_config: Dict[str, Any] = cli_help(
-        "Summarization model configuration file (JSON or YAML)", default_factory=dict
-    )
-
-    custom_summarization_prompt: Optional[str] = combine_annotations(
-        cli_file_loadable(), cli_help("Custom prompt for summarization"), default=None
-    )
-
-    should_truncate_results: bool = cli_help(
-        "Truncation of long tool results in conversation history", default=True
-    )
-
-    # ========================================================================
-    # File Handling (grouped together)
-    # ========================================================================
-
-    max_files: int = cli_help("Maximum number of files to process", default=20)
-
-    # ========================================================================
-    # Session & Agent Management (grouped together)
-    # ========================================================================
-
-    agent_id: str = cli_help("Agent ID for session management", default="yacba_agent")
-
-    # ========================================================================
-    # Output & UI Customization (grouped together)
-    # ========================================================================
-
-    show_tool_use: bool = cli_help("Tool usage information display", default=False)
-
     cli_prompt: Optional[str] = combine_annotations(
-        cli_file_loadable(), cli_help("Custom CLI prompt string"), default=None
+        cli_file_loadable(),
+        cli_help("Custom CLI prompt string"),
+        default=None,
     )
 
-    response_prefix: Optional[str] = combine_annotations(
-        cli_file_loadable(), cli_help("Custom response prefix string"), default=None
+    max_files: int = cli_help(
+        "Maximum number of files to process",
+        default=20,
     )
+
+
+@dataclass
+class YacbaConfig:
+    """YACBA - Yet Another ChatBot Agent
+
+    Top-level configuration that composes AgentFactoryConfig (from strands-agent-factory)
+    with YACBA-specific REPL configuration.
+    
+    Both are flattened (prefix="") into the CLI, providing a clean command-line interface
+    with no duplication between YACBA and strands-agent-factory fields.
+    
+    Structure:
+    - agent: AgentFactoryConfig (all agent/model/conversation config)
+    - repl: YacbaREPLConfig (YACBA-specific UI config)
+    - Internal fields (populated by config factory at runtime)
+    
+    The agent field can be passed directly to AgentFactory with no conversion needed!
+    """
+
+    # Nest AgentFactoryConfig with NO prefix (complete flattening)
+    # This gives us -m, -s, -i, -f, -t and all other AgentFactoryConfig CLI args
+    agent: AgentFactoryConfig = cli_nested(prefix="")
+
+    # Nest YacbaREPLConfig with NO prefix (complete flattening)
+    # No field name conflicts, so we get clean --headless, --cli-prompt, --max-files
+    repl: YacbaREPLConfig = cli_nested(prefix="")
 
     # ========================================================================
     # Internal Fields (not exposed to CLI)
     # ========================================================================
+    # These are populated by the config factory or at runtime
 
-    tool_config_paths: List[PathLike] = cli_exclude(default_factory=list)
     startup_files_content: Optional[List[Message]] = cli_exclude(default=None)
-    prompt_source: str = cli_exclude(default="default")
+    """Content of startup files to send to agent (populated by config factory)"""
+
     files_to_upload: List[FileUpload] = cli_exclude(default_factory=list)
+    """Processed file uploads (populated from agent.file_paths by config factory)"""
+
+    prompt_source: str = cli_exclude(default="default")
+    """Tracking where the system prompt came from (CLI, config, or default)"""
+
     tool_discovery_result: Optional[str] = cli_exclude(default=None)
+    """Result message from tool discovery process"""
+
+    # ========================================================================
+    # Utility Properties
+    # ========================================================================
 
     @property
     def has_session(self) -> bool:
         """Check if session persistence is enabled."""
-        return self.session_name is not None
+        return self.agent.session_id is not None

@@ -1,6 +1,6 @@
-profile-config>=1.3.0
-dataclass-args>=1.2.2
+profile-config>=1.3.2
+dataclass-args>=1.4.0
 pyyaml>=6.0
-envlog>=0
-repl-toolkit>=2.0.0
+envlog>=1.0.0
+repl-toolkit>=2.0.2
 strands-agent-factory @ git+https://github.com/bassmanitram/strands-agent-factory.git@v1.2.3

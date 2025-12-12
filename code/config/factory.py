@@ -1,18 +1,17 @@
 """
-Configuration factory for YACBA using dataclass-args with base_configs.
+Configuration factory for YACBA using dataclass-args with cli_nested.
 
 This module orchestrates configuration from multiple sources using dataclass-args'
-base_configs feature, which handles precedence automatically:
+cli_nested feature to compose AgentFactoryConfig directly with YACBA-specific config.
 
 Precedence (lowest to highest):
-1. ARGUMENT_DEFAULTS (fallback values)
+1. Defaults (ARGUMENT_DEFAULTS - YACBA overrides of strands-agent-factory defaults)
 2. Profile file values (from profile-config)
 3. Environment variables (YACBA_*)
 4. --config CLI argument (user-specified config file)
 5. CLI arguments (highest precedence)
 
-The orchestration is minimal - profile-config resolves profiles + env vars,
-then dataclass-args handles everything else via base_configs parameter.
+With cli_nested, there is NO converter - config.agent IS AgentFactoryConfig!
 """
 
 import os
@@ -22,13 +21,15 @@ import argparse
 import mimetypes
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 from utils.logging import get_logger
+from utils.session_utils import get_sessions_home
 from dataclass_args import build_config
 from dataclass_args.file_loading import load_file_content
 from profile_config import ProfileConfigResolver
 from profile_config.exceptions import ConfigNotFoundError, ProfileNotFoundError
+from repl_toolkit import print_formatted_text, auto_format
 
 from yacba_types import ExitCode, FileUpload
 from utils.config_utils import discover_tool_configs
@@ -157,35 +158,64 @@ def _process_file_loadable_fields(config_dict: dict) -> dict:
     values coming from profiles or environment variables.
 
     Args:
-        config_dict: Configuration dictionary
+        config_dict: Configuration dictionary (nested structure)
 
     Returns:
         Configuration dictionary with @file values loaded
     """
-    file_loadable_fields = [
-        "system_prompt",
-        "initial_message",
-        "custom_summarization_prompt",
-        "cli_prompt",
-        "response_prefix",
-    ]
-
-    for field in file_loadable_fields:
-        if field in config_dict:
-            value = config_dict[field]
-            if isinstance(value, str) and value.startswith("@"):
+    def process_dict(d: dict):
+        """Recursively process dictionary"""
+        for key, value in d.items():
+            if isinstance(value, dict):
+                process_dict(value)
+            elif isinstance(value, str) and value.startswith("@"):
                 try:
                     # Strip @ prefix before loading
                     file_path = value[1:]
                     # Use dataclass-args' file loading function
                     loaded_content = load_file_content(file_path)
-                    config_dict[field] = loaded_content
-                    logger.debug("file_loaded", field=field, length=len(loaded_content))
+                    d[key] = loaded_content
+                    logger.debug("file_loaded", field=key, length=len(loaded_content))
                 except Exception as e:
                     logger.warning(
-                        "file_load_failed", field=field, path=value, error=str(e)
+                        "file_load_failed", field=key, path=value, error=str(e)
                     )
+    
+    process_dict(config_dict)
+    return config_dict
 
+
+def _load_config_file(file_path: str) -> dict:
+    """
+    Load a config file.
+    
+    Expects nested structure with 'agent' and/or 'repl' sections.
+    
+    Args:
+        file_path: Path to config file
+        
+    Returns:
+        Configuration dict (nested structure)
+        
+    Raises:
+        ValueError: If config file is not in nested format
+    """
+    with open(file_path, 'r') as f:
+        config_dict = yaml.safe_load(f)
+    
+    # Validate nested structure
+    if not isinstance(config_dict, dict):
+        raise ValueError(f"Config file must be a YAML dictionary: {file_path}")
+    
+    if "agent" not in config_dict and "repl" not in config_dict:
+        raise ValueError(
+            f"Config file must use nested structure with 'agent' and/or 'repl' sections. "
+            f"See MIGRATION_NESTED_CONFIG.md for migration guide. File: {file_path}"
+        )
+    
+    # Process @file syntax
+    config_dict = _process_file_loadable_fields(config_dict)
+    
     return config_dict
 
 
@@ -194,7 +224,7 @@ def parse_config() -> YacbaConfig:
     Main configuration parsing entry point.
 
     Orchestrates configuration from multiple sources using dataclass-args'
-    base_configs feature for automatic precedence handling.
+    cli_nested feature for direct composition.
 
     Returns:
         YacbaConfig: Fully validated configuration object
@@ -210,18 +240,15 @@ def parse_config() -> YacbaConfig:
             sys.argv[0] = "yacba"
 
             try:
-                # Use dataclass-args to show help (with defaults only)
-                # This will call sys.exit() after showing help
-                build_config(YacbaConfig, base_configs=ARGUMENT_DEFAULTS)
+                # Use dataclass-args to show help (with defaults from nested configs)
+                build_config(YacbaConfig)
             except SystemExit:
                 # Catch the exit from build_config to add our subcommand help
                 sys.argv[0] = original_argv0
 
                 print("\nSubcommands (use without dash prefix):")
                 print("  version           Show version information")
-                print(
-                    "  doctor            Run health check and show installation status"
-                )
+                print("  doctor            Run health check and show installation status")
                 print("  list-extras       Show available model providers and tools")
                 print("  install-extras    Install additional providers or tools")
                 print("  link              Create symlink to launcher")
@@ -249,30 +276,52 @@ def parse_config() -> YacbaConfig:
             sys.exit(0)
 
         # 1. Resolve profile + environment variables
-        # This gives us: DEFAULTS < PROFILE < ENVVARS
         profile_config = _resolve_profile_and_env(profile_name)
-
+        
         # 2. Process @file syntax in profile/env values
-        # (dataclass-args only processes @file from CLI, not base_configs)
         profile_config = _process_file_loadable_fields(profile_config)
 
         # 3. Use dataclass-args with base_configs
-        # This gives us: profile_config < --config < CLI args
         # Temporarily override sys.argv[0] for better help output
         original_argv0 = sys.argv[0]
         sys.argv[0] = "yacba"
 
         try:
+            # Check if --config is specified and process it
+            config_file_path = None
+            if "--config" in sys.argv:
+                idx = sys.argv.index("--config")
+                if idx + 1 < len(sys.argv):
+                    config_file_path = sys.argv[idx + 1]
+            
+            # Filter args (including --config since we handle it manually)
+            filtered_args = _filter_meta_args(sys.argv[1:], also_filter_config=True)
+            
+            # Load --config file if specified
+            config_file_configs = []
+            if config_file_path:
+                try:
+                    loaded_config = _load_config_file(config_file_path)
+                    config_file_configs.append(loaded_config)
+                except ValueError as e:
+                    logger.error(f"Configuration file error: {e}")
+                    sys.exit(ExitCode.CONFIG_ERROR)
+            
+            # Build base_configs list: profile_config < config_file_configs
+            all_base_configs = [profile_config]
+            if config_file_configs:
+                all_base_configs.extend(config_file_configs)
+            
             config = build_config(
                 YacbaConfig,
-                args=_filter_meta_args(sys.argv[1:]),
-                base_configs=profile_config,
+                args=filtered_args,
+                base_configs=all_base_configs,
             )
         finally:
             sys.argv[0] = original_argv0
 
-        # 4. YACBA-specific post-processing (BEFORE show-config)
-        config = _post_process_config(config, profile_config)
+        # 4. YACBA-specific post-processing
+        config = _post_process_config(config)
 
         # Handle --show-config (after post-processing so we see full config)
         if hasattr(cli_args, "show_config") and cli_args.show_config:
@@ -285,7 +334,6 @@ def parse_config() -> YacbaConfig:
     except Exception as e:
         logger.error("Configuration parsing failed: %s", str(e), exc_info=True)
         import traceback
-
         traceback.print_exc()
         sys.exit(ExitCode.CONFIG_ERROR)
 
@@ -315,12 +363,13 @@ def _parse_args_with_meta():
     return meta_args, profile_name
 
 
-def _filter_meta_args(argv):
+def _filter_meta_args(argv, also_filter_config=False):
     """
     Filter out meta-arguments that aren't part of YacbaConfig.
 
     Args:
         argv: Command-line arguments list
+        also_filter_config: If True, also filter --config (for manual handling)
 
     Returns:
         Filtered arguments list
@@ -336,6 +385,9 @@ def _filter_meta_args(argv):
         if arg in ["--profile", "--init-config"]:
             skip_next = True  # Skip the value too
             continue
+        elif arg == "--config" and also_filter_config:
+            skip_next = True  # Skip the value too when manually handling
+            continue
         elif arg in ["--list-profiles", "--show-config"]:
             continue  # Skip flag
         else:
@@ -344,35 +396,40 @@ def _filter_meta_args(argv):
     return filtered
 
 
-def _extract_profile_name() -> str:
-    """Extract profile name from CLI arguments or environment."""
-    # Check CLI first
-    if "--profile" in sys.argv:
-        idx = sys.argv.index("--profile")
-        if idx + 1 < len(sys.argv):
-            return sys.argv[idx + 1]
-
-    # Check environment
-    profile = os.environ.get("YACBA_PROFILE", "default")
-    return profile
-
-
 def _resolve_profile_and_env(profile_name: str) -> dict:
     """
     Resolve configuration from profile file and environment variables.
 
-    Returns a dictionary with precedence: DEFAULTS < PROFILE < ENVVARS
+    Returns a dictionary with precedence: ARGUMENT_DEFAULTS < PROFILE < ENVVARS
+
+    This function ALWAYS starts with ARGUMENT_DEFAULTS as the base layer to ensure
+    YACBA's default overrides (like agent_id) are preserved even when a profile
+    config file exists but doesn't specify those fields.
 
     Args:
         profile_name: Name of profile to load
 
     Returns:
-        Dictionary with merged configuration
+        Dictionary with nested configuration structure
+        
+    Raises:
+        SystemExit: If profile not found or config structure invalid
     """
+    # Start with ARGUMENT_DEFAULTS as the base layer
+    # Use deep copy to avoid modifying the original
+    profile_config = {}
+    for key, value in ARGUMENT_DEFAULTS.items():
+        if isinstance(value, dict):
+            profile_config[key] = value.copy()  # Shallow copy nested dicts
+        else:
+            profile_config[key] = value
+    
+    logger.debug("starting_with_argument_defaults", defaults_keys=list(ARGUMENT_DEFAULTS.keys()))
+
     # Build overrides list for profile-config
     overrides_list = []
 
-    # Add environment variables
+    # Add environment variables (already in nested structure from arguments.py)
     if ARGUMENTS_FROM_ENV_VARS:
         overrides_list.append(ARGUMENTS_FROM_ENV_VARS)
         logger.debug("environment_variables_added", count=len(ARGUMENTS_FROM_ENV_VARS))
@@ -387,69 +444,98 @@ def _resolve_profile_and_env(profile_name: str) -> dict:
             search_home=True,
             overrides=overrides_list if overrides_list else None,
         )
-        profile_config = resolver.resolve()
-        logger.info("profile_resolved", profile=profile_name)
+        resolved_profile = resolver.resolve()
+        
+        # Validate nested structure
+        if resolved_profile and not isinstance(resolved_profile, dict):
+            logger.error("profile_config_invalid", profile=profile_name, type=type(resolved_profile))
+            sys.exit(ExitCode.CONFIG_ERROR)
+        
+        if resolved_profile and "agent" not in resolved_profile and "repl" not in resolved_profile:
+            logger.error(
+                "profile_config_not_nested",
+                profile=profile_name,
+                message="Profile config must use nested structure. See MIGRATION_NESTED_CONFIG.md"
+            )
+            sys.exit(ExitCode.CONFIG_ERROR)
+        
+        # Deep merge resolved profile into base (which already has ARGUMENT_DEFAULTS)
+        if resolved_profile:
+            _deep_merge(profile_config, resolved_profile)
+            logger.info("profile_resolved_and_merged", profile=profile_name)
+        
     except ConfigNotFoundError:
-        # No profile file found, use defaults + env vars
+        # No profile file found - that's fine, we already have ARGUMENT_DEFAULTS in profile_config
         logger.debug("no_config_file_found_using_defaults")
-        profile_config = ARGUMENT_DEFAULTS.copy()
-
-        # Apply env vars manually
-        if ARGUMENTS_FROM_ENV_VARS:
-            for key, value in ARGUMENTS_FROM_ENV_VARS.items():
-                if value is not None:
-                    profile_config[key] = value
+        
+        # Still apply env vars manually since they weren't processed by profile-config
+        if overrides_list:
+            for override in overrides_list:
+                _deep_merge(profile_config, override)
+                
     except ProfileNotFoundError:
         logger.error("profile_not_found", profile=profile_name)
         sys.exit(ExitCode.CONFIG_ERROR)
 
-    # Apply defaults as fallbacks (only for missing keys)
-    for key, default_value in ARGUMENT_DEFAULTS.items():
-        if key not in profile_config:
-            profile_config[key] = default_value
-            logger.debug("default_applied", key=key)
-
     return profile_config
 
 
-def _post_process_config(config: YacbaConfig, profile_config: dict) -> YacbaConfig:
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Deep merge override dict into base dict."""
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def _post_process_config(config: YacbaConfig) -> YacbaConfig:
     """
     Apply YACBA-specific post-processing to configuration.
+    
+    This handles:
+    - Setting output_printer (can't be in CLI)
+    - Setting sessions_home (computed from session_id)
+    - Pre-formatting response_prefix (XML parsing fix)
+    - Processing file uploads
+    - Determining prompt source
 
     Args:
         config: Configuration from dataclass-args
-        profile_config: Profile configuration for comparison
 
     Returns:
         Updated configuration with post-processing applied
     """
     # Determine system prompt source
     prompt_source = "default"
-    if config.system_prompt != ARGUMENT_DEFAULTS.get("system_prompt"):
-        # Check if it came from CLI (would be different from profile)
-        if profile_config.get("system_prompt") != config.system_prompt:
-            prompt_source = "command line"
-        elif ARGUMENTS_FROM_ENV_VARS.get("system_prompt"):
-            prompt_source = "environment"
-        else:
-            prompt_source = "configuration file"
-
-    # Tool discovery
-    tool_config_paths = []
-    tool_discovery_result = None
-
-    if config.tool_configs_dir:
-        tool_config_paths, tool_discovery_result = discover_tool_configs(
-            config.tool_configs_dir
-        )
-        logger.info("tools_discovered", count=len(tool_config_paths))
-
-    # Process file uploads from -f arguments
-    # config.files is List[List[str]] from cli_append(nargs="+")
+    if config.agent.system_prompt:
+        # Check if it's not the default
+        from strands_agent_factory import AgentFactoryConfig
+        default_prompt = AgentFactoryConfig().system_prompt
+        if config.agent.system_prompt != default_prompt:
+            prompt_source = "configuration"  # Could be CLI, config file, or env
+    
+    # Set output_printer (can't be specified via CLI)
+    config.agent.output_printer = (
+        print_formatted_text if not config.repl.headless else print
+    )
+    
+    # Pre-format response_prefix to prevent XML parsing issues
+    if config.agent.response_prefix:
+        config.agent.response_prefix = auto_format(config.agent.response_prefix)
+    
+    # Compute sessions_home if session_id is set
+    if config.agent.session_id and not config.agent.sessions_home:
+        config.agent.sessions_home = get_sessions_home()
+        logger.debug("sessions_home_computed", path=config.agent.sessions_home)
+    
+    # Process file uploads from config.agent.file_paths
+    # file_paths comes from -f CLI argument (via AgentFactoryConfig)
     files_to_upload = []
-    if config.files:
-        # Validate and expand globs
-        files_list = _validate_and_expand_files(config.files)
+    if config.agent.file_paths:
+        # file_paths is already List[List[str]] from cli_append
+        files_list = _validate_and_expand_files(config.agent.file_paths)
         logger.debug("files_expanded", count=len(files_list))
         
         # Create FileUpload objects
@@ -457,23 +543,19 @@ def _post_process_config(config: YacbaConfig, profile_config: dict) -> YacbaConf
         logger.info("files_processed", count=len(files_to_upload))
         
         # Enforce max_files limit
-        if len(files_to_upload) > config.max_files:
+        if len(files_to_upload) > config.repl.max_files:
             logger.warning(
                 "file_limit_exceeded",
                 provided=len(files_to_upload),
-                max=config.max_files
+                max=config.repl.max_files
             )
-            files_to_upload = files_to_upload[:config.max_files]
-
-    # Create updated config with post-processed fields
-    # Note: dataclass is immutable, so we create a new instance
-    config_dict = vars(config).copy()
-    config_dict["prompt_source"] = prompt_source
-    config_dict["tool_config_paths"] = tool_config_paths
-    config_dict["tool_discovery_result"] = tool_discovery_result
-    config_dict["files_to_upload"] = files_to_upload
-
-    return YacbaConfig(**config_dict)
+            files_to_upload = files_to_upload[:config.repl.max_files]
+    
+    # Update internal fields
+    config.prompt_source = prompt_source
+    config.files_to_upload = files_to_upload
+    
+    return config
 
 
 def _handle_list_profiles():
@@ -502,35 +584,54 @@ def _handle_init_config(output_path_str: str):
     output_path = Path(output_path_str).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Use nested structure in sample config
     sample_config = {
         "default_profile": "development",
         "defaults": {
-            "conversation_manager_type": "sliding_window",
-            "sliding_window_size": 40,
-            "max_files": 10,
+            "agent": {
+                "conversation_manager_type": "sliding_window",
+                "sliding_window_size": 40,
+            },
+            "repl": {
+                "max_files": 10,
+            },
         },
         "profiles": {
             "development": {
-                "model_string": "litellm:gemini/gemini-1.5-flash",
-                "system_prompt": "You are a helpful development assistant with access to tools.",
-                "tool_configs_dir": "~/.yacba/tools/",
-                "show_tool_use": True,
-                "model_config": {"temperature": 0.7, "max_tokens": 2000},
+                "agent": {
+                    "model": "litellm:gemini/gemini-1.5-flash",
+                    "system_prompt": "You are a helpful development assistant with access to tools.",
+                    "tool_config_paths": ["~/.yacba/tools/*.json"],
+                    "show_tool_use": True,
+                    "model_config": {"temperature": 0.7, "max_tokens": 2000},
+                },
+                "repl": {
+                    "headless": False,
+                },
             },
             "production": {
-                "model_string": "openai:gpt-4",
-                "system_prompt": "@~/.yacba/prompts/production.txt",
-                "tool_configs_dir": "~/.yacba/tools/production/",
-                "show_tool_use": False,
-                "conversation_manager_type": "summarizing",
-                "session_name": "prod-session",
+                "agent": {
+                    "model": "openai:gpt-4",
+                    "system_prompt": "@~/.yacba/prompts/production.txt",
+                    "tool_config_paths": ["~/.yacba/tools/production/*.json"],
+                    "show_tool_use": False,
+                    "conversation_manager_type": "summarizing",
+                    "session_id": "prod-session",
+                },
+                "repl": {
+                    "headless": False,
+                },
             },
             "coding": {
                 "inherits": "development",
-                "model_string": "anthropic:claude-3-sonnet",
-                "system_prompt": "You are an expert programmer with access to development tools.",
-                "tool_configs_dir": "~/.yacba/tools/dev/",
-                "max_files": 50,
+                "agent": {
+                    "model": "anthropic:claude-3-sonnet",
+                    "system_prompt": "You are an expert programmer with access to development tools.",
+                    "tool_config_paths": ["~/.yacba/tools/dev/*.json"],
+                },
+                "repl": {
+                    "max_files": 50,
+                },
             },
         },
     }
@@ -547,13 +648,27 @@ def _handle_init_config(output_path_str: str):
 def _handle_show_config(config: YacbaConfig):
     """Handle --show-config command."""
     print("Resolved configuration:")
-    config_dict = vars(config)
-    for key, value in sorted(config_dict.items()):
-        # Skip large/complex internal fields
-        if key in ["startup_files_content", "tool_discovery_result"]:
-            print(f"  {key}: <internal>")
+    print("\n[agent] (AgentFactoryConfig):")
+    agent_dict = vars(config.agent)
+    for key, value in sorted(agent_dict.items()):
+        if key in ["output_printer", "callback_handler"]:
+            print(f"  {key}: <function>")
         elif key == "system_prompt" and value and len(str(value)) > 100:
-            # Truncate long system prompts
             print(f"  {key}: {repr(str(value)[:100])}... ({len(str(value))} chars)")
+        else:
+            print(f"  {key}: {repr(value)}")
+    
+    print("\n[repl] (YacbaREPLConfig):")
+    repl_dict = vars(config.repl)
+    for key, value in sorted(repl_dict.items()):
+        print(f"  {key}: {repr(value)}")
+    
+    print("\n[internal] (YACBA fields):")
+    for key in ["prompt_source", "files_to_upload", "tool_discovery_result"]:
+        value = getattr(config, key)
+        if key == "files_to_upload" and value:
+            print(f"  {key}: {len(value)} files")
+        elif key == "tool_discovery_result":
+            print(f"  {key}: <internal>")
         else:
             print(f"  {key}: {repr(value)}")

@@ -1,8 +1,8 @@
 # yacba - Agent Bootstrap
 
-**Purpose**: CLI wrapper for AI chatbot agents with profile-based configuration  
-**Type**: Application  
-**Language**: Python 3.10+  
+**Purpose**: CLI wrapper for AI chatbot agents with profile-based configuration
+**Type**: Application
+**Language**: Python 3.10+
 **Repository**: https://github.com/bassmanitram/yacba
 
 ---
@@ -284,5 +284,5 @@ Don't update for:
 
 ---
 
-**Last Updated**: 2025-12-03  
+**Last Updated**: 2025-12-03
 **Last Architectural Change**: v2.0.0 - Complete rewrite with profile-config integration (5-layer precedence)
